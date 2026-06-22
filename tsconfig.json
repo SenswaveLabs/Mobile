@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "jsx":"react-native",
+    "lib": ["ES2017", "DOM"],
+    "strict": true,
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "esModuleInterop": true
+  },
+  "extends": "./node_modules/expo/tsconfig.base",
+  "include": ["**/*.ts", "**/*.tsx", "env.d.ts"]
+}

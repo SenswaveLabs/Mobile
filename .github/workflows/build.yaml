@@ -1,0 +1,51 @@
+name: Build Android
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🏗 Setup repo
+        uses: actions/checkout@v3
+
+      - name: 🏗 Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+
+      - name: 📦 Install Dependencies
+        run: npm install
+
+      - name: 🚀 Run ESLint
+        run: npm run lint
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    needs: quality
+    steps:
+      - name: 🏗 Setup repo
+        uses: actions/checkout@v3
+
+      - name: 🏗 Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 22.x
+
+      - name: 🏗 Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 📦 Install dependencies
+        run: npm install
+
+      - name: 🚀 Build app
+        run: eas build --local --non-interactive --platform android

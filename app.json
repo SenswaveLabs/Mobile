@@ -1,0 +1,105 @@
+{
+  "expo": {
+    "jsEngine": "hermes",
+    "name": "Senswave",
+    "owner": "deve-lite",
+    "slug": "senswave",
+    "scheme": "com.develite.senswave",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./src/assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#DFE6F8"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "softwareKeyboardLayoutMode": "pan",
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/adaptive.png",
+        "backgroundColor": "#DFE6F8"
+      },
+      "package": "com.develite.senswave",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "api-staging.senswave.net",
+              "pathPrefix": "/confirmEmail"
+            },
+            {
+              "scheme": "https",
+              "host": "api-dev.senswave.net",
+              "pathPrefix": "/confirmEmail"
+            },
+            {
+              "scheme": "https",
+              "host": "api.senswave.net",
+              "pathPrefix": "/confirmEmail"
+            },
+            {
+              "scheme": "https",
+              "host": "senswave.net",
+              "pathPrefix": "/confirmEmail"
+            },
+            {
+              "scheme": "https",
+              "host": "api-staging.senswave.net",
+              "pathPrefix": "/resetPassword"
+            },
+            {
+              "scheme": "https",
+              "host": "api-dev.senswave.net",
+              "pathPrefix": "/resetPassword"
+            },
+            {
+              "scheme": "https",
+              "host": "api.senswave.net",
+              "pathPrefix": "/resetPassword"
+            },
+            {
+              "scheme": "https",
+              "host": "senswave.net",
+              "pathPrefix": "/resetPassword"
+            }
+          ],
+          "category": [
+            "BROWSABLE", 
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "web": {
+      "favicon": "./src/assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "336b4797-39ec-45ea-9c3e-924efbe27fcc"
+      }
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#DFE6F8",
+          "image": "./src/assets/splash.png",
+          "dark": {
+            "image": "./src/assets/splash-dark.png",
+            "backgroundColor": "#33363F"
+          },
+          "imageWidth": 200
+        }
+      ],
+      "expo-router"
+    ]
+  }
+}
