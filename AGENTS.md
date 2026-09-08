@@ -64,7 +64,7 @@ npm run fix              # ESLint auto-fix
 | State | Context API + custom hooks |
 | Real-time | SignalR (`@microsoft/signalr` 8.x) |
 | Auth storage | `expo-secure-store` |
-| UI libs | `react-native-paper`, `reanimated-color-picker`, `@react-native-community/slider`, `react-native-markdown-display` |
+| UI | Hand-rolled primitives in `src/components/common/*` (`Pressable` + `StyleSheet` + `useTheme()`). Support libs: `reanimated-color-picker`, `@react-native-community/slider`, `react-native-markdown-display` |
 | Backend | .NET Minimal API — modular monolith (`Senswave.sln`) |
 
 App version: **1.1.0**. Version source: `remote` (EAS-managed).

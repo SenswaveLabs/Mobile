@@ -9,7 +9,6 @@ import { RootSiblingParent } from "react-native-root-siblings";
 import { ToastProvider } from "@/contexts/ToastProvider";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
-import { PaperProvider } from "react-native-paper";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ConfigurationProvider } from "@/contexts/ConfigurationProvider";
 import { HttpClientProvider } from "@/contexts/HttpClientProvider";
@@ -50,27 +49,25 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <RootSiblingParent>
                 <SafeAreaProvider>
-                    <PaperProvider>
-                        <KeyboardProvider>
-                            <ToastProvider>
-                                <ConfigurationProvider>
-                                    <LegalProvider>
-                                        <SessionProvider>
-                                            <ThemeProvider>
-                                                <HttpClientProvider>
-                                                    <SignalRProvider>
-                                                        <UserProvider>
-                                                            <RootLayoutInner />
-                                                        </UserProvider>
-                                                    </SignalRProvider>
-                                                </HttpClientProvider>
-                                            </ThemeProvider>
-                                        </SessionProvider>
-                                    </LegalProvider>
-                                </ConfigurationProvider>
-                            </ToastProvider>
-                        </KeyboardProvider>
-                    </PaperProvider>
+                    <KeyboardProvider>
+                        <ToastProvider>
+                            <ConfigurationProvider>
+                                <LegalProvider>
+                                    <SessionProvider>
+                                        <ThemeProvider>
+                                            <HttpClientProvider>
+                                                <SignalRProvider>
+                                                    <UserProvider>
+                                                        <RootLayoutInner />
+                                                    </UserProvider>
+                                                </SignalRProvider>
+                                            </HttpClientProvider>
+                                        </ThemeProvider>
+                                    </SessionProvider>
+                                </LegalProvider>
+                            </ConfigurationProvider>
+                        </ToastProvider>
+                    </KeyboardProvider>
                 </SafeAreaProvider>
             </RootSiblingParent>
         </GestureHandlerRootView>
