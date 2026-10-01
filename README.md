@@ -56,9 +56,9 @@ Temperature, humidity, or any numeric sensor streams to a Display widget on your
 
 ### Prerequisites
 
-- Node.js + npm
+- Node.js 26.10.0 (see `.nvmrc`) + pnpm 12.8.1 (see `packageManager`)
 - Android Studio + Java 17
-- Expo CLI
+- Expo CLI is provided by the project dependencies
 
 ### Setup
 
@@ -66,18 +66,24 @@ Temperature, humidity, or any numeric sensor streams to a Display widget on your
 2. Install dependencies and build:
 
 ```bash
-npm i
-npx expo run:android   # first build — compiles native code
-npm start              # subsequent runs
+pnpm install --frozen-lockfile
+pnpm android           # first build — compiles native code
+pnpm start --dev-client # subsequent runs
 ```
 
-See [`AGENTS.md`](AGENTS.md) for full architecture reference, environment variables, and development conventions.
+Welcome, login, registration, forgot password and development server selection
+share a [shadcn/Expo DOM PoC](docs/shadcn-dom-poc.md).
+
+See [`AGENTS.md`](AGENTS.md) for the guide index and the relevant architecture,
+tooling and validation rules. The [mobile UI policy](docs/agent-guide/interface.md)
+defines MD3 interaction principles with Senswave's shadcn-based visual language.
 
 ## Contributing
 
 Pull requests are welcome.
 
-- Read [`AGENTS.md`](AGENTS.md) for architecture concepts and development conventions before writing code.
+- Read [`AGENTS.md`](AGENTS.md) and the guide relevant to your task before writing code.
+- Use `next-dev` for new UI changes; keep it separate from `main` for now. CI checks lint, TypeScript and an Android release build on pushes and PRs to `next-dev`. Production releases are manual.
 - Report bugs using the **Bug report** issue template.
 - Propose features using the **Feature request** issue template.
 

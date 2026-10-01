@@ -184,3 +184,4 @@ const DeviceListProvider: FC<PropsWithChildren> = ({ children }) => {
 };
 
 export { DeviceListProvider, DeviceListContext, Device, DevicePresence };
+export type { OperationType } from "@/types/DeviceTypes";

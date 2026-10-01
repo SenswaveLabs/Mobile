@@ -2,6 +2,7 @@
 
 # dependencies
 node_modules/
+.serena/
 
 # Expo
 .expo/
@@ -21,9 +22,7 @@ expo-env.d.ts
 .metro-health-check*
 
 # debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+pnpm-debug.log*
 
 # macOS
 .DS_Store
@@ -39,3 +38,5 @@ yarn-error.*
 .claude/*
 !.claude/skills/
 !.claude/skills/**
+
+graphify-out

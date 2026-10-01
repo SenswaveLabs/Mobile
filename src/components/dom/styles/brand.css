@@ -1,0 +1,124 @@
+@theme inline {
+    --color-surface: var(--surface);
+    --color-surface-raised: var(--surface-raised);
+    --color-surface-subtle: var(--surface-subtle);
+    --color-border-strong: var(--border-strong);
+    --color-focus: var(--focus);
+}
+
+#senswave-web,
+#senswave-landing {
+    color-scheme: light;
+    --background: oklch(0.975 0.008 88);
+    --foreground: oklch(0.205 0.014 74);
+    --card: oklch(0.995 0.004 88);
+    --card-foreground: oklch(0.205 0.014 74);
+    --popover: oklch(0.995 0.004 88);
+    --popover-foreground: oklch(0.205 0.014 74);
+    --primary: oklch(0.82 0.165 83);
+    --primary-foreground: oklch(0.245 0.052 61);
+    --secondary: oklch(0.925 0.035 184);
+    --secondary-foreground: oklch(0.255 0.038 190);
+    --muted: oklch(0.945 0.009 84);
+    --muted-foreground: oklch(0.47 0.018 75);
+    --accent: oklch(0.91 0.038 184);
+    --accent-foreground: oklch(0.245 0.041 190);
+    --destructive: oklch(0.55 0.205 28);
+    --border: oklch(0.865 0.015 82);
+    --input: oklch(0.84 0.018 82);
+    --ring: oklch(0.62 0.115 185);
+    --surface: oklch(0.975 0.008 88);
+    --surface-raised: oklch(0.995 0.004 88);
+    --surface-subtle: oklch(0.945 0.009 84);
+    --border-strong: oklch(0.72 0.022 79);
+    --focus: oklch(0.58 0.13 186);
+}
+
+#senswave-web.dark,
+#senswave-landing.dark {
+    color-scheme: dark;
+    --background: oklch(0.16 0.012 76);
+    --foreground: oklch(0.94 0.009 82);
+    --card: oklch(0.205 0.014 76);
+    --card-foreground: oklch(0.94 0.009 82);
+    --popover: oklch(0.205 0.014 76);
+    --popover-foreground: oklch(0.94 0.009 82);
+    --primary: oklch(0.84 0.16 84);
+    --primary-foreground: oklch(0.245 0.052 61);
+    --secondary: oklch(0.3 0.045 187);
+    --secondary-foreground: oklch(0.93 0.028 184);
+    --muted: oklch(0.25 0.012 76);
+    --muted-foreground: oklch(0.72 0.018 82);
+    --accent: oklch(0.285 0.04 186);
+    --accent-foreground: oklch(0.94 0.02 184);
+    --destructive: oklch(0.68 0.175 25);
+    --border: oklch(0.34 0.018 76);
+    --input: oklch(0.38 0.02 76);
+    --ring: oklch(0.72 0.105 184);
+    --surface: oklch(0.16 0.012 76);
+    --surface-raised: oklch(0.205 0.014 76);
+    --surface-subtle: oklch(0.25 0.012 76);
+    --border-strong: oklch(0.46 0.022 78);
+    --focus: oklch(0.72 0.105 184);
+}
+
+#senswave-web body,
+#senswave-landing body {
+    background: var(--surface);
+    font-feature-settings: "ss01", "cv02", "cv03", "cv04";
+}
+
+#senswave-web ::selection,
+#senswave-landing ::selection {
+    background: color-mix(in oklab, var(--primary) 55%, transparent);
+    color: var(--foreground);
+}
+
+#senswave-web :focus-visible,
+#senswave-landing :focus-visible {
+    outline-color: var(--focus);
+}
+
+#senswave-web a,
+#senswave-landing a {
+    text-underline-offset: 0.2em;
+}
+
+#senswave-web input,
+#senswave-web textarea,
+#senswave-landing input,
+#senswave-landing textarea {
+    caret-color: var(--focus);
+}
+
+#senswave-landing {
+    scrollbar-color: var(--border-strong) var(--surface);
+}
+
+#senswave-landing::-webkit-scrollbar {
+    width: 0.75rem;
+}
+
+#senswave-landing::-webkit-scrollbar-track {
+    background: var(--surface);
+}
+
+#senswave-landing::-webkit-scrollbar-thumb {
+    border: 0.25rem solid var(--surface);
+    border-radius: 999px;
+    background: var(--border-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #senswave-web *,
+    #senswave-web *::before,
+    #senswave-web *::after,
+    #senswave-landing *,
+    #senswave-landing *::before,
+    #senswave-landing *::after {
+        scroll-behavior: auto;
+        animation-duration: 0.01ms;
+        animation-iteration-count: 1;
+        transition-duration: 0.01ms;
+    }
+}

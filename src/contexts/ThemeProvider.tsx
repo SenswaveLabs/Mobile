@@ -13,6 +13,7 @@ type ThemeColors = {
     primary: string;
     secondary: string;
     background: string;
+    authBackground: string;
     complementary: string;
     textOnPrimary: string;
     textOnSecondary: string;
@@ -27,6 +28,7 @@ const LightMode: ThemeColors = {
     primary: "#F5F5F5",
     secondary: "#33363F",
     background: "#DFE6F8",
+    authBackground: "#F9F7F1", // sRGB equivalent of the light DOM --surface token.
     complementary: "#d69b12",
     textOnPrimary: "#33363F",
     textOnSecondary: "#F5F5F5",
@@ -41,6 +43,7 @@ const DarkMode: ThemeColors = {
     primary: "#1E1E1E",
     secondary: "#2A2A2A",
     background: "#121212",
+    authBackground: "#100D08", // sRGB equivalent of the dark DOM --surface token.
     complementary: "#a2750e",
     textOnPrimary: "#F5F5F5",
     textOnSecondary: "#E0E0E0",

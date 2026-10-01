@@ -2,9 +2,9 @@ import "react-native-gesture-handler";
 import "react-native-reanimated";
 import { SessionProvider } from "@/contexts/SessionProvider";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeProvider";
-import { Slot } from "expo-router";
-import React, { useEffect } from "react";
-import { View } from "react-native";
+import { Slot, usePathname } from "expo-router";
+import React, { FC, useEffect } from "react";
+import { StyleSheet, View } from "react-native";
 import { RootSiblingParent } from "react-native-root-siblings";
 import { ToastProvider } from "@/contexts/ToastProvider";
 import { StatusBar } from "expo-status-bar";
@@ -17,10 +17,15 @@ import { LegalProvider } from "@/contexts/domain/LegalProvider";
 import { SignalRProvider } from "@/contexts/SignalRProvider";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { getAuthScreen } from "@/components/dom/authTypes";
 
-function RootLayoutInner() {
+const RootLayoutInner: FC = () => {
     const theme = useTheme();
     const insets = useSafeAreaInsets();
+    const pathname = usePathname();
+    const backgroundColor = getAuthScreen(pathname)
+        ? theme.current.colors.authBackground
+        : theme.current.colors.background;
 
     useEffect(() => {
         GoogleSignin.configure({
@@ -32,21 +37,19 @@ function RootLayoutInner() {
 
     return (
         <View
-            style={{
-                flex: 1,
-                backgroundColor: theme.current.colors.background,
-                paddingTop: insets.top,
-                paddingBottom: insets.bottom,
-            }}>
+            style={[
+                styles.container,
+                { backgroundColor, paddingTop: insets.top, paddingBottom: insets.bottom },
+            ]}>
             <Slot />
-            <StatusBar backgroundColor={theme.current.colors.background} />
+            <StatusBar style={theme.current.type === "dark" ? "light" : "dark"} />
         </View>
     );
-}
+};
 
-export default function RootLayout() {
+const RootLayout: FC = () => {
     return (
-        <GestureHandlerRootView style={{ flex: 1 }}>
+        <GestureHandlerRootView style={styles.container}>
             <RootSiblingParent>
                 <SafeAreaProvider>
                     <KeyboardProvider>
@@ -72,4 +75,10 @@ export default function RootLayout() {
             </RootSiblingParent>
         </GestureHandlerRootView>
     );
-}
+};
+
+const styles = StyleSheet.create({
+    container: { flex: 1 },
+});
+
+export default RootLayout;

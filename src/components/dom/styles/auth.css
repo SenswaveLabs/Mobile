@@ -1,0 +1,59 @@
+@import "./globals.css";
+@import "./brand.css";
+
+:root {
+    --font-sans: ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+    margin: 0;
+    min-width: 0;
+}
+
+.auth-panel {
+    overflow-wrap: anywhere;
+}
+
+.auth-panel button:not([data-slot="checkbox"]) {
+    min-height: 3rem;
+    min-width: 3rem;
+    font-size: 1rem;
+    white-space: normal;
+    touch-action: manipulation;
+    transition-property: color, background-color, border-color, box-shadow, transform;
+}
+
+.auth-panel [data-slot="input"],
+.auth-panel [data-slot="input-group"] {
+    min-height: 3.25rem;
+    font-size: 1rem;
+}
+
+.auth-panel [data-slot="input"] {
+    padding-inline: 0.875rem;
+}
+
+.auth-panel [data-slot="input-group-control"] {
+    height: auto;
+    min-height: 0;
+    align-self: stretch;
+    font-size: 1rem;
+}
+
+.auth-panel [data-slot="input-group-addon"] {
+    padding-block: 0;
+}
+
+.auth-panel a {
+    touch-action: manipulation;
+}
+
+.auth-panel a:hover {
+    text-decoration-thickness: 2px;
+}
+
+.auth-panel a:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 4px;
+    border-radius: var(--radius-sm);
+}

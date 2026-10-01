@@ -1,10 +1,23 @@
-name: Build Android
+name: Verify Android
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - next-dev
   pull_request:
     branches:
-      - main
+      - next-dev
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
 
 jobs:
   quality:
@@ -12,18 +25,25 @@ jobs:
 
     steps:
       - name: 🏗 Setup repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: 🏗 Setup pnpm
+        uses: pnpm/action-setup@v4
 
       - name: 🏗 Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
+          cache: pnpm
 
       - name: 📦 Install Dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: 🚀 Run ESLint
-        run: npm run lint
+        run: pnpm lint
+
+      - name: 🚀 Check TypeScript
+        run: pnpm typecheck
 
   build:
     runs-on: ubuntu-latest
@@ -31,21 +51,33 @@ jobs:
     needs: quality
     steps:
       - name: 🏗 Setup repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: 🏗 Setup pnpm
+        uses: pnpm/action-setup@v4
 
       - name: 🏗 Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 22.x
-
-      - name: 🏗 Setup EAS
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+          node-version-file: .nvmrc
+          cache: pnpm
 
       - name: 📦 Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
-      - name: 🚀 Build app
-        run: eas build --local --non-interactive --platform android
+      - name: 🏗 Configure build environment
+        run: cp .env.template .env
+
+      - name: 🏗 Generate Android project
+        run: pnpm exec expo prebuild --platform android --no-install
+
+      - name: 🏗 Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: 🚀 Verify Android release build
+        working-directory: android
+        run: ./gradlew :app:assembleRelease --no-daemon
