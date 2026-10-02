@@ -2,7 +2,7 @@ import "react-native-gesture-handler";
 import "react-native-reanimated";
 import { SessionProvider } from "@/contexts/SessionProvider";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeProvider";
-import { Slot, usePathname } from "expo-router";
+import { Slot } from "expo-router";
 import React, { FC, useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { RootSiblingParent } from "react-native-root-siblings";
@@ -17,16 +17,11 @@ import { LegalProvider } from "@/contexts/domain/LegalProvider";
 import { SignalRProvider } from "@/contexts/SignalRProvider";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
-import { isAuthSurface } from "@/components/dom/authTypes";
 
 const RootLayoutInner: FC = () => {
     const theme = useTheme();
     const insets = useSafeAreaInsets();
-    const pathname = usePathname();
-    const backgroundColor =
-        isAuthSurface(pathname) || pathname === "/home/list"
-            ? theme.current.colors.authBackground
-            : theme.current.colors.background;
+    const backgroundColor = theme.current.colors.background;
 
     useEffect(() => {
         GoogleSignin.configure({

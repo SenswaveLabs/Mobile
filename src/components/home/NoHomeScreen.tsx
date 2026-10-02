@@ -1,7 +1,8 @@
 import Button from "@/components/common/Button";
-import Text from "@/components/common/Text";
+import Icon from "@/components/common/Icon";
+import { useTheme } from "@/contexts/ThemeProvider";
 import React, { FC } from "react";
-import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
 interface NoHomeScreenProps {
     onCreateHome: () => void;
@@ -16,30 +17,44 @@ const NoHomeScreen: FC<NoHomeScreenProps> = ({
     refreshing,
     onRefresh,
 }) => {
+    const { colors } = useTheme().current;
+
     return (
         <ScrollView
+            style={[styles.scroll, { backgroundColor: colors.background }]}
             contentContainerStyle={styles.container}
             refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#000"]} />
+                <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    colors={[colors.authForeground]}
+                    tintColor={colors.authForeground}
+                />
             }>
             <View style={styles.content}>
-                <Text size="title" color="onBackground" bold style={styles.headline}>
-                    Welcome
+                <View
+                    accessible={false}
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants">
+                    <Icon icon="home-outline" size={36} color="brand" />
+                </View>
+                <Text
+                    accessibilityRole="header"
+                    style={[styles.headline, { color: colors.authForeground }]}>
+                    Set up your home
                 </Text>
-                <Text size="medium" color="onBackground" style={styles.subtitle} numberOfLines={10}>
-                    No home configured yet. Set up a new one from scratch or connect to an existing
-                    Home shared with you.
+                <Text style={[styles.subtitle, { color: colors.authMuted }]}>
+                    Create a home to start adding rooms and devices, or join a home shared with you.
                 </Text>
             </View>
 
             <View style={styles.buttons}>
-                <Button name="Create" onPress={onCreateHome} loading={false} />
+                <Button name="Create home" type="auth" onPress={onCreateHome} loading={false} />
                 <Button
-                    name="Join"
-                    type="alternative"
+                    name="Join home"
+                    type="brand-outline"
                     onPress={onJoinHome}
                     loading={false}
-                    style={{ marginTop: 12 }}
                 />
             </View>
         </ScrollView>
@@ -49,27 +64,35 @@ const NoHomeScreen: FC<NoHomeScreenProps> = ({
 export default NoHomeScreen;
 
 const styles = StyleSheet.create({
+    scroll: { flex: 1 },
     container: {
-        flex: 1,
+        flexGrow: 1,
+        width: "100%",
+        maxWidth: 448,
+        alignSelf: "center",
         paddingHorizontal: 24,
+        paddingTop: 24,
         paddingBottom: 32,
     },
     content: {
-        flex: 1,
-        alignItems: "center",
+        flexGrow: 1,
+        alignItems: "flex-start",
         justifyContent: "center",
-        paddingHorizontal: 8,
+        paddingVertical: 32,
+        gap: 16,
     },
     headline: {
-        textAlign: "center",
-        marginBottom: 16,
+        fontSize: 30,
+        lineHeight: 36,
+        fontWeight: "600",
     },
     subtitle: {
-        textAlign: "center",
-        opacity: 0.7,
+        fontSize: 16,
+        lineHeight: 24,
     },
     buttons: {
         width: "100%",
-        paddingTop: 16,
+        paddingTop: 32,
+        gap: 12,
     },
 });

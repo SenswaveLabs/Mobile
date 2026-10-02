@@ -32,7 +32,7 @@ Read the relevant guide before acting; do not load the whole guide for a small, 
 Material Design 3 guides UX and interaction; Senswave's shadcn-based product defines the visual language.
 Use `next-frontend/apps/web` as a brand reference; choose hierarchy and behavior for mobile tasks. Use web primitives only inside Expo DOM.
 App components use `FC` and interface props; copied shadcn primitives keep upstream signatures.
-Native styling uses `StyleSheet.create()` and `useTheme()` colors; DOM styling uses local Tailwind tokens.
+Native styling uses `StyleSheet.create()` and `useTheme()` colors; all screens share the themed background. DOM styling uses local Tailwind tokens.
 
 ## Finish the work
 

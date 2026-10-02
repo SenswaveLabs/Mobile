@@ -20,6 +20,9 @@ pnpm test:homes               # home selection, list loading and recovery behavi
 
 ESLint ignores the generated `android/**` directory so production bundles are
 not re-linted after a native build. Source files remain covered by `pnpm lint`.
+Launch backgrounds in `app.json` match the shared canvas: light `#F9F7F1`, dark
+`#100D08`. Splash/adaptive-icon changes require prebuild and a new native build;
+a JavaScript reload updates in-app colors but not an installed splash screen.
 
 ## Environment variables
 
