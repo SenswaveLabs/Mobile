@@ -15,8 +15,10 @@ body {
 }
 
 .auth-panel button:not([data-slot="checkbox"]) {
-    min-height: 3rem;
-    min-width: 3rem;
+    height: auto;
+    min-height: max(48px, 3rem);
+    min-width: max(48px, 3rem);
+    padding-block: 0.625rem;
     font-size: 1rem;
     white-space: normal;
     touch-action: manipulation;
@@ -25,7 +27,8 @@ body {
 
 .auth-panel [data-slot="input"],
 .auth-panel [data-slot="input-group"] {
-    min-height: 3.25rem;
+    height: auto;
+    min-height: max(52px, 3.25rem);
     font-size: 1rem;
 }
 
@@ -35,7 +38,7 @@ body {
 
 .auth-panel [data-slot="input-group-control"] {
     height: auto;
-    min-height: 0;
+    min-height: 48px;
     align-self: stretch;
     font-size: 1rem;
 }
@@ -44,7 +47,10 @@ body {
     padding-block: 0;
 }
 
-.auth-panel a {
+.auth-panel a,
+.auth-panel [data-slot="field"]:has([data-slot="checkbox"]) [data-slot="field-label"] {
+    min-height: max(48px, 3rem);
+    min-width: 48px;
     touch-action: manipulation;
 }
 

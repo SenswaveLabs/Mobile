@@ -14,6 +14,13 @@ type ThemeColors = {
     secondary: string;
     background: string;
     authBackground: string;
+    authForeground: string;
+    authMuted: string;
+    authFieldBackground: string;
+    authBorder: string;
+    authFocus: string;
+    authPrimary: string;
+    authOnPrimary: string;
     complementary: string;
     textOnPrimary: string;
     textOnSecondary: string;
@@ -29,11 +36,18 @@ const LightMode: ThemeColors = {
     secondary: "#33363F",
     background: "#DFE6F8",
     authBackground: "#F9F7F1", // sRGB equivalent of the light DOM --surface token.
+    authForeground: "#1B1610",
+    authMuted: "#615A50",
+    authFieldBackground: "#F9F7F1", // Transparent DOM input over the auth surface.
+    authBorder: "#8C857A",
+    authFocus: "#009286",
+    authPrimary: "#F7B817",
+    authOnPrimary: "#321A03",
     complementary: "#d69b12",
     textOnPrimary: "#33363F",
     textOnSecondary: "#F5F5F5",
     textOnBackground: "#33363F",
-    error: "#DE7171",
+    error: "#B42318",
     success: "#81C784",
     warning: "#FFB74D",
     info: "#1E88E5",
@@ -44,6 +58,13 @@ const DarkMode: ThemeColors = {
     secondary: "#2A2A2A",
     background: "#121212",
     authBackground: "#100D08", // sRGB equivalent of the dark DOM --surface token.
+    authForeground: "#EEEBE5",
+    authMuted: "#AAA498",
+    authFieldBackground: "#211D16", // DOM --input at 30% opacity over the auth surface.
+    authBorder: "#847C70",
+    authFocus: "#47BAAC",
+    authPrimary: "#FBC031",
+    authOnPrimary: "#321A03",
     complementary: "#a2750e",
     textOnPrimary: "#F5F5F5",
     textOnSecondary: "#E0E0E0",

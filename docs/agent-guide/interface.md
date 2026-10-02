@@ -54,6 +54,11 @@ Accessibility and task completion take priority over matching a visual pattern.
   actions. Place actions next to the object or content they affect.
 - Use progressive disclosure for advanced controls. Group related content by
   proximity and consistent spacing before adding cards, borders or separators.
+- Space between groups should make their hierarchy clear. Auth forms keep fields
+  and their local controls together, with screen-level actions grouped at the
+  bottom when space allows. Use flexible space and scrolling rather than an
+  overlay: short windows, the keyboard and large text must keep every action
+  reachable. Back stays in the header; password visibility stays in its field.
 - Distinguish destructive actions through wording, semantics and styling. Use
   confirmation or undo when needed to prevent irreversible data loss.
 - Ambiguous icons need visible labels; every icon-only action needs an accessible
@@ -182,8 +187,11 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
 - App components are functional, typed `FC` / `FC<Props>`, with interface props; copied shadcn primitives retain upstream signatures.
 - Native styling: `StyleSheet.create()` + `useTheme()` colors. DOM styling: local Tailwind tokens and copied shadcn primitives; no imports from the frontend checkout.
 - The `(auth)` layout owns one `auth/AuthFlow` WebView outside its child `Slot`; route files return null. Navigate with Expo Router and pass the active screen as a prop. Do not mount a separate DOM component per auth route. Only form state resets between screens.
-- On the five auth URLs, the root layout fills both system-bar safe areas with `colors.authBackground`; keep its light/dark sRGB values aligned with `--surface` in `components/dom/styles/brand.css`. Status-bar icons follow the app theme. `dom/authTypes.getAuthScreen` defines this route boundary.
-- Auth DOM typography scales with native `useWindowDimensions().fontScale`. Its native adapter uses the existing Keyboard Controller's `KeyboardAvoidingView`; keep the WebView scrollable and use at least 48 dp touch targets. Native loading/error UI covers the initial WebView startup until the themed DOM reports ready.
+- On the five DOM auth URLs and native `/resetPassword`, the root layout fills both system-bar safe areas with `colors.authBackground`; keep its light/dark sRGB values aligned with `--surface` in `components/dom/styles/brand.css`. Status-bar icons follow the app theme. `dom/authTypes.isAuthSurface` defines the surface boundary; `getAuthScreen` still selects only the five DOM screens.
+- Native reset password uses the shared keyboard-aware scroll container, a 448 dp maximum form width and native Back. Its `authForeground`, `authMuted`, `authFieldBackground`, `authBorder`, `authFocus`, `authPrimary` and `authOnPrimary` theme roles match the DOM brand. Use the native `Input`/`PasswordInput` `auth` variant and `Button` `auth` type on this flow; other native screens retain their existing visual variants.
+- Auth forms use base spacing of 24 dp between fields and at least 32 dp before their screen-level action group; DOM rem spacing adapts to the system text size. The DOM group uses flexible remaining space; native reset uses the same layout in its growing scroll content. Native auth fields have a 52 dp minimum height, 1 dp border and 8 dp radius; submit buttons have a 48 dp minimum height and 8 dp radius. Labels, surfaces and arrow-only Back match the DOM visual language while retaining native accessibility and text scaling.
+- Native `Input` connects its visible label to the text field, exposes field errors to assistive technology and shows focus/error borders. `PasswordInput` composes it with a named 48 dp visibility toggle. Native buttons keep their action label while loading and expose disabled/busy state. Async reset submissions return `Promise<SimpleResult>`, keep failure messages inline and always release the synchronous submission lock.
+- Auth DOM typography scales with native `useWindowDimensions().fontScale`. Touch targets retain a 48 CSS px floor independent of rem scaling; buttons grow with wrapped text. The local `control-border` semantic token identifies fields and unchecked checkboxes with sufficient contrast, while `border` remains decorative. Its native adapter uses the existing Keyboard Controller's `KeyboardAvoidingView`; keep the WebView scrollable. Native loading/error UI covers the initial WebView startup until the themed DOM reports ready.
 - Registration requires 10–64 characters, lowercase, uppercase, number, special character, matching confirmation, and explicit Terms/Privacy agreement. Validate again at the native bridge. Show email verification after registration; forgot password continues to `/resetPassword` with email.
 - Server selection is visible and writable only in Development. Validate absolute HTTP(S) addresses at both boundaries; use null in the bridge to restore the configured default, then update the form from the native URL prop.
 - Local UI / form state: `useState`.
@@ -208,6 +216,7 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
 ## Official references
 
 - [Material Design 3 foundations](https://m3.material.io/foundations/) — interaction, layout and accessibility guidance.
+- [Android layout structure](https://developer.android.com/design/ui/mobile/guides/layout-and-content/content-structure) and [action placement](https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns) — spacing, hierarchy and contextual controls.
 - [shadcn/ui](https://ui.shadcn.com/docs), [theming](https://ui.shadcn.com/docs/theming) and [agent skills](https://ui.shadcn.com/docs/skills) — components, semantic roles and composition.
 - [Expo DOM](https://docs.expo.dev/guides/dom-components/) — the native/web boundary.
 - [React Native accessibility](https://reactnative.dev/docs/accessibility) — native roles, states and assistive technology.

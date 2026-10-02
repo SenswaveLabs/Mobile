@@ -17,13 +17,13 @@ import { LegalProvider } from "@/contexts/domain/LegalProvider";
 import { SignalRProvider } from "@/contexts/SignalRProvider";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
-import { getAuthScreen } from "@/components/dom/authTypes";
+import { isAuthSurface } from "@/components/dom/authTypes";
 
 const RootLayoutInner: FC = () => {
     const theme = useTheme();
     const insets = useSafeAreaInsets();
     const pathname = usePathname();
-    const backgroundColor = getAuthScreen(pathname)
+    const backgroundColor = isAuthSurface(pathname)
         ? theme.current.colors.authBackground
         : theme.current.colors.background;
 

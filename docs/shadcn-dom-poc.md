@@ -23,20 +23,29 @@ the new native module.
 
 ## Boundaries
 
-- `src/components/dom/ui` and `styles/{globals,brand}.css` are copies from
+- `src/components/dom/ui` and `styles/{globals,brand}.css` originate from
   `next-frontend/packages/ui`; their imports point only to this repository.
+  The local `control-border` token gives text fields and unchecked checkboxes
+  accessible boundaries in both themes without changing decorative border colors.
 - `(auth)/_layout.tsx` keeps `auth/AuthFlow.tsx` mounted outside its child `Slot`.
   The five route files return null and retain their original URL paths. Changing
   screens updates a prop instead of creating another WebView and loading its bundle.
 - `AuthPanel.tsx` owns HTML, field validation, pending states, and light/dark web styling.
   Mobile touch sizes and the system font fallback live in `styles/auth.css`.
-  Its compact single-column layout follows the web sign-in form's hierarchy and copy,
-  with 52 dp fields, at least 48 dp touch targets, and sign-up next to the form.
+  Its single-column layout follows the web sign-in form's hierarchy and copy,
+  with a 52 px field floor and at least 48 px effective touch targets. Fields have
+  a base 24 px separation; submit, secondary actions and sign-up/sign-in links form
+  a bottom group with a base minimum 32 px separation from the input section. Flexible
+  space fills taller windows; longer forms and large text scroll naturally.
+  Back and password visibility remain beside their respective context.
+  Pixel floors stay independent of reduced system text size;
+  rem typography and auto-height buttons still accommodate larger text.
 - The native adapter passes the system font scale to the DOM's rem-based typography
   and wraps the WebView in the existing Keyboard Controller's `KeyboardAvoidingView`.
   Email's Next action focuses password; password's Go action submits the form.
-- The root layout matches all five screens' status/navigation-bar safe areas to the DOM
-  surface using `ThemeProvider.colors.authBackground` in both light and dark mode.
+- The root layout matches the five DOM screens and native password reset's
+  status/navigation-bar safe areas to the auth surface using
+  `ThemeProvider.colors.authBackground` in both light and dark mode.
   These sRGB colors must stay aligned with `--surface` in `styles/brand.css`.
 - `auth/AuthFlow.tsx` validates inputs again and delegates to `SessionProvider`.
   Only serializable UI results cross the asynchronous DOM bridge. Tokens stay native
@@ -49,6 +58,14 @@ the new native module.
 - Registration keeps the existing strong password policy and legal agreement;
   success shows a verification-email view. Forgot password sends the code using the
   existing API and proceeds to the native `/resetPassword` route with email.
+- Native reset shares the brand through native auth theme roles, a constrained
+  keyboard-aware form and named controls. Its field surfaces, labels, radii,
+  button typography and arrow-only Back match the DOM screens. Fields and the
+  bottom action group share the same spacing without a fixed footer overlay.
+  Registration and reset reuse password
+  validation. Reset shows required-field errors, focuses the first invalid field,
+  preserves backend failures inline, and locks submit/editing while pending.
+  It clears a changed field's stale error and restores controls after failures.
 - Google OAuth continues to use the native SDK through `useGoogleSignIn`.
 - Server overrides stay native and Development-only. Both sides validate the URL;
   resetting clears the override, and the form follows the effective native URL.
@@ -67,8 +84,11 @@ pnpm lint
 pnpm exec expo export --platform android --output-dir /tmp/senswave-mobile-export
 ```
 
-The Node check covers login, registration, server URL validation, and the shared
-route boundary. Exporting Android also builds the DOM bundle and includes the logo
+The Node checks cover login, registration, reset and server URL validation, the
+DOM/native auth surface boundary, and reset submission/error/retry behavior.
+The reset test executes the actual form with a small hook/native-host adapter;
+it does not verify native rendering, keyboard behavior or screen-reader output.
+Exporting Android also builds the DOM bundle and includes the logo
 in the native asset manifest. For the embedded DOM HTML and image paths used by
 an Android build (also suitable for a local browser preview), run:
 
@@ -80,4 +100,6 @@ On a development build, check welcome → login → registration → forgot pass
 and hardware Back without a blank screen or repeated WebView startup. Also check
 invalid credentials, email verification, resend and its 60-second cooldown,
 Remember me, Google Sign-In, legal links, server save/reset, production server
-restriction, dark mode, larger text, scrolling, autofill, and the software keyboard.
+restriction, dark mode, smaller/larger text (including 200%), scrolling, autofill,
+and the software keyboard. Continue through forgot password → native reset;
+check required errors, code failures, retry, password visibility and Back there.

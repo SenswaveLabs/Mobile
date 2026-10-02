@@ -8,7 +8,9 @@ or rerun an expensive build for an unrelated documentation edit.
 - Documentation-only changes: check relative links, preserved instructions and
   `git diff --check`.
 - Non-trivial source changes: run `pnpm typecheck` and `pnpm lint`.
-- Auth validation or route boundaries: run `pnpm test:poc`.
+- Auth validation, route boundaries or reset submission behavior: run `pnpm test:poc`.
+  The native reset check executes its real form with a small hook/host adapter;
+  it does not establish native rendering, keyboard or assistive-technology behavior.
 - Before committing: run all three commands above, as required by the repository.
 - DOM bundling, routing or asset changes: use the export checks in the
   [auth PoC](../shadcn-dom-poc.md).

@@ -1,11 +1,17 @@
 import { useTheme } from "@/contexts/ThemeProvider";
-import React from "react";
-import Text from "@/components/common/Text";
-import { FC } from "react";
-import { TextInput, View, StyleSheet, StyleProp, ViewStyle } from "react-native";
+import React, { FC, useId, useState } from "react";
+import {
+    Text as NativeText,
+    TextInput,
+    TextInputProps,
+    View,
+    StyleSheet,
+    StyleProp,
+    ViewStyle,
+} from "react-native";
 import { shadowStyles } from "@/styles/shadowStyles";
 
-interface InputProps {
+export interface InputProps extends Omit<TextInputProps, "value" | "onChangeText" | "style"> {
     value: string | number;
     setValue: (value: string) => void;
     error: string;
@@ -13,10 +19,10 @@ interface InputProps {
     placeholder: string;
     style?: StyleProp<ViewStyle>;
     password?: boolean;
-    numberOfLines?: number;
-    keyboardType?: "numeric" | "default";
-    editable?: boolean;
     trim?: boolean;
+    variant?: "default" | "auth";
+    inputRef?: React.Ref<TextInput>;
+    endAdornment?: React.ReactNode;
 }
 
 const Input: FC<InputProps> = ({
@@ -31,58 +37,82 @@ const Input: FC<InputProps> = ({
     keyboardType = "default",
     editable = true,
     trim = false,
-}: InputProps) => {
-    const theme = useTheme();
-
-    const onChangeText = (text: string) => {
-        if (trim) {
-            setValue(text.trim());
-        } else {
-            setValue(text);
-        }
-    };
+    variant = "default",
+    inputRef,
+    endAdornment,
+    onFocus,
+    onBlur,
+    ...inputProps
+}) => {
+    const { colors } = useTheme().current;
+    const labelId = useId();
+    const [focused, setFocused] = useState(false);
+    const auth = variant === "auth";
+    const foreground = auth ? colors.authForeground : colors.textOnPrimary;
 
     return (
         <View style={[styles.container, style]}>
-            {title !== "" && (
-                <Text size="medium" bold={true} color="onBackground" style={styles.text}>
+            {!!title && (
+                <NativeText
+                    nativeID={labelId}
+                    style={[
+                        styles.label,
+                        auth && styles.authLabel,
+                        { color: auth ? colors.authForeground : colors.textOnBackground },
+                    ]}>
                     {title}
-                </Text>
+                </NativeText>
             )}
             <View
                 style={[
+                    styles.field,
+                    auth && styles.authField,
+                    !auth && shadowStyles.default,
                     {
-                        marginTop: 0,
-                        marginBottom: 5,
-                        borderRadius: 12,
-                        backgroundColor: theme.current.colors.primary,
+                        backgroundColor: auth ? colors.authFieldBackground : colors.primary,
+                        borderColor: error
+                            ? colors.error
+                            : focused
+                              ? colors.authFocus
+                              : auth
+                                ? colors.authBorder
+                                : "transparent",
                     },
-                    shadowStyles.default,
                 ]}>
                 <TextInput
+                    {...inputProps}
+                    ref={inputRef}
+                    accessibilityLabel={inputProps.accessibilityLabel ?? (title || placeholder)}
+                    accessibilityLabelledBy={title ? labelId : undefined}
+                    accessibilityHint={error || inputProps.accessibilityHint}
+                    accessibilityState={{ ...inputProps.accessibilityState, disabled: !editable }}
                     keyboardType={keyboardType}
                     secureTextEntry={password}
-                    style={[
-                        {
-                            padding: 10,
-                            margin: 0,
-                            color: theme.current.colors.textOnPrimary,
-                        },
-                    ]}
+                    style={[styles.input, auth && styles.authInput, { color: foreground }]}
                     placeholder={placeholder}
-                    placeholderTextColor={theme.current.colors.textOnPrimary + "99"}
-                    onChangeText={onChangeText}
+                    placeholderTextColor={auth ? colors.authMuted : foreground + "99"}
+                    onChangeText={(text) => setValue(trim ? text.trim() : text)}
+                    onFocus={(event) => {
+                        setFocused(true);
+                        onFocus?.(event);
+                    }}
+                    onBlur={(event) => {
+                        setFocused(false);
+                        onBlur?.(event);
+                    }}
                     value={value.toString()}
-                    multiline={numberOfLines && numberOfLines !== 1 ? true : false}
-                    numberOfLines={numberOfLines ?? 1}
+                    multiline={numberOfLines !== 1}
+                    numberOfLines={numberOfLines}
                     editable={editable}
                 />
+                {endAdornment}
             </View>
-
-            {error && (
-                <Text style={styles.error} size={"small"} color={"error"}>
+            {!!error && (
+                <NativeText
+                    style={[styles.error, { color: colors.error, fontSize: auth ? 14 : 12 }]}
+                    accessibilityLiveRegion="polite">
                     {error}
-                </Text>
+                </NativeText>
             )}
         </View>
     );
@@ -91,17 +121,18 @@ const Input: FC<InputProps> = ({
 export default Input;
 
 const styles = StyleSheet.create({
-    container: {
-        width: "100%",
-        padding: 0,
-        margin: 0,
+    container: { width: "100%" },
+    label: { fontSize: 16, fontWeight: "bold", marginBottom: 5 },
+    authLabel: { fontSize: 14, fontWeight: "500", marginBottom: 12 },
+    field: {
+        minHeight: 48,
+        borderRadius: 12,
+        borderWidth: 2,
+        flexDirection: "row",
+        alignItems: "center",
     },
-    text: {
-        marginTop: 0,
-        marginBottom: 5,
-    },
-    error: {
-        marginTop: 0,
-        marginBottom: 5,
-    },
+    input: { flex: 1, minHeight: 48, padding: 10 },
+    authField: { minHeight: 52, borderRadius: 8, borderWidth: 1 },
+    authInput: { minHeight: 50, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
+    error: { marginTop: 6 },
 });

@@ -7,6 +7,9 @@ export type AuthDestination = AuthScreen | "back" | "terms" | "privacy";
 export const getAuthScreen = (pathname: string): AuthScreen | undefined =>
     AUTH_SCREENS.find((screen) => pathname === `/${screen}`);
 
+export const isAuthSurface = (pathname: string): boolean =>
+    getAuthScreen(pathname) !== undefined || pathname === "/resetPassword";
+
 export interface AuthActionResult {
     error?: string;
     needsEmailConfirmation?: boolean;

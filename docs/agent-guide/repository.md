@@ -56,7 +56,7 @@ src/
   utils/
     httpClient.tsx          # executeTimeout, HttpResponse — ONLY place fetch is called
     result.tsx              # Result<T>, SimpleResult
-    authValidation.ts       # shared email/login/register/server validation at the DOM/native boundary
+    authValidation.ts       # shared email/login/register/reset/server validation at the DOM/native boundary
     location.tsx
   styles/                   # shared style helpers
 ```
