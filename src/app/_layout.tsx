@@ -23,9 +23,10 @@ const RootLayoutInner: FC = () => {
     const theme = useTheme();
     const insets = useSafeAreaInsets();
     const pathname = usePathname();
-    const backgroundColor = isAuthSurface(pathname)
-        ? theme.current.colors.authBackground
-        : theme.current.colors.background;
+    const backgroundColor =
+        isAuthSurface(pathname) || pathname === "/home/list"
+            ? theme.current.colors.authBackground
+            : theme.current.colors.background;
 
     useEffect(() => {
         GoogleSignin.configure({

@@ -1,99 +1,22 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import { resolve } from "node:path";
 import test from "node:test";
-import { runInNewContext } from "node:vm";
-import ts from "typescript";
+import { mountNativeComponent } from "./nativeComponentHarness.mjs";
 
-const require = createRequire(import.meta.url);
-
-// Native hosts cannot mount in Node. Keep the form, validation and event handlers real;
-// this small hook adapter only records state and refs between explicit renders.
 function mountForm(submitClicked) {
-    const slots = [];
-    const focused = [];
-    let cursor = 0;
-    const react = {
-        createElement: (type, props, ...children) => {
-            if (["Input", "PasswordInput"].includes(type) && props.inputRef) {
-                props.inputRef.current = { focus: () => focused.push(props.title) };
-            }
-            return { type, props: { ...props, children } };
-        },
-        useState: (initial) => {
-            const index = cursor++;
-            if (!(index in slots)) slots[index] = initial;
-            return [
-                slots[index],
-                (value) => {
-                    slots[index] = typeof value === "function" ? value(slots[index]) : value;
-                },
-            ];
-        },
-        useRef: (initial) => {
-            const index = cursor++;
-            return (slots[index] ??= { current: initial });
-        },
-        useEffect: () => {},
-    };
-    function load(path) {
-        const source = readFileSync(path, "utf8");
-        const code = ts.transpileModule(source, {
-            compilerOptions: {
-                module: ts.ModuleKind.CommonJS,
-                jsx: ts.JsxEmit.React,
-                esModuleInterop: true,
-            },
-        }).outputText;
-        const module = { exports: {} };
-        const localRequire = (name) => {
-            if (name === "react") return react;
-            if (name === "react-native")
-                return {
-                    View: "View",
-                    StyleSheet: { create: (value) => value },
-                    AccessibilityInfo: { announceForAccessibility: () => {} },
-                };
-            if (name.includes("ThemeProvider"))
-                return { useTheme: () => ({ current: { colors: {} } }) };
-            if (name.includes("ToastProvider")) return { useToast: () => ({ error: () => {} }) };
-            if (name.includes("defaultStyles")) return { keyboardOffset: 10 };
-            if (name === "react-native-keyboard-controller")
-                return { KeyboardAwareScrollView: "ScrollView" };
-            if (name.startsWith("../common/")) return name.split("/").at(-1);
-            if (name.startsWith("@/utils/")) return load(resolve("src", name.slice(2) + ".ts"));
-            return require(name);
-        };
-        runInNewContext(code, { module, exports: module.exports, require: localRequire });
-        return module.exports;
-    }
-    const Form = load(resolve("src/components/auth/ResetPasswordForm.tsx")).default;
-    let tree;
-    function render() {
-        cursor = 0;
-        tree = Form({ submitClicked });
-    }
-    function elements(node = tree) {
-        return node && typeof node === "object"
-            ? [node, ...(node.props?.children ?? []).flatMap(elements)]
-            : [];
-    }
+    const form = mountNativeComponent("src/components/auth/ResetPasswordForm.tsx", {
+        props: { submitClicked },
+    });
     const inputs = () =>
-        elements().filter((node) => ["Input", "PasswordInput"].includes(node.type));
-    const button = () => elements().find((node) => node.type === "Button");
-    render();
+        form.elements().filter((node) => ["Input", "PasswordInput"].includes(node.type));
     return {
-        render,
+        ...form,
         inputs,
-        button,
-        focused,
-        text: () => JSON.stringify(tree),
+        button: () => form.elements().find((node) => node.type === "Button"),
         fill: () => {
             inputs().forEach((node, index) =>
                 node.props.setValue(index === 0 ? "email-code" : "Strong123!"),
             );
-            render();
+            form.render();
         },
     };
 }

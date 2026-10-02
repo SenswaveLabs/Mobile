@@ -9,9 +9,13 @@ or rerun an expensive build for an unrelated documentation edit.
   `git diff --check`.
 - Non-trivial source changes: run `pnpm typecheck` and `pnpm lint`.
 - Auth validation, route boundaries or reset submission behavior: run `pnpm test:poc`.
-  The native reset check executes its real form with a small hook/host adapter;
-  it does not establish native rendering, keyboard or assistive-technology behavior.
-- Before committing: run all three commands above, as required by the repository.
+  The native reset check executes its real form with `tests/nativeComponentHarness.mjs`.
+- Home selection, loading or recovery behavior: run `pnpm test:homes`. It executes
+  real list and row handlers with the same hook/host adapter, checking focus loads,
+  pending/duplicate switches, failed switches, row errors and list retries.
+  These checks do not establish native rendering, keyboard or assistive-technology behavior.
+- Before committing: run `pnpm typecheck`, `pnpm lint` and `pnpm test:poc`, plus
+  the affected flow checks above.
 - DOM bundling, routing or asset changes: use the export checks in the
   [auth PoC](../shadcn-dom-poc.md).
 - Native modules or Android build configuration: verify prebuild and the affected
@@ -32,6 +36,8 @@ states. Check screen-reader labels, focus order and usable touch targets.
 For DOM UI, a browser preview can verify DOM semantics and layouts. Mock bridge
 callbacks cannot verify native integration or real API responses; report the
 boundary of the check. Do not label a browser preview as a phone screenshot.
+React Native Web previews can help check native component layouts with fixture
+providers, but do not verify device safe areas, hardware Back or screen readers.
 
 Respect user instructions about tools and devices; do not restart verification
 they have stopped. If a backend, device or tool is unavailable, report exactly

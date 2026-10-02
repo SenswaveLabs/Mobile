@@ -34,10 +34,11 @@ Accessibility and task completion take priority over matching a visual pattern.
   literals in native component styles.
 - DOM screens reuse `src/components/dom/ui` and its installed Base UI APIs. Do not
   assume Radix props or add another primitive library for an equivalent control.
-- Use `next-frontend/apps/web` as the product reference and its shared UI as the
-  brand reference when available. Keep mobile imports local; do not import code
-  from the sibling checkout. Marketing layouts from `apps/landing` are not the
-  default for the mobile product.
+- Use `next-frontend/apps/web` and its shared UI as the brand reference when
+  available. Choose hierarchy, navigation and action placement for the mobile
+  task; web and mobile can serve different UX purposes and need not match 1:1.
+  Keep mobile imports local; do not import code from the sibling checkout.
+  Marketing layouts from `apps/landing` are not the default for the mobile product.
 - Match visual intent while keeping native navigation, keyboard and accessibility
   behavior. This policy does not require migrating native screens into WebViews.
 - Authentication, API calls and SecureStore remain native. Send serializable UI
@@ -182,18 +183,19 @@ Back, keyboard, touch targets, light/dark mode and text scaling in the relevant
 runtime. A DOM browser preview does not verify native keyboard, safe areas or
 hardware Back. Follow [Validation](validation.md) and report unverified behavior.
 
-## Current component and auth conventions
+## Current component and screen conventions
 
 - App components are functional, typed `FC` / `FC<Props>`, with interface props; copied shadcn primitives retain upstream signatures.
 - Native styling: `StyleSheet.create()` + `useTheme()` colors. DOM styling: local Tailwind tokens and copied shadcn primitives; no imports from the frontend checkout.
 - The `(auth)` layout owns one `auth/AuthFlow` WebView outside its child `Slot`; route files return null. Navigate with Expo Router and pass the active screen as a prop. Do not mount a separate DOM component per auth route. Only form state resets between screens.
-- On the five DOM auth URLs and native `/resetPassword`, the root layout fills both system-bar safe areas with `colors.authBackground`; keep its light/dark sRGB values aligned with `--surface` in `components/dom/styles/brand.css`. Status-bar icons follow the app theme. `dom/authTypes.isAuthSurface` defines the surface boundary; `getAuthScreen` still selects only the five DOM screens.
-- Native reset password uses the shared keyboard-aware scroll container, a 448 dp maximum form width and native Back. Its `authForeground`, `authMuted`, `authFieldBackground`, `authBorder`, `authFocus`, `authPrimary` and `authOnPrimary` theme roles match the DOM brand. Use the native `Input`/`PasswordInput` `auth` variant and `Button` `auth` type on this flow; other native screens retain their existing visual variants.
+- On the five DOM auth URLs and native `/resetPassword`, the root layout fills both system-bar safe areas with `colors.authBackground`; keep its light/dark sRGB values aligned with `--surface` in `components/dom/styles/brand.css`. Status-bar icons follow the app theme. `dom/authTypes.isAuthSurface` defines the auth surface boundary; `getAuthScreen` still selects only the five DOM screens. Native `/home/list` uses the same brand surface through a separate pathname check, without joining the auth flow.
+- Native reset password uses the shared keyboard-aware scroll container, a 448 dp maximum form width and native Back. Its `authForeground`, `authMuted`, `authFieldBackground`, `authBorder`, `authFocus`, `authPrimary` and `authOnPrimary` theme roles match the DOM brand. Use the native `Input`/`PasswordInput` `auth` variant and `Button` `auth` type on this flow. Native `/home/list` reuses these existing brand colors; unrefactored screens retain their visual variants.
 - Auth forms use base spacing of 24 dp between fields and at least 32 dp before their screen-level action group; DOM rem spacing adapts to the system text size. The DOM group uses flexible remaining space; native reset uses the same layout in its growing scroll content. Native auth fields have a 52 dp minimum height, 1 dp border and 8 dp radius; submit buttons have a 48 dp minimum height and 8 dp radius. Labels, surfaces and arrow-only Back match the DOM visual language while retaining native accessibility and text scaling.
 - Native `Input` connects its visible label to the text field, exposes field errors to assistive technology and shows focus/error borders. `PasswordInput` composes it with a named 48 dp visibility toggle. Native buttons keep their action label while loading and expose disabled/busy state. Async reset submissions return `Promise<SimpleResult>`, keep failure messages inline and always release the synchronous submission lock.
 - Auth DOM typography scales with native `useWindowDimensions().fontScale`. Touch targets retain a 48 CSS px floor independent of rem scaling; buttons grow with wrapped text. The local `control-border` semantic token identifies fields and unchecked checkboxes with sufficient contrast, while `border` remains decorative. Its native adapter uses the existing Keyboard Controller's `KeyboardAvoidingView`; keep the WebView scrollable. Native loading/error UI covers the initial WebView startup until the themed DOM reports ready.
 - Registration requires 10–64 characters, lowercase, uppercase, number, special character, matching confirmation, and explicit Terms/Privacy agreement. Validate again at the native bridge. Show email verification after registration; forgot password continues to `/resetPassword` with email.
 - Server selection is visible and writable only in Development. Validate absolute HTTP(S) addresses at both boundaries; use null in the bridge to restore the configured default, then update the form from the native URL prop.
+- Native home selection uses one `FlatList`, with the current home identified by text, a checkmark and selected state. Other homes switch immediately on tap; wait for a successful `HomeProvider.setCurrent` result before navigating and prevent duplicate switches. Keep switch errors beside the attempted home, with the existing toast as immediate feedback; list errors include a visible Retry action. Load once per focus and support pull-to-refresh. Expose Home details without a long press. Create/Join are secondary actions in the scrolling footer, using remaining space on short lists and scrolling with long lists or large text. Use the optional `DefaultHeader` `brand` variant, `Icon` `brand` color and `Button` `brand-outline` type on this screen.
 - Local UI / form state: `useState`.
 - Re-fetch trigger: increment a numeric state counter.
 

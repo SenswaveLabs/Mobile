@@ -325,6 +325,7 @@ export const AllIcons = [
 ];
 
 export type IconColor =
+    | "brand"
     | "onPrimary"
     | "error"
     | "warning"
@@ -347,6 +348,8 @@ const Icon: FC<IconProps> = ({ icon, size, color = "textOnPrimary", style }) => 
 
     const calculateIconColor = (color: string) => {
         switch (color) {
+            case "brand":
+                return theme.current.colors.authForeground;
             case "onPrimary":
                 return theme.current.colors.textOnPrimary;
             case "error":

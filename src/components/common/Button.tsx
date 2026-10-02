@@ -15,7 +15,7 @@ interface ButtonProps {
     name: string;
     loading: boolean;
     onPress: (event: GestureResponderEvent) => void;
-    type?: "default" | "alternative" | "outlined" | "auth";
+    type?: "default" | "alternative" | "outlined" | "auth" | "brand-outline";
     style?: StyleProp<ViewStyle>;
     disabled?: boolean;
 }
@@ -29,9 +29,12 @@ const Button: FC<ButtonProps> = ({
     disabled = false,
 }) => {
     const { colors } = useTheme().current;
-    const auth = type === "auth";
+    const outlinedBrand = type === "brand-outline";
+    const auth = type === "auth" || outlinedBrand;
     const foreground = auth
-        ? colors.authOnPrimary
+        ? outlinedBrand
+            ? colors.authForeground
+            : colors.authOnPrimary
         : type === "alternative"
           ? colors.textOnSecondary
           : colors.textOnPrimary;
@@ -47,12 +50,18 @@ const Button: FC<ButtonProps> = ({
                 styles.button,
                 auth && styles.authButton,
                 {
-                    borderColor: type === "outlined" ? colors.secondary : "transparent",
-                    backgroundColor: auth
-                        ? colors.authPrimary
-                        : type === "alternative"
+                    borderColor: outlinedBrand
+                        ? colors.authBorder
+                        : type === "outlined"
                           ? colors.secondary
-                          : colors.primary,
+                          : "transparent",
+                    backgroundColor: outlinedBrand
+                        ? colors.authBackground
+                        : auth
+                          ? colors.authPrimary
+                          : type === "alternative"
+                            ? colors.secondary
+                            : colors.primary,
                 },
                 !auth && shadowStyles.default,
                 pressed && styles.buttonPressed,

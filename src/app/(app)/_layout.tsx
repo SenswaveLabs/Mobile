@@ -64,7 +64,8 @@ function InternalLayout() {
             <Stack.Screen
                 name="home/list"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="My" titleSuffix="Homes" />,
+                    header: () => <DefaultHeader titlePrefix="Homes" variant="brand" />,
+                    contentStyle: { backgroundColor: theme.current.colors.authBackground },
                 }}
             />
 

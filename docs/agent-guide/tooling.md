@@ -10,6 +10,7 @@ pnpm typecheck                # TypeScript check
 pnpm lint                     # ESLint check
 pnpm fix                      # ESLint auto-fix
 pnpm test:poc                 # auth validation, route boundaries and native reset behavior
+pnpm test:homes               # home selection, list loading and recovery behavior
 ```
 
 - Run `pnpm typecheck`, `pnpm lint`, and `pnpm test:poc` before committing.
