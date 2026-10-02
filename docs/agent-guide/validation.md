@@ -10,9 +10,14 @@ or rerun an expensive build for an unrelated documentation edit.
 - Non-trivial source changes: run `pnpm typecheck` and `pnpm lint`.
 - Auth validation, route boundaries or reset submission behavior: run `pnpm test:poc`.
   The native reset check executes its real form with `tests/nativeComponentHarness.mjs`.
-- Home selection, loading or recovery behavior: run `pnpm test:homes`. It executes
-  real list and row handlers with the same hook/host adapter, checking focus loads,
-  pending/duplicate switches, failed switches, row errors and list retries.
+- Home selection, joining, loading or recovery behavior: run `pnpm test:homes`.
+  It executes real list, row and join form handlers with the same hook/host adapter,
+  checking OTP paste/editing and wrapped-slot selection, focus loads, pending/duplicate
+  submissions, failed switches, row errors,
+  list retries, invite validation/paste, persistent join errors and navigation after
+  acceptance or leaving the form. The recovery checks also execute the real home
+  picker route without a current home and the provider's initializer, verifying
+  failure cleanup and caller-owned feedback.
   These checks do not establish native rendering, keyboard or assistive-technology behavior.
 - Before committing: run `pnpm typecheck`, `pnpm lint` and `pnpm test:poc`, plus
   the affected flow checks above.
@@ -38,6 +43,11 @@ callbacks cannot verify native integration or real API responses; report the
 boundary of the check. Do not label a browser preview as a phone screenshot.
 React Native Web previews can help check native component layouts with fixture
 providers, but do not verify device safe areas, hardware Back or screen readers.
+For shared form-layout changes, check body/footer separation, bottom action position,
+unclipped focus rings, actions staying out of the native keyboard editing region,
+reachable first/last content and controls at short/tall windows with both themes
+and normal/200% text. Exercise validation, pending/duplicate submit and recovery;
+slot-selection handler checks do not prove native touch/context-menu event ordering.
 
 Respect user instructions about tools and devices; do not restart verification
 they have stopped. If a backend, device or tool is unavailable, report exactly

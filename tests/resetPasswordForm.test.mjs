@@ -2,6 +2,38 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mountNativeComponent } from "./nativeComponentHarness.mjs";
 
+test("keyboard editing keeps the form available without screen actions above the keyboard", () => {
+    const listeners = new Map();
+    const screen = mountNativeComponent("src/components/common/FormScreen.tsx", {
+        props: { children: "Field content", actions: "Primary action" },
+        modules: {
+            "react-native-keyboard-controller": {
+                KeyboardAwareScrollView: "KeyboardAwareScrollView",
+                KeyboardAvoidingView: "KeyboardAvoidingView",
+                KeyboardController: { isVisible: () => false },
+                KeyboardEvents: {
+                    addListener: (event, callback) => {
+                        listeners.set(event, callback);
+                        return { remove: () => listeners.delete(event) };
+                    },
+                },
+            },
+        },
+    });
+    screen.flushEffects();
+    assert.ok(screen.text().includes("Primary action"));
+    listeners.get("keyboardWillShow")?.();
+    screen.render();
+    assert.ok(screen.text().includes("Field content"));
+    assert.equal(screen.text().includes("Primary action"), false);
+    listeners.get("keyboardDidHide")?.();
+    screen.render();
+    assert.ok(screen.text().includes("Primary action"));
+    listeners.get("keyboardDidShow")?.();
+    screen.render();
+    assert.equal(screen.text().includes("Primary action"), false);
+});
+
 function mountForm(submitClicked) {
     const form = mountNativeComponent("src/components/auth/ResetPasswordForm.tsx", {
         props: { submitClicked },

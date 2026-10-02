@@ -91,6 +91,13 @@ Result.success<T>(data) / Result.failure<T>("message") / Result.failureWithData<
 - **403** → logout (`LegalMiddleware`: user has not accepted latest Terms/Privacy).
 - Path prefix `/api/v1/...`, built by `ConfigurationProvider.getApiUrl`.
 
+`HomeProvider.initializeCurrentHome()` returns success/failure and always releases
+its loading state, including location, request and response-parsing failures.
+Use `{ silent: true }` when the caller owns recovery and feedback, as joining does;
+other callers retain the existing notifications. This is a client context option,
+with no change to backend contracts. Home selection remains available before a
+current home has been established.
+
 **Auth endpoints**
 
 | Endpoint | Method | Purpose |

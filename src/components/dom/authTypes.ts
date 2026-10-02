@@ -20,6 +20,7 @@ export interface AuthPanelProps {
     screen: AuthScreen;
     theme: "light" | "dark";
     fontScale: number;
+    keyboardVisible?: boolean;
     rememberMe: boolean;
     isDevelopment: boolean;
     serverUrl: string;

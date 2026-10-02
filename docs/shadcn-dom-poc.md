@@ -35,8 +35,14 @@ the new native module.
   Its single-column layout follows the web sign-in form's hierarchy and copy,
   with a 52 px field floor and at least 48 px effective touch targets. Fields have
   a base 24 px separation; submit, secondary actions and sign-up/sign-in links form
-  a bottom group with a base minimum 32 px separation from the input section. Flexible
-  space fills taller windows; longer forms and large text scroll naturally.
+  separate bottom region. The header stays above a scrolling content region,
+  so long forms do not move the action section below the viewport. Content uses
+  24/16 px top/bottom padding; actions use 16/32 px. At short windows and large
+  text, actions can also scroll while retaining access to the form. Side padding
+  stays 24 px when typography scales.
+  An 8 px horizontal gutter preserves focus/validation rings outside scroll bounds.
+  While the native keyboard is open, screen actions are hidden and editing uses
+  the available height; Enter/Go submits, and dismissing restores the actions.
   Back and password visibility remain beside their respective context.
   Pixel floors stay independent of reduced system text size;
   rem typography and auto-height buttons still accommodate larger text.
@@ -61,7 +67,11 @@ the new native module.
 - Native reset shares the brand through native auth theme roles, a constrained
   keyboard-aware form and named controls. Its field surfaces, labels, radii,
   button typography and arrow-only Back match the DOM screens. Fields and the
-  bottom action group share the same spacing without a fixed footer overlay.
+  bottom action group reuse `common/FormScreen`, shared with native joining.
+  The shared native keyboard-visibility hook removes actions during editing and
+  restores them after the keyboard closes. The keyboard-aware scroll body and
+  measured action section occupy separate
+  layout space; the primary action never overlays the fields or errors.
   Registration and reset reuse password
   validation. Reset shows required-field errors, focuses the first invalid field,
   preserves backend failures inline, and locks submit/editing while pending.

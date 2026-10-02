@@ -1,92 +1,173 @@
-import React, { FC, useRef } from "react";
-import { View, TextInput, StyleSheet } from "react-native";
+import React, { FC, useId, useRef, useState } from "react";
+import {
+    LayoutRectangle,
+    NativeTouchEvent,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+    useWindowDimensions,
+} from "react-native";
+import { InputProps } from "@/components/common/Input";
 import { useTheme } from "@/contexts/ThemeProvider";
-import Text from "@/components/common/Text";
-import { shadowStyles } from "@/styles/shadowStyles";
 
-interface HomeCodeInputProps {
+interface HomeCodeInputProps extends Pick<
+    InputProps,
+    "setValue" | "error" | "inputRef" | "editable" | "onSubmitEditing"
+> {
     value: string;
-    onChange: (value: string) => void;
-    error?: boolean;
 }
 
-const CODE_LENGTH = 8;
-
-const HomeCodeInput: FC<HomeCodeInputProps> = ({ value, onChange, error = false }) => {
-    const theme = useTheme();
-    const inputRefs = useRef<(TextInput | null)[]>([]);
-
-    const chars = value.split("").concat(Array(CODE_LENGTH).fill("")).slice(0, CODE_LENGTH);
-
-    const handleChange = (text: string, index: number) => {
-        if (text === "") {
-            const newChars = chars.map((c, i) => (i === index ? "" : c));
-            onChange(newChars.join(""));
-            if (index > 0) {
-                inputRefs.current[index - 1]?.focus();
-            }
-            return;
-        }
-
-        const char = text.slice(-1).toUpperCase();
-        const newChars = chars.map((c, i) => (i === index ? char : c));
-        onChange(newChars.join(""));
-
-        if (index < CODE_LENGTH - 1) {
-            inputRefs.current[index + 1]?.focus();
-        }
-    };
-
-    const handleKeyPress = (key: string, index: number) => {
-        if (key === "Backspace" && !chars[index] && index > 0) {
-            const newChars = chars.map((c, i) => (i === index - 1 ? "" : c));
-            onChange(newChars.join(""));
-            inputRefs.current[index - 1]?.focus();
-        }
-    };
+const HomeCodeInput: FC<HomeCodeInputProps> = ({
+    value,
+    setValue,
+    error,
+    inputRef,
+    editable = true,
+    onSubmitEditing,
+}) => {
+    const { colors } = useTheme().current;
+    const { fontScale } = useWindowDimensions();
+    const labelId = useId();
+    const [focused, setFocused] = useState(false);
+    const [cursor, setCursor] = useState(0);
+    const nativeInput = useRef<TextInput>(null);
+    const groups = useRef<LayoutRectangle[]>([]);
+    const slots = useRef<LayoutRectangle[]>([]);
+    const touchStart = useRef<NativeTouchEvent | null>(null);
+    const groupWidth = 4 * Math.max(28, 12 * fontScale + 12) + 18;
 
     return (
-        <View style={styles.wrapper}>
-            <View style={styles.row}>
-                {Array.from({ length: CODE_LENGTH }).map((_, index) => (
-                    <View
-                        key={index}
-                        style={[
-                            styles.box,
-                            {
-                                backgroundColor: theme.current.colors.primary,
-                                borderWidth: 1,
-                                borderColor: chars[index]
-                                    ? theme.current.colors.complementary
-                                    : error
-                                      ? theme.current.colors.error
-                                      : "transparent",
-                            },
-                            shadowStyles.default,
-                        ]}>
-                        <TextInput
-                            ref={(ref) => {
-                                inputRefs.current[index] = ref;
-                            }}
-                            value={chars[index]}
-                            onChangeText={(text) => handleChange(text, index)}
-                            onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
-                            maxLength={2}
-                            autoCapitalize="characters"
-                            autoCorrect={false}
-                            style={[
-                                styles.textInput,
-                                { color: theme.current.colors.textOnPrimary },
-                            ]}
-                        />
-                    </View>
-                ))}
-            </View>
-
-            <Text size="small" color="onBackground" style={styles.hint}>
-                To join an existing home, enter the 8-character invite code provided by the home
-                owner. Remember that invitation expires within 15 minutes.
+        <View style={styles.field}>
+            <Text nativeID={labelId} style={[styles.label, { color: colors.authForeground }]}>
+                Invite code
             </Text>
+            <View>
+                <View
+                    style={styles.groups}
+                    pointerEvents="none"
+                    accessible={false}
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants">
+                    {[0, 4].map((start) => (
+                        <View
+                            key={start}
+                            style={[styles.group, { minWidth: groupWidth }]}
+                            onLayout={({ nativeEvent }) => {
+                                groups.current[start / 4] = nativeEvent.layout;
+                            }}>
+                            {[0, 1, 2, 3].map((offset) => {
+                                const index = start + offset;
+                                const selected = focused && editable && cursor === index;
+                                return (
+                                    <View
+                                        key={index}
+                                        onLayout={({ nativeEvent }) => {
+                                            slots.current[index] = nativeEvent.layout;
+                                        }}
+                                        style={[
+                                            styles.slot,
+                                            {
+                                                backgroundColor: colors.authFieldBackground,
+                                                borderColor: error
+                                                    ? colors.error
+                                                    : selected
+                                                      ? colors.authFocus
+                                                      : colors.authBorder,
+                                            },
+                                        ]}>
+                                        <Text
+                                            style={[
+                                                styles.character,
+                                                {
+                                                    color: colors.authForeground,
+                                                },
+                                            ]}>
+                                            {value[index] || (selected ? "|" : "\u00a0")}
+                                        </Text>
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    ))}
+                </View>
+                <TextInput
+                    ref={(input) => {
+                        nativeInput.current = input;
+                        if (typeof inputRef === "function") inputRef(input);
+                        else if (inputRef) inputRef.current = input;
+                    }}
+                    value={value}
+                    onChangeText={setValue}
+                    onSubmitEditing={onSubmitEditing}
+                    onFocus={() => setFocused(true)}
+                    onBlur={() => setFocused(false)}
+                    onTouchStart={({ nativeEvent }) => {
+                        touchStart.current = nativeEvent.touches?.length > 1 ? null : nativeEvent;
+                    }}
+                    onTouchMove={({ nativeEvent }) => {
+                        const start = touchStart.current;
+                        if (
+                            start &&
+                            (Math.abs(nativeEvent.locationX - start.locationX) > 8 ||
+                                Math.abs(nativeEvent.locationY - start.locationY) > 8)
+                        )
+                            touchStart.current = null;
+                    }}
+                    onTouchCancel={() => {
+                        touchStart.current = null;
+                    }}
+                    onTouchEnd={({ nativeEvent }) => {
+                        const start = touchStart.current;
+                        touchStart.current = null;
+                        // Leave long presses and native selection drags/context menus untouched.
+                        if (!editable || !start || nativeEvent.timestamp - start.timestamp > 250)
+                            return;
+                        const index = slots.current.findIndex((slot, index) => {
+                            const group = groups.current[Math.floor(index / 4)];
+                            return (
+                                slot &&
+                                group &&
+                                nativeEvent.locationX >= group.x + slot.x &&
+                                nativeEvent.locationX < group.x + slot.x + slot.width &&
+                                nativeEvent.locationY >= group.y + slot.y &&
+                                nativeEvent.locationY < group.y + slot.y + slot.height
+                            );
+                        });
+                        if (index < 0) return;
+                        const position = Math.min(index, value.length);
+                        nativeInput.current?.setSelection?.(
+                            position,
+                            Math.min(position + 1, value.length),
+                        );
+                        setCursor(position);
+                    }}
+                    onSelectionChange={({ nativeEvent }) =>
+                        setCursor(Math.min(nativeEvent.selection.start, 7))
+                    }
+                    accessibilityLabel="Invite code"
+                    accessibilityLabelledBy={labelId}
+                    accessibilityHint={error || "8 letters or numbers from the home owner."}
+                    accessibilityState={{ disabled: !editable }}
+                    editable={editable}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    autoComplete="one-time-code"
+                    maxLength={64}
+                    returnKeyType="go"
+                    caretHidden
+                    style={styles.input}
+                />
+            </View>
+            {!!error && (
+                <Text
+                    accessibilityLiveRegion="polite"
+                    style={[styles.error, { color: colors.error }]}>
+                    {error}
+                </Text>
+            )}
         </View>
     );
 };
@@ -94,35 +175,27 @@ const HomeCodeInput: FC<HomeCodeInputProps> = ({ value, onChange, error = false 
 export default HomeCodeInput;
 
 const styles = StyleSheet.create({
-    wrapper: {
+    field: { width: "100%", gap: 12 },
+    label: { fontSize: 14, fontWeight: "500" },
+    groups: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+    group: { flexDirection: "row", flexGrow: 1, flexBasis: "45%", gap: 6 },
+    slot: {
+        flex: 1,
+        minHeight: 56,
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 4,
+        paddingVertical: 12,
         alignItems: "center",
-        width: "100%",
-    },
-    title: {
-        marginBottom: 24,
-    },
-    row: {
-        flexDirection: "row",
-        gap: 8,
-    },
-    box: {
-        width: 38,
-        height: 50,
-        borderRadius: 10,
         justifyContent: "center",
-        alignItems: "center",
     },
-    textInput: {
-        width: "100%",
-        height: "100%",
-        textAlign: "center",
+    character: {
         fontSize: 20,
-        fontWeight: "bold",
-        padding: 0,
+        lineHeight: 28,
+        fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }),
     },
-    hint: {
-        marginTop: 14,
-        textAlign: "center",
-        opacity: 0.7,
-    },
+    // One native editing surface owns paste, selection, Backspace and accessibility.
+    // Only its text is transparent; the native view remains touchable and accessible.
+    input: { ...StyleSheet.absoluteFillObject, color: "transparent", fontSize: 20 },
+    error: { fontSize: 14, lineHeight: 20 },
 });

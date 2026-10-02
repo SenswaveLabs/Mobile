@@ -12,6 +12,36 @@ body {
 
 .auth-panel {
     overflow-wrap: anywhere;
+    padding-inline: 24px;
+    padding-top: 8px;
+}
+
+.auth-content,
+.auth-actions {
+    margin-inline: -8px;
+    padding-inline: 8px;
+}
+
+.auth-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-block: 24px 16px;
+    scroll-padding-block: 16px;
+}
+
+.auth-actions {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    gap: 12px;
+    max-height: calc(100% - 48px);
+    overflow-y: auto;
+    padding-block: 16px 32px;
+}
+
+.auth-panel[data-keyboard-visible="true"] .auth-actions {
+    display: none;
 }
 
 .auth-panel button:not([data-slot="checkbox"]) {

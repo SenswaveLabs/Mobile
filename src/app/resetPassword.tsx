@@ -4,12 +4,10 @@ import { useTheme } from "@/contexts/ThemeProvider";
 import { useToast } from "@/contexts/ToastProvider";
 import { validateEmail } from "@/utils/authValidation";
 import { SimpleResult } from "@/utils/result";
-import { keyboardOffset } from "@/styles/defaultStyles";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { FC, useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 const ResetPassword: FC = () => {
     const toast = useToast();
@@ -42,12 +40,10 @@ const ResetPassword: FC = () => {
     };
 
     return (
-        <KeyboardAwareScrollView
-            bottomOffset={keyboardOffset}
-            keyboardShouldPersistTaps="handled"
-            style={[styles.container, { backgroundColor: colors.authBackground }]}
-            contentContainerStyle={styles.scrollContent}>
-            <View style={styles.content}>
+        <ResetPasswordForm
+            submitClicked={handleResetPassword}
+            onLoadingChange={setLoading}
+            header={
                 <View style={styles.header}>
                     <Pressable
                         accessibilityRole="button"
@@ -63,6 +59,8 @@ const ResetPassword: FC = () => {
                     </Pressable>
                     <Text style={[styles.brand, { color: colors.authForeground }]}>Senswave</Text>
                 </View>
+            }
+            intro={
                 <View style={styles.intro}>
                     <Text
                         accessibilityRole="header"
@@ -73,28 +71,14 @@ const ResetPassword: FC = () => {
                         Enter the code from your email and choose a new password.
                     </Text>
                 </View>
-                <ResetPasswordForm
-                    submitClicked={handleResetPassword}
-                    onLoadingChange={setLoading}
-                />
-            </View>
-        </KeyboardAwareScrollView>
+            }
+        />
     );
 };
 
 export default ResetPassword;
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    scrollContent: { flexGrow: 1, alignItems: "center", paddingBottom: 32 },
-    content: {
-        width: "100%",
-        maxWidth: 448,
-        flexGrow: 1,
-        paddingHorizontal: 24,
-        paddingTop: 8,
-        gap: 32,
-    },
     header: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 12 },
     back: {
         minWidth: 48,
@@ -104,8 +88,8 @@ const styles = StyleSheet.create({
         marginLeft: -8,
     },
     brand: { fontSize: 18, fontWeight: "600", flexShrink: 1 },
-    intro: { gap: 8 },
-    title: { fontSize: 30, fontWeight: "600" },
+    intro: { gap: 12 },
+    title: { fontSize: 30, lineHeight: 36, fontWeight: "600" },
     description: { fontSize: 16, lineHeight: 24 },
     dimmed: { opacity: 0.6 },
 });

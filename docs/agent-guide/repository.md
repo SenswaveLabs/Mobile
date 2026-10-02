@@ -36,7 +36,7 @@ src/
     confirmEmail / resetPassword / consents / maintenance / privacy / terms
   components/
     dom/                    # local shadcn primitives, web styles, AuthPanel + authTypes bridge
-    common/                 # shared UI (Button, Text, Dropdown, Loading, Divider, ...)
+    common/                 # shared UI (Button, FormScreen, Text, Dropdown, Loading, ...)
     auth/ automations/ dataSource/ device/ headers/ home/ homeSharing/ room/ user/
   contexts/
     ConfigurationProvider   # API URL, SignalR URL, version check
@@ -47,7 +47,7 @@ src/
     custom/                 # feature providers: AutomationList, Automation, DeviceList,
                             #   Device, OperationForm, WidgetDetails
     domain/                 # entity providers: Home, User, LiveUpdate, Legal
-  hooks/                    # shared custom hooks, including native useGoogleSignIn
+  hooks/                    # shared custom hooks, including native useGoogleSignIn/useKeyboardVisible
   types/
     DeviceTypes.tsx         # OperationType, WidgetType, OperationDto, WidgetDto
     HomeTypes.tsx           # Home, Room, Location, HomeSharingDto, HomeRolesToName

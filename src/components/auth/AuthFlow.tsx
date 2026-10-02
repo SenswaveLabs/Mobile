@@ -8,6 +8,7 @@ import { useSession } from "@/contexts/SessionProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { useConfiguration } from "@/contexts/ConfigurationProvider";
 import { useGoogleSignIn } from "@/hooks/useGoogleSignIn";
+import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
 import {
     validateEmail,
     validateLogin,
@@ -27,6 +28,7 @@ export const AuthFlow: FC = () => {
     const pathname = usePathname();
     const google = useGoogleSignIn();
     const { fontScale } = useWindowDimensions();
+    const keyboardVisible = useKeyboardVisible();
     const insets = useSafeAreaInsets();
     const lastEmailSentAt = useRef(0);
     const [ready, setReady] = useState(false);
@@ -138,6 +140,7 @@ export const AuthFlow: FC = () => {
                 screen={getAuthScreen(pathname) ?? "start"}
                 theme={theme.current.type}
                 fontScale={fontScale}
+                keyboardVisible={keyboardVisible}
                 rememberMe={session.rememberMe}
                 isDevelopment={configuration.isDevelopment()}
                 serverUrl={configuration.getBaseUrl().toString()}

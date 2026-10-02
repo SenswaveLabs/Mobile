@@ -5,13 +5,17 @@ import { Home, Room } from "@/types/HomeTypes";
 import { ListResponse } from "@/utils/httpClient";
 import { getCurrentLocation } from "@/utils/location";
 
+interface InitializeHomeOptions {
+    silent?: boolean;
+}
+
 interface HomesContextProps {
     loading: boolean;
     current: Home | undefined;
     setCurrent: (homeId: string) => Promise<boolean>;
     refreshCurrent: () => Promise<void>;
     refreshRooms: () => Promise<void>;
-    initializeCurrentHome: () => Promise<boolean>;
+    initializeCurrentHome: (options?: InitializeHomeOptions) => Promise<boolean>;
     updateHomeDataSourceState: (dataSourceId: string, state: string) => Promise<void>;
 }
 
@@ -90,46 +94,48 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
         }
     };
 
-    const initializeCurrentHome = async () => {
-        let path = "";
-        const currentLocation = await getCurrentLocation();
+    const initializeCurrentHome = async ({ silent = false }: InitializeHomeOptions = {}) => {
         setLoading(true);
+        try {
+            let path = "";
+            const currentLocation = await getCurrentLocation();
 
-        if (currentLocation) {
-            const { latitude, longitude } = currentLocation;
-            path = `?latitude=${latitude}&longitude=${longitude}`;
-        }
+            if (currentLocation) {
+                const { latitude, longitude } = currentLocation;
+                path = `?latitude=${latitude}&longitude=${longitude}`;
+            }
 
-        const response = await httpClient.get(`v1/homes/current${path}`);
+            const response = await httpClient.get(`v1/homes/current${path}`);
 
-        if (response.statusCode === 404) {
-            toast.info("Create your first home!");
-            console.info("[HomesProvider] Homes not found.");
-            setCurrentHome(undefined);
-            setLoading(false);
-            return false;
-        } else if (response.statusCode >= 300) {
-            toast.httpError(response);
-            setLoading(false);
-            return false;
-        }
+            if (response.statusCode === 404) {
+                if (!silent) toast.info("Create your first home!");
+                console.info("[HomesProvider] Homes not found.");
+                setCurrentHome(undefined);
+                return false;
+            } else if (!response.isSuccess || !response.response) {
+                if (!silent) toast.httpError(response);
+                return false;
+            }
 
-        const data = await response.response!.json();
-        const currentHome = data as Home;
+            const currentHome = (await response.response.json()) as Home;
+            if (!currentHome?.id) throw new Error("Invalid current home response");
+            const homeResponse = await httpClient.get(`v1/homes/${currentHome.id}`);
+            if (!homeResponse.isSuccess || !homeResponse.response) {
+                if (!silent) toast.httpError(homeResponse);
+                return false;
+            }
 
-        const homeResponse = await httpClient.get(`v1/homes/${currentHome.id}`);
-
-        if (homeResponse.isSuccess) {
-            const data = await homeResponse.response!.json();
-            const home = data as Home;
+            const home = (await homeResponse.response.json()) as Home;
+            if (!home?.id) throw new Error("Invalid home response");
             setCurrentHome(home);
             console.info("[HomesProvider] Current home loaded.");
-            setLoading(false);
             return true;
-        } else {
-            toast.httpError(homeResponse);
-            setLoading(false);
+        } catch {
+            console.error("[HomesProvider] Failed to initialize current home.");
+            if (!silent) toast.error("Couldn't load your home. Please try again.");
             return false;
+        } finally {
+            setLoading(false);
         }
     };
 

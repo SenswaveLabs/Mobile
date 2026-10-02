@@ -122,7 +122,9 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
                             Choose a home
                         </Text>
                         <Text style={[styles.description, { color: colors.authMuted }]}>
-                            Switch homes to control their rooms, devices and automations.
+                            {homes.current
+                                ? "Switch homes to control their rooms, devices and automations."
+                                : "Select a home to control its rooms, devices and automations."}
                         </Text>
                     </View>
                     {homes.current && (
@@ -152,7 +154,7 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
                     <Text
                         accessibilityRole="header"
                         style={[styles.sectionTitle, { color: colors.authForeground }]}>
-                        Other homes
+                        {homes.current ? "Other homes" : "Homes"}
                     </Text>
                     {!!loadError && (
                         <View style={styles.error}>
@@ -206,7 +208,9 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
                     </View>
                 ) : !loadError ? (
                     <Text style={[styles.empty, styles.description, { color: colors.authMuted }]}>
-                        No other homes yet. Create one or join a home shared with you.
+                        {homes.current
+                            ? "No other homes yet. Create one or join a home shared with you."
+                            : "No homes yet. Create one or join a home shared with you."}
                     </Text>
                 ) : null
             }
