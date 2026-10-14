@@ -209,6 +209,13 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
 - The dashboard's `NoHomeScreen` is a native empty state with a clear setup heading, a short explanation and a decorative home icon. `Create home` is primary (`Button` `auth` type); `Join home` is secondary (`brand-outline`). Keep both in growing scroll content with a 448 dp maximum width and space above their group, so short windows and large text retain every action. Use brand foreground/muted tokens on the shared canvas background, keeping it aligned with its header and safe areas. Preserve the parent navigation and refresh callbacks.
 - Local UI / form state: `useState`.
 - Re-fetch trigger: increment a numeric state counter.
+- Home/Device `IconSelector` receives the fetched resource catalog for both its quick
+  strip and searchable browser, with local glyphs/labels, named 48 dp targets and
+  selected/disabled accessibility states. Loading and failure stay local to the
+  icon field, with a visible Retry icons action. Preserve the current historical key
+  and let unrelated existing-resource edits proceed without a catalog; new or
+  changed choices require a loaded matching key. Defaults are validated rather than
+  replaced automatically. Dashboard, Radio and Automation retain the global browser.
 
 ## Existing native components
 

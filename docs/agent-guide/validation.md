@@ -33,6 +33,14 @@ production deployment or remote version changes to verification workflows.
 
 ## Runtime checks
 
+For Home/Device icon changes, also run `pnpm test:icons`. It executes the catalog
+hook, shared selector and real form handlers with the existing native host adapter,
+checking create/edit, constrained full search, exact-key submission, default and
+wrong-resource validation, stored selection/reset, historical keys, loading,
+failure/retry, cached success, server/account changes and late responses. Presentation
+checks cover every key from the backend catalog fixture and installed Ionicons glyphs.
+These handler checks do not establish native rendering, keyboard or screen-reader behavior.
+
 For user-facing changes, exercise the affected flow in a native development build
 or emulator when available. Check navigation/Back, keyboard/scrolling, safe areas,
 light/dark mode, text scaling and applicable loading, empty, success and error

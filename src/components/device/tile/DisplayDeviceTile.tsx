@@ -54,7 +54,7 @@ function DisplayDeviceTile({ deviceId, icon, tile }: DisplayDeviceTileProps) {
     return (
         <View style={styles.actionContainer}>
             <View style={styles.iconContainer}>
-                <Icon icon={icon} size={64} color={"onPrimary"} />
+                <Icon icon={icon} resource="devices" size={64} color={"onPrimary"} />
             </View>
             <View style={styles.valueContainer}>
                 <Text size={"large"} color={"onPrimary"} numberOfLines={1} bold>

@@ -7,22 +7,10 @@ import LocalizationSelector from "../common/LocalizationSelector";
 import Divider from "../common/Divider";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { keyboardOffset } from "@/styles/defaultStyles";
+import { useIconCatalog } from "@/hooks/useIconCatalog";
+import Text from "../common/Text";
 
 const DefaultHomeIcon: string = "home-outline";
-
-const HomeIcons = [
-    "home-outline",
-    "business-outline",
-    "storefront-outline",
-    "location-outline",
-    "pin-outline",
-    "map-outline",
-    "people-outline",
-    "heart-outline",
-    "leaf-outline",
-    "sunny-outline",
-    "globe-outline",
-] as string[];
 
 export interface HomeFormHandle {
     isDirty: boolean;
@@ -60,6 +48,7 @@ const HomeForm = forwardRef<HomeFormHandle, HomeFormProps>(function HomeForm(
     },
     ref,
 ) {
+    const catalog = useIconCatalog("homes");
     const [loading, setLoading] = useState(false);
     const [name, setName] = useState<string>(initName ?? "");
     const [nameError, setNameError] = useState<string>("");
@@ -67,7 +56,10 @@ const HomeForm = forwardRef<HomeFormHandle, HomeFormProps>(function HomeForm(
     const [longitude, setLongitude] = useState<number | undefined>(initLongitude);
     const [latitude, setLatitude] = useState<number | undefined>(initLatitude);
 
-    const isValid = name.length >= 3 && name.length <= 64;
+    const isIconValid =
+        (edit && icon === initIcon) ||
+        (!catalog.loading && !catalog.error && catalog.keys.includes(icon));
+    const isValid = name.length >= 3 && name.length <= 64 && isIconValid;
 
     const isDirty =
         name !== (initName ?? "") ||
@@ -92,7 +84,7 @@ const HomeForm = forwardRef<HomeFormHandle, HomeFormProps>(function HomeForm(
             setNameError("");
         }
 
-        return valid;
+        return valid && isIconValid;
     };
 
     const triggerSave = async () => {
@@ -140,6 +132,7 @@ const HomeForm = forwardRef<HomeFormHandle, HomeFormProps>(function HomeForm(
         icon,
         latitude,
         longitude,
+        catalog,
     ]);
 
     useEffect(() => {
@@ -184,10 +177,17 @@ const HomeForm = forwardRef<HomeFormHandle, HomeFormProps>(function HomeForm(
                     />
 
                     <IconSelector
-                        defaultIcon={DefaultHomeIcon}
+                        defaultIcon={icon}
                         onIconSelected={setIcon}
-                        iconList={HomeIcons}
+                        catalog={catalog}
+                        resource="homes"
+                        disabled={loading}
                     />
+                    {!catalog.loading && !catalog.error && !isIconValid && (
+                        <Text color="error" accessibilityRole="alert">
+                            Select an available icon.
+                        </Text>
+                    )}
 
                     <LocalizationSelector
                         onSelectLocation={(latitude: number, longitude: number) => {

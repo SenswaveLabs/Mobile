@@ -10,7 +10,8 @@
     "fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "test:poc": "node --test tests/authValidation.test.mjs tests/resetPasswordForm.test.mjs",
-    "test:homes": "node --test tests/homeList.test.mjs tests/joinHomeForm.test.mjs"
+    "test:homes": "node --test tests/homeList.test.mjs tests/joinHomeForm.test.mjs",
+    "test:icons": "node --test tests/iconCatalog.test.mjs tests/iconSelector.test.mjs tests/resourceIconForms.test.mjs tests/resourceIcons.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

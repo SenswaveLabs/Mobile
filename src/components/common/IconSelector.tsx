@@ -13,6 +13,9 @@ import { useTheme } from "@/contexts/ThemeProvider";
 import { shadowStyles } from "@/styles/shadowStyles";
 import Text from "./Text";
 import SenswaveModal from "./SenswaveModal";
+import Button from "./Button";
+import { IconCatalog } from "@/hooks/useIconCatalog";
+import { getResourceIcon, IconResource } from "@/utils/resourceIcons";
 
 const ICON_SIZE = 24;
 
@@ -35,12 +38,18 @@ interface IconProps {
     defaultIcon?: string;
     iconList?: string[];
     onIconSelected?: (icon: string) => void;
+    catalog?: IconCatalog;
+    resource?: IconResource;
+    disabled?: boolean;
 }
 
 const IconSelector: React.FC<IconProps> = ({
     defaultIcon = InitialIcon,
     iconList = DefaultIcons,
     onIconSelected = () => {},
+    catalog,
+    resource,
+    disabled = false,
 }) => {
     const theme = useTheme();
     const [selectedIcon, setSelectedIcon] = useState<string>(defaultIcon);
@@ -52,6 +61,15 @@ const IconSelector: React.FC<IconProps> = ({
     const [modalVisible, setModalVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const scaleAnim = useRef(new Animated.Value(1)).current;
+    const unavailable =
+        disabled ||
+        (!!catalog && (catalog.loading || !!catalog.error || catalog.keys.length === 0));
+    const availableIcons = catalog ? catalog.keys : AllIcons;
+    const quickIcons = catalog ? catalog.keys : iconList;
+    const iconLabel = (key: string) =>
+        resource
+            ? getResourceIcon(key, resource).label
+            : key.replace(/-outline$/, "").replace(/-/g, " ");
 
     const triggerPulse = () => {
         Animated.sequence([
@@ -71,6 +89,7 @@ const IconSelector: React.FC<IconProps> = ({
     };
 
     const onSelected = (icon: string) => {
+        if (unavailable || (catalog && !catalog.keys.includes(icon))) return;
         setSelectedIcon(icon);
         onIconSelected?.(icon);
         triggerPulse();
@@ -88,8 +107,12 @@ const IconSelector: React.FC<IconProps> = ({
     };
 
     const filteredIcons = searchQuery
-        ? AllIcons.filter((i) => i.includes(searchQuery.toLowerCase()))
-        : AllIcons;
+        ? availableIcons.filter(
+              (key) =>
+                  key.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  iconLabel(key).toLowerCase().includes(searchQuery.toLowerCase()),
+          )
+        : availableIcons;
 
     return (
         <View style={styles.mainContainer}>
@@ -101,6 +124,9 @@ const IconSelector: React.FC<IconProps> = ({
                 {/* Selected icon preview with animation */}
                 <View style={styles.selectedWrapper}>
                     <Animated.View
+                        accessible
+                        accessibilityRole="image"
+                        accessibilityLabel={`Current icon: ${iconLabel(selectedIcon)}`}
                         style={[
                             styles.iconContainer,
                             shadowStyles.default,
@@ -110,7 +136,12 @@ const IconSelector: React.FC<IconProps> = ({
                                 transform: [{ scale: scaleAnim }],
                             },
                         ]}>
-                        <Icon icon={selectedIcon} size={ICON_SIZE} color="onPrimary" />
+                        <Icon
+                            icon={selectedIcon}
+                            resource={resource}
+                            size={ICON_SIZE}
+                            color="onPrimary"
+                        />
                     </Animated.View>
                 </View>
 
@@ -125,9 +156,16 @@ const IconSelector: React.FC<IconProps> = ({
                 {/* Quick-access strip */}
                 <FlatList
                     removeClippedSubviews={false}
-                    data={iconList}
+                    data={quickIcons}
                     renderItem={({ item }) => (
                         <TouchableOpacity
+                            disabled={unavailable}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${iconLabel(item)} icon`}
+                            accessibilityState={{
+                                selected: item === selectedIcon,
+                                disabled: unavailable,
+                            }}
                             style={[
                                 styles.iconContainer,
                                 item === selectedIcon && {
@@ -138,6 +176,7 @@ const IconSelector: React.FC<IconProps> = ({
                             onPress={() => onSelected(item)}>
                             <Icon
                                 icon={item}
+                                resource={resource}
                                 size={ICON_SIZE}
                                 color={item === selectedIcon ? "onPrimary" : "onBackground"}
                             />
@@ -145,6 +184,7 @@ const IconSelector: React.FC<IconProps> = ({
                     )}
                     keyExtractor={(item) => item}
                     horizontal
+                    keyboardShouldPersistTaps="handled"
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.iconListContainer}
                     style={styles.iconList}
@@ -152,14 +192,40 @@ const IconSelector: React.FC<IconProps> = ({
 
                 {/* Browse all button */}
                 <TouchableOpacity
+                    disabled={unavailable}
+                    accessibilityRole="button"
+                    accessibilityLabel="Browse all icons"
+                    accessibilityState={{ disabled: unavailable }}
                     style={[
                         styles.browseButton,
                         { borderColor: theme.current.colors.textOnBackground },
                     ]}
-                    onPress={() => setModalVisible(true)}>
+                    onPress={() => {
+                        if (!unavailable) setModalVisible(true);
+                    }}>
                     <Icon icon="grid-outline" size={20} color="onBackground" />
                 </TouchableOpacity>
             </View>
+
+            {catalog?.loading && (
+                <Text color="onBackground" accessibilityLiveRegion="polite">
+                    Loading icons…
+                </Text>
+            )}
+            {!!catalog?.error && (
+                <View style={styles.catalogFeedback}>
+                    <Text color="error" accessibilityRole="alert" numberOfLines={0}>
+                        {catalog.error}
+                    </Text>
+                    <Button
+                        name="Retry icons"
+                        loading={false}
+                        type="brand-outline"
+                        disabled={disabled}
+                        onPress={catalog.retry}
+                    />
+                </View>
+            )}
 
             {/* Full icon browser */}
             <SenswaveModal visible={modalVisible} onClose={closeModal} title="Select Icon">
@@ -172,6 +238,7 @@ const IconSelector: React.FC<IconProps> = ({
                     ]}>
                     <Icon icon="search-outline" size={18} color="onPrimary" />
                     <TextInput
+                        accessibilityLabel="Search icons"
                         style={[styles.searchInput, { color: theme.current.colors.textOnPrimary }]}
                         placeholder="Search icons..."
                         placeholderTextColor={theme.current.colors.textOnPrimary + "99"}
@@ -182,6 +249,8 @@ const IconSelector: React.FC<IconProps> = ({
                     />
                     {searchQuery.length > 0 && (
                         <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Clear icon search"
                             onPress={() => setSearchQuery("")}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                             <Icon icon="close-outline" size={18} color="onPrimary" />
@@ -197,6 +266,13 @@ const IconSelector: React.FC<IconProps> = ({
                     key={NUM_COLUMNS}
                     renderItem={({ item }) => (
                         <TouchableOpacity
+                            disabled={unavailable}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${iconLabel(item)} icon`}
+                            accessibilityState={{
+                                selected: item === selectedIcon,
+                                disabled: unavailable,
+                            }}
                             style={styles.gridCell}
                             onPress={() => onModalSelect(item)}>
                             <View
@@ -209,6 +285,7 @@ const IconSelector: React.FC<IconProps> = ({
                                 ]}>
                                 <Icon
                                     icon={item}
+                                    resource={resource}
                                     size={ICON_SIZE}
                                     color={item === selectedIcon ? "onPrimary" : "onBackground"}
                                 />
@@ -227,6 +304,7 @@ const IconSelector: React.FC<IconProps> = ({
 export default IconSelector;
 
 const styles = StyleSheet.create({
+    catalogFeedback: { gap: 8, paddingVertical: 8 },
     mainContainer: {
         marginTop: 6,
     },
@@ -256,6 +334,8 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     iconContainer: {
+        minWidth: 48,
+        minHeight: 48,
         padding: 10,
         borderColor: "transparent",
         justifyContent: "center",
@@ -264,6 +344,8 @@ const styles = StyleSheet.create({
         marginHorizontal: 2,
     },
     browseButton: {
+        minWidth: 48,
+        minHeight: 48,
         paddingVertical: 8,
         paddingHorizontal: 10,
         justifyContent: "center",

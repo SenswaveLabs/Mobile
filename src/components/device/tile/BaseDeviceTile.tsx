@@ -9,7 +9,7 @@ interface BaseDeviceTileProps {
 function BaseDeviceTile({ icon }: BaseDeviceTileProps) {
     return (
         <View style={styles.iconContainer}>
-            <Icon icon={icon} size={64} color={"onPrimary"} />
+            <Icon icon={icon} resource="devices" size={64} color={"onPrimary"} />
         </View>
     );
 }

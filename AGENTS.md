@@ -10,6 +10,7 @@ The auth PoC uses local shadcn/Base UI components in Expo DOM; the rest of the a
 - Never merge PRs autonomously. Notify on test failure and wait for human. Commit/PR titles start with `fix:`, `feat:` or `chore:`.
 - Production releases are manual only, with strict versioning. CI only verifies lint, types and Android builds.
 - Never call `fetch` outside `src/utils/httpClient.tsx`; use `useHttpClient()`.
+- Home and Device icon choices come from backend catalogs. Keep opaque keys unchanged; see [Domain and API contracts](docs/agent-guide/api-and-data.md).
 - Changes to shared API contracts require a backend build at `Senswave.sln` level.
 - Use pnpm only, Node from `.nvmrc`, and the frozen pnpm lockfile. Preserve build approvals in `pnpm-workspace.yaml`.
 - Create `.env` from `.env.template` before the first run.

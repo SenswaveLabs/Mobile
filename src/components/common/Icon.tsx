@@ -2,6 +2,7 @@ import React, { FC } from "react";
 import { StyleProp, StyleSheet, ViewProps } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeProvider";
+import { getResourceIcon, IconResource } from "@/utils/resourceIcons";
 
 export const AllIcons = [
     "accessibility-outline",
@@ -338,12 +339,13 @@ export type IconColor =
 
 interface IconProps {
     icon: string;
+    resource?: IconResource;
     size: number;
     color?: IconColor;
     style?: StyleProp<ViewProps>;
 }
 
-const Icon: FC<IconProps> = ({ icon, size, color = "textOnPrimary", style }) => {
+const Icon: FC<IconProps> = ({ icon, resource, size, color = "textOnPrimary", style }) => {
     const theme = useTheme();
 
     const calculateIconColor = (color: string) => {
@@ -382,7 +384,11 @@ const Icon: FC<IconProps> = ({ icon, size, color = "textOnPrimary", style }) => 
     return (
         <Ionicons
             size={size}
-            name={outlineIcon as keyof typeof Ionicons.glyphMap}
+            name={
+                resource
+                    ? getResourceIcon(icon, resource).glyph
+                    : (outlineIcon as keyof typeof Ionicons.glyphMap)
+            }
             style={[styles.icon, style]}
             color={calculateIconColor(color)}
         />

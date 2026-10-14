@@ -57,7 +57,12 @@ const CurrentHome: FC<CurrentHomeProps> = ({
                     { backgroundColor: theme.current.colors.primary },
                 ]}>
                 <View style={styles.dataContainer}>
-                    <Icon icon={initIcon ?? homes.current!.icon} size={26} color="onPrimary" />
+                    <Icon
+                        icon={initIcon ?? homes.current!.icon}
+                        resource="homes"
+                        size={26}
+                        color="onPrimary"
+                    />
 
                     <View style={styles.textInDataContainer}>
                         <Text size={"large"} color="onPrimary">
