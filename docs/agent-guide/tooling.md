@@ -11,6 +11,7 @@ pnpm lint                     # ESLint check
 pnpm fix                      # ESLint auto-fix
 pnpm test:poc                 # native auth validation, submissions, route boundaries and reset behavior
 pnpm test:homes               # home selection, joining, creation, settings, maps and recovery
+pnpm test:build               # separate next-dev identity and Android version-code validation
 ```
 
 - Run `pnpm typecheck`, `pnpm lint`, and `pnpm test:poc` before committing.
@@ -59,17 +60,54 @@ traffic beyond normal interactive use. Expo web shows a fallback and retains GPS
 
 | Workflow | Trigger |
 |----------|---------|
-| `build.yaml` | Pushes to `next-dev`, PRs to `next-dev`, and manual dispatch; pnpm install, lint, typecheck, then a local Android release build |
+| `build.yaml` | PRs to `next-dev`: lint, types, auth/build tests and Android verification on GitHub-hosted runners. Pushes or manual runs on `next-dev`: quality checks, then request an infrastructure release PR. |
 
-New UI changes live on `next-dev`. Both jobs read Node from `.nvmrc` and pnpm from
+New UI changes live on `next-dev`. Verification jobs read Node from `.nvmrc` and pnpm from
 `packageManager`; installs use the frozen lockfile. The build job creates `.env`
 from `.env.template`, runs `pnpm exec expo prebuild --platform android --no-install`,
 then `./gradlew :app:assembleRelease --no-daemon` in `android` using Java 17.
-The generated project's debug key signs this verification APK. CI does not use
-EAS credentials, increment remote versions, upload application artifacts, or deploy.
-`CI=true` disables interactive tooling. Older runs for the same ref are cancelled.
-`pnpm test:poc` remains a local check
-required before committing.
+The generated project's debug key signs the PR verification APK. All public
+`Mobile` jobs use GitHub-hosted runners; they never build on the VPS. PRs cannot
+request a release. `CI=true` disables interactive tooling; superseded PR runs
+are cancelled, while release requests finish.
+
+For next-dev, a dedicated GitHub App has only **Actions: write** on private
+`SenswaveLabs/Next-Infra`, plus GitHub's automatic metadata access. Configure
+`MOBILE_INFRA_APP_ID` as a Mobile variable and `MOBILE_INFRA_APP_PRIVATE_KEY` as
+a Mobile secret. Do not grant Contents, Pull requests, Workflows or Administration
+write, and do not reuse `NEXT_INFRA_TOKEN`. The token dispatches the private
+`propose-next-dev-mobile.yaml` workflow with the actual Mobile CI run ID.
+Private infra independently verifies that the run belongs to Mobile/next-dev
+and passed its quality job, then creates a version PR on a GitHub-hosted runner.
+The PR records the real CI actor, source SHA and CI link. A human reviews and
+merges it; only a push to infra/main starts the VPS build and deployment.
+There is no cron, automatic merge, or mobile deployment dispatch endpoint.
+
+The source identity is immutable: `MOBILE_VERSION=<source SHA>-<Mobile workflow
+run number>`. Infra's trusted Dockerfile builds that exact commit using Node
+from `.nvmrc`, pnpm from `packageManager`, the frozen lockfile, Java 17 and the
+Android SDK. A fresh signing stage reads a dedicated next-dev key via BuildKit
+secrets. The final Nginx image contains the APK, checksum and download page.
+It uses the existing registry, Compose, Traefik and Ansible deployment pattern.
+
+`app.config.js` preserves `app.json` for normal development and production.
+Only `SENSWAVE_BUILD_PROFILE=next-dev` changes the installed name, scheme and
+Android package to `Senswave next-dev` / `com.develite.senswave.nextdev`, and
+requires `SENSWAVE_ANDROID_VERSION_CODE`. That value increases with new Mobile
+CI runs without changing production or EAS-managed versions. The APK bundles
+its JavaScript, connects to `https://next-dev-api.senswave.net`, and runs without
+Metro. It supports ARM Android phones; the initial builder requires Linux x64.
+
+Download after a successful infra deployment:
+`https://next-dev-mobile.senswave.net/senswave-next-dev.apk`.
+Allow installation from the browser when Android prompts, then open the APK.
+Install a newer APK over the existing test app to preserve data. This is a manual
+update; production can remain installed alongside it.
+
+See `Next-Infra/docs/next-dev-mobile.md` for the GitHub App setup, private workflow
+permissions, signing key, OAuth registration, VPS prerequisites and DNS/TLS.
+Production store releases remain manual; this flow does not use EAS Build,
+upload artifacts to GitHub storage, or publish to Google Play.
 
 **Versioning** — `{major}.{minor}.{patch}`:
 
@@ -82,5 +120,7 @@ required before committing.
 Minimum API version controlled by `EXPO_PUBLIC_MINIMAL_API_VERSION`. Forced update also possible via Play Store.
 
 **PR rules** — notify on test failure, never merge autonomously. Title prefix `fix:` / `feat:` / `chore:`.
+
+NativeWind's Babel preset requires the direct `@babel/plugin-transform-react-jsx` development dependency so Gradle's direct Node invocation can resolve it without pnpm's CLI paths.
 
 React Native Reusables uses NativeWind 4.2.7 and Tailwind CSS 3.4.19; the previous DOM Tailwind v4/PostCSS pipeline is removed. Add native libraries with `pnpm exec expo install <package> --pnpm` so Expo selects SDK-compatible versions, and commit the resulting lockfile. `react-native-svg` and MapLibre require a new development client build; restart Metro with `--clear` after adding native dependencies or changing NativeWind configuration so its resolver includes the new modules.

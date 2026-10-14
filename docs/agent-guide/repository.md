@@ -15,7 +15,9 @@
 | Home location | MapLibre React Native 11 with OpenStreetMap raster tiles; native modal picker and optional Expo Location GPS/address lookup. Expo web keeps a native-control fallback without importing the map SDK. |
 | Backend | .NET Minimal API — modular monolith (`Senswave.sln`) |
 
-App version: **1.1.0**. Version source: `remote` (EAS-managed).
+App version: **1.1.0**. Production version source: `remote` (EAS-managed).
+Next-dev APKs use `app.config.js` for a separate package and CI version code;
+see [Tooling](tooling.md).
 
 ## Directory map
 

@@ -10,7 +10,8 @@
         "fix": "eslint . --fix",
         "typecheck": "tsc --noEmit",
         "test:poc": "node --test tests/authValidation.test.mjs tests/authPanel.test.mjs tests/resetPasswordForm.test.mjs tests/feedback.test.mjs",
-        "test:homes": "node --test tests/homeList.test.mjs tests/joinHomeForm.test.mjs tests/homeForm.test.mjs tests/locationMapPicker.test.mjs"
+        "test:homes": "node --test tests/homeList.test.mjs tests/joinHomeForm.test.mjs tests/homeForm.test.mjs tests/locationMapPicker.test.mjs",
+        "test:build": "node --test tests/buildConfig.test.mjs"
     },
     "dependencies": {
         "@expo/metro-runtime": "~6.1.2",
@@ -64,6 +65,7 @@
     },
     "devDependencies": {
         "@babel/core": "^7.25.2",
+        "@babel/plugin-transform-react-jsx": "7.28.6",
         "@eslint/js": "^9.19.0",
         "@react-native-community/cli": "^14.0.1",
         "@types/react": "~19.1.10",
