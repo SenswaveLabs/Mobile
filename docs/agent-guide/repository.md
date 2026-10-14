@@ -14,7 +14,9 @@
 | Auth PoC | Welcome, login, registration, forgot password and development server selection share one persistent Expo DOM WebView (`react-native-webview`), with copied shadcn + Base UI + Tailwind CSS v4. Auth actions stay native. See the [auth PoC](../shadcn-dom-poc.md). |
 | Backend | .NET Minimal API — modular monolith (`Senswave.sln`) |
 
-App version: **1.1.0**. Version source: `remote` (EAS-managed).
+App version: **1.1.0**. Production version source: `remote` (EAS-managed).
+Next-dev APKs use `app.config.js` for a separate package and CI version code;
+see [Tooling](tooling.md).
 
 ## Directory map
 

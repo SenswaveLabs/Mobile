@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
+    "test:build": "node --test tests/buildConfig.test.mjs",
     "test:poc": "node --test tests/authValidation.test.mjs tests/resetPasswordForm.test.mjs",
     "test:homes": "node --test tests/homeList.test.mjs tests/joinHomeForm.test.mjs"
   },
