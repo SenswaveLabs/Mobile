@@ -83,7 +83,7 @@ defines MD3 interaction principles with Senswave's shadcn-based visual language.
 Pull requests are welcome.
 
 - Read [`AGENTS.md`](AGENTS.md) and the guide relevant to your task before writing code.
-- Use `next-dev` for new UI changes; keep it separate from `main` for now. CI checks lint, TypeScript and an Android release build on pushes and PRs to `next-dev`. Production releases are manual.
+- Use `next-dev` for new UI changes; keep it separate from `main` for now. PRs get GitHub-hosted Android verification. After a push to `next-dev`, CI requests a version PR in private Next-Infra; a human merge starts the VPS build and APK hosting. See [Tooling](docs/agent-guide/tooling.md). Production releases are manual.
 - Report bugs using the **Bug report** issue template.
 - Propose features using the **Feature request** issue template.
 

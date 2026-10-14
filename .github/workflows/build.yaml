@@ -1,83 +1,118 @@
-name: Verify Android
+name: Mobile CI and Next Dev Proposal
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - next-dev
-  pull_request:
-    branches:
-      - next-dev
+    workflow_dispatch:
+    push:
+        branches:
+            - next-dev
+    pull_request:
+        branches:
+            - next-dev
 
 permissions:
-  contents: read
+    contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  CI: true
+    CI: true
 
 jobs:
-  quality:
-    runs-on: ubuntu-latest
+    quality:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: 🏗 Setup repo
-        uses: actions/checkout@v4
+        steps:
+            - name: 🏗 Setup repo
+              uses: actions/checkout@v4
 
-      - name: 🏗 Setup pnpm
-        uses: pnpm/action-setup@v4
+            - name: 🏗 Setup pnpm
+              uses: pnpm/action-setup@v4
 
-      - name: 🏗 Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
+            - name: 🏗 Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: pnpm
 
-      - name: 📦 Install Dependencies
-        run: pnpm install --frozen-lockfile
+            - name: 📦 Install Dependencies
+              run: pnpm install --frozen-lockfile
 
-      - name: 🚀 Run ESLint
-        run: pnpm lint
+            - name: 🚀 Run ESLint
+              run: pnpm lint
 
-      - name: 🚀 Check TypeScript
-        run: pnpm typecheck
+            - name: 🚀 Check TypeScript
+              run: pnpm typecheck
 
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 100
-    needs: quality
-    steps:
-      - name: 🏗 Setup repo
-        uses: actions/checkout@v4
+            - name: Verify build configuration
+              run: pnpm test:build
 
-      - name: 🏗 Setup pnpm
-        uses: pnpm/action-setup@v4
+            - name: Test native auth flows
+              run: pnpm test:poc
 
-      - name: 🏗 Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
+    build:
+        if: github.event_name == 'pull_request'
+        runs-on: ubuntu-latest
+        timeout-minutes: 100
+        needs: quality
+        steps:
+            - name: 🏗 Setup repo
+              uses: actions/checkout@v4
 
-      - name: 📦 Install dependencies
-        run: pnpm install --frozen-lockfile
+            - name: 🏗 Setup pnpm
+              uses: pnpm/action-setup@v4
 
-      - name: 🏗 Configure build environment
-        run: cp .env.template .env
+            - name: 🏗 Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: pnpm
 
-      - name: 🏗 Generate Android project
-        run: pnpm exec expo prebuild --platform android --no-install
+            - name: 📦 Install dependencies
+              run: pnpm install --frozen-lockfile
 
-      - name: 🏗 Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: gradle
+            - name: 🏗 Configure build environment
+              run: cp .env.template .env
 
-      - name: 🚀 Verify Android release build
-        working-directory: android
-        run: ./gradlew :app:assembleRelease --no-daemon
+            - name: 🏗 Generate Android project
+              run: pnpm exec expo prebuild --platform android --no-install
+
+            - name: 🏗 Setup Java
+              uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: "17"
+                  cache: gradle
+
+            - name: 🚀 Verify Android release build
+              working-directory: android
+              run: ./gradlew :app:assembleRelease --no-daemon
+
+    propose-infra:
+        name: Request Infrastructure Release Proposal
+        needs: quality
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/next-dev'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Create infrastructure dispatch token
+              id: app-token
+              uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+              with:
+                  app-id: ${{ vars.MOBILE_INFRA_APP_ID }}
+                  private-key: ${{ secrets.MOBILE_INFRA_APP_PRIVATE_KEY }}
+                  owner: SenswaveLabs
+                  repositories: Next-Infra
+                  permission-actions: write
+
+            - name: Request private infrastructure proposal
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ steps.app-token.outputs.token }}
+                  SOURCE_RUN_ID: ${{ github.run_id }}
+              run: |
+                  set -euo pipefail
+                  gh workflow run propose-next-dev-mobile.yaml --repo SenswaveLabs/Next-Infra \
+                    --ref main -f source_run_id="$SOURCE_RUN_ID"
+                  printf 'Requested infrastructure PR for [Mobile CI](%s).\n' \
+                    "https://github.com/SenswaveLabs/Mobile/actions/runs/$SOURCE_RUN_ID" >> "$GITHUB_STEP_SUMMARY"
