@@ -18,6 +18,14 @@ function mountForm(props = {}) {
     const form = mountNativeComponent("src/components/home/HomeForm.tsx", {
         props: { onSubmit: async () => {}, ...props },
         modules: {
+            "@/hooks/useIconCatalog": {
+                useIconCatalog: () => ({
+                    keys: ["home-outline", "leaf-outline", "sunny-outline"],
+                    loading: false,
+                    error: "",
+                    retry() {},
+                }),
+            },
             "../common/IconSelector": "IconSelector",
             "../common/LocalizationSelector": "LocalizationSelector",
             "expo-router": { useFocusEffect: (callback) => (focus = callback) },

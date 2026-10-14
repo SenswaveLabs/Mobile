@@ -14,35 +14,14 @@ import Divider from "../common/Divider";
 import Expander from "../common/Expander";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { keyboardOffset } from "@/styles/defaultStyles";
+import { useIconCatalog } from "@/hooks/useIconCatalog";
+import Text from "../common/Text";
 
 const numColumns = 2;
 const screenWidth = Dimensions.get("window").width;
 const edgePadding = 15;
 const innerSpacing = 20;
 const itemWidth = (screenWidth - edgePadding * 2 - innerSpacing * (numColumns - 1)) / numColumns;
-
-const DefaultIcons = [
-    "bulb-outline",
-    "thermometer-outline",
-    "lock-closed-outline",
-    "camera-outline",
-    "power-outline",
-    "hardware-chip-outline",
-    "wifi-outline",
-    "phone-portrait-outline",
-    "laptop-outline",
-    "desktop-outline",
-    "tv-outline",
-    "server-outline",
-    "battery-charging-outline",
-    "alarm-outline",
-    "mic-outline",
-    "finger-print-outline",
-    "water-outline",
-    "leaf-outline",
-    "snow-outline",
-    "flame-outline",
-] as string[];
 
 const DefaultDeviceIcon: string = "bulb-outline";
 
@@ -106,6 +85,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
 ) {
     const homes = useHomes();
     const toast = useToast();
+    const catalog = useIconCatalog("devices");
 
     console.log("DeviceForm initialized with: ");
     console.warn(initPresenceType, initPresenceOperationId);
@@ -114,6 +94,9 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
     const [name, setName] = useState<string>(initName ?? "");
     const [nameError, setNameError] = useState<string>("");
     const [icon, setIcon] = useState(initIcon ?? DefaultDeviceIcon);
+    const isIconValid =
+        (edit && icon === initIcon) ||
+        (!catalog.loading && !catalog.error && catalog.keys.includes(icon));
     const [roomId, setRoomId] = useState<string>(initRoomId ?? "None");
     const [roomOptionsList, setRoomOptionsList] = useState<Option[]>(baseRooms);
 
@@ -234,7 +217,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
             toast.info("Select operation for display tile.");
         }
 
-        return valid;
+        return valid && isIconValid;
     };
 
     const isButtonVisible = () => {
@@ -353,7 +336,18 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                     setValue={setName}
                 />
 
-                <IconSelector defaultIcon={icon} iconList={DefaultIcons} onIconSelected={setIcon} />
+                <IconSelector
+                    defaultIcon={icon}
+                    catalog={catalog}
+                    resource="devices"
+                    onIconSelected={setIcon}
+                    disabled={loading}
+                />
+                {!catalog.loading && !catalog.error && !isIconValid && (
+                    <Text color="error" accessibilityRole="alert">
+                        Select an available icon.
+                    </Text>
+                )}
 
                 {edit ? (
                     <RoomSelector initialRoomId={roomId} onSelected={onRoomSelected} />

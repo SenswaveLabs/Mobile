@@ -255,6 +255,13 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
   (neutral). The `dataSourceStatus` theme palettes mirror the web's light/dark
   status colors; keep readable text, a decorative indicator and no pulse animation.
 - Re-fetch trigger: increment a numeric state counter.
+- Home/Device `IconSelector` receives the fetched resource catalog for both its quick
+  strip and searchable browser, with local glyphs/labels, named 48 dp targets and
+  selected/disabled accessibility states. Loading and failure stay local to the
+  icon field, with a visible Retry icons action. Preserve the current historical key
+  and let unrelated existing-resource edits proceed without a catalog; new or
+  changed choices require a loaded matching key. Defaults are validated rather than
+  replaced automatically. Dashboard, Radio and Automation retain the global browser.
 
 ## Existing native components
 

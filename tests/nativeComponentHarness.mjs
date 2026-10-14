@@ -59,6 +59,10 @@ export function mountNativeComponent(
             const index = cursor++;
             return (slots[index] ??= { current: initial });
         },
+        forwardRef: (component) => (props) => component(props, props.ref),
+        useImperativeHandle: (ref, create) => {
+            if (ref) ref.current = create();
+        },
         useMemo: memo,
         useId: () => memo(() => `native-test-${cursor}`, []),
         useCallback: (fn, deps) => memo(() => fn, deps),
@@ -79,6 +83,7 @@ export function mountNativeComponent(
                 "Text",
                 "TextInput",
                 "Pressable",
+                "TouchableOpacity",
                 "FlatList",
                 "RefreshControl",
                 "ActivityIndicator",
@@ -88,6 +93,17 @@ export function mountNativeComponent(
             ].map((name) => [name, name]),
         ),
         StyleSheet: { create: (value) => value },
+        Dimensions: { get: () => ({ width: 390, height: 844 }) },
+        Animated: {
+            View: "Animated.View",
+            Value: class {
+                constructor(value) {
+                    this.value = value;
+                }
+            },
+            spring: () => ({}),
+            sequence: () => ({ start: () => {} }),
+        },
         Platform: { select: (values) => values.default },
         useWindowDimensions: () => ({ width: 390, height: 844, scale: 1, fontScale: 1 }),
         AccessibilityInfo: { announceForAccessibility: () => {} },
@@ -156,7 +172,8 @@ export function mountNativeComponent(
     }
     const Component = load(resolve(file))[exportName];
     let tree;
-    const render = () => {
+    const render = (nextProps = props) => {
+        props = nextProps;
         cursor = 0;
         tree = Component(props);
     };
@@ -176,6 +193,8 @@ export function mountNativeComponent(
         render,
         elements: (node = tree) => elements(node),
         focused,
+        output: () => tree,
+        unmount: () => slots.forEach((slot) => slot?.cleanup?.()),
         flushEffects: () => {
             effects.splice(0).forEach((effect) => effect());
         },

@@ -12,6 +12,7 @@ pnpm fix                      # ESLint auto-fix
 pnpm test:poc                 # native auth validation, submissions, route boundaries and reset behavior
 pnpm test:homes               # home selection, joining, creation, settings, maps and recovery
 pnpm test:build               # separate next-dev identity and Android version-code validation
+pnpm test:icons               # Home/Device catalogs, selectors, glyphs and submission keys
 ```
 
 - Run `pnpm typecheck`, `pnpm lint`, and `pnpm test:poc` before committing.
