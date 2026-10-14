@@ -47,7 +47,14 @@ or rerun an expensive build for an unrelated documentation edit.
   module is unavailable in Expo Go.
 - Shared API contracts: verify the backend build at `Senswave.sln` level.
 
-CI verifies lint, types, auth/build tests and the Android release build on PRs.
+CI verifies lint, types, auth/build tests, production Android JS export and ARM64
+debug compilation on PRs. Gradle profiles are uploaded for timing analysis.
+Validate release-only tasks and other supported architectures during release
+verification. Production and private next-dev build profiles are unchanged.
+Pushes and manual runs on `next-dev` also run the Android check to populate cache
+for new PRs. After integration, verify a completed `next-dev` build followed by
+a fresh PR restoring Gradle state from the base branch; rerunning an existing PR
+only proves reuse within that PR.
 Next-dev pushes can request an infrastructure version PR; all public jobs stay
 on GitHub-hosted runners. A human merge in private infra starts the VPS build.
 Production deployment and EAS remote version changes remain manual.

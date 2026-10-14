@@ -61,16 +61,34 @@ traffic beyond normal interactive use. Expo web shows a fallback and retains GPS
 
 | Workflow | Trigger |
 |----------|---------|
-| `build.yaml` | PRs to `next-dev`: lint, types, auth/build tests and Android verification on GitHub-hosted runners. Pushes or manual runs on `next-dev`: quality checks, then request an infrastructure release PR. |
+| `build.yaml` | PRs to `next-dev`: lint, types, auth/build tests, production Android JS export and ARM64 debug compilation on GitHub-hosted runners. Pushes or manual runs on `next-dev`: quality checks, then the same Android build to seed cache and an independent infrastructure release PR request. |
 
 New UI changes live on `next-dev`. Verification jobs read Node from `.nvmrc` and pnpm from
 `packageManager`; installs use the frozen lockfile. The build job creates `.env`
-from `.env.template`, runs `pnpm exec expo prebuild --platform android --no-install`,
-then `./gradlew :app:assembleRelease --no-daemon` in `android` using Java 17.
+from `.env.template`, verifies production JavaScript with
+`pnpm exec expo export --platform android`, then generates the native project with
+`pnpm exec expo prebuild --platform android --no-install`. Java 17 and
+`gradle/actions/setup-gradle@v4` prepare Gradle; do not also enable `setup-java`'s
+Gradle cache. The native check runs `./gradlew :app:assembleDebug
+-PreactNativeArchitectures=arm64-v8a --build-cache --parallel --no-daemon --profile
+--console=plain` in `android`. `cache-read-only: false` saves reusable Gradle state.
+Pushes and manual runs on `next-dev` run the same `build` job, populating cache on
+the base branch so new PRs can restore it on their first run. Wait for that build
+to finish before measuring a new PR. Cache written by a PR remains isolated from
+sibling PRs; subsequent commits in that PR can reuse it. Gradle validates task
+inputs before reusing outputs, so dependency or native configuration changes may
+still require compilation. See [GitHub cache access rules](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache).
+The `gradle-profile` artifact contains `android/build/reports/profile/` and is
+uploaded even after a failed build when a report exists. This check covers
+production JS bundling and ARM64 native compilation; release-only tasks and other
+ABIs require validation before releases.
 The generated project's debug key signs the PR verification APK. All public
 `Mobile` jobs use GitHub-hosted runners; they never build on the VPS. PRs cannot
 request a release. `CI=true` disables interactive tooling; superseded PR runs
 are cancelled, while release requests finish.
+
+Standard Linux runners are free and unlimited for public Mobile; they do not use
+the private-repository minute quota. See [GitHub runner billing](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
 
 For next-dev, a dedicated GitHub App has only **Actions: write** on private
 `SenswaveLabs/Next-Infra`, plus GitHub's automatic metadata access. Configure
@@ -108,7 +126,7 @@ update; production can remain installed alongside it.
 See `Next-Infra/docs/next-dev-mobile.md` for the GitHub App setup, private workflow
 permissions, signing key, OAuth registration, VPS prerequisites and DNS/TLS.
 Production store releases remain manual; this flow does not use EAS Build,
-upload artifacts to GitHub storage, or publish to Google Play.
+upload APKs to GitHub storage, or publish to Google Play.
 
 **Versioning** — `{major}.{minor}.{patch}`:
 

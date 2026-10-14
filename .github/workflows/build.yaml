@@ -52,7 +52,7 @@ jobs:
               run: pnpm test:poc
 
     build:
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/next-dev'
         runs-on: ubuntu-latest
         timeout-minutes: 100
         needs: quality
@@ -75,6 +75,9 @@ jobs:
             - name: 🏗 Configure build environment
               run: cp .env.template .env
 
+            - name: 🚀 Verify production Android JS bundle
+              run: pnpm exec expo export --platform android
+
             - name: 🏗 Generate Android project
               run: pnpm exec expo prebuild --platform android --no-install
 
@@ -83,11 +86,30 @@ jobs:
               with:
                   distribution: temurin
                   java-version: "17"
-                  cache: gradle
 
-            - name: 🚀 Verify Android release build
+            - name: ⚡ Setup Gradle
+              uses: gradle/actions/setup-gradle@v4
+              with:
+                  cache-read-only: false
+
+            # shortcut: PRs verify ARM64 debug and production JS; validate release tasks and all ABIs before releases.
+            - name: 🚀 Verify Android ARM64 compilation
               working-directory: android
-              run: ./gradlew :app:assembleRelease --no-daemon
+              run: |
+                  ./gradlew :app:assembleDebug \
+                    -PreactNativeArchitectures=arm64-v8a \
+                    --build-cache \
+                    --parallel \
+                    --no-daemon \
+                    --profile \
+                    --console=plain
+
+            - name: 📊 Upload Gradle profile
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: gradle-profile
+                  path: android/build/reports/profile/
 
     propose-infra:
         name: Request Infrastructure Release Proposal
