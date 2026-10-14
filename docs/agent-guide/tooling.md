@@ -60,16 +60,25 @@ traffic beyond normal interactive use. Expo web shows a fallback and retains GPS
 
 | Workflow | Trigger |
 |----------|---------|
-| `build.yaml` | PRs to `next-dev`: lint, types, auth/build tests and Android verification on GitHub-hosted runners. Pushes or manual runs on `next-dev`: quality checks, then request an infrastructure release PR. |
+| `build.yaml` | PRs to `next-dev`: lint, types, auth/build tests and cached ARM64 Android verification on GitHub-hosted runners. Pushes or manual runs on `next-dev`: quality checks, then request an infrastructure release PR. |
 
 New UI changes live on `next-dev`. Verification jobs read Node from `.nvmrc` and pnpm from
 `packageManager`; installs use the frozen lockfile. The build job creates `.env`
 from `.env.template`, runs `pnpm exec expo prebuild --platform android --no-install`,
-then `./gradlew :app:assembleRelease --no-daemon` in `android` using Java 17.
+then `./gradlew :app:assembleRelease --no-daemon --build-cache -PreactNativeArchitectures=arm64-v8a`
+in `android` using Java 17. PR checks build one ABI to avoid repeating native
+compilation for ARM32 and both x86 variants. Gradle output caching reuses eligible
+task results from the existing setup-java cache. Release profiles retain their
+configured architecture coverage; PR CI does not establish other ABIs work.
+The cache key includes the workflow and the standard Gradle inputs so this policy
+creates a fresh cache with build outputs after its first successful run.
 The generated project's debug key signs the PR verification APK. All public
 `Mobile` jobs use GitHub-hosted runners; they never build on the VPS. PRs cannot
 request a release. `CI=true` disables interactive tooling; superseded PR runs
 are cancelled, while release requests finish.
+
+Standard Linux runners are free and unlimited for public Mobile; they do not use
+the private-repository minute quota. See [GitHub runner billing](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
 
 For next-dev, a dedicated GitHub App has only **Actions: write** on private
 `SenswaveLabs/Next-Infra`, plus GitHub's automatic metadata access. Configure

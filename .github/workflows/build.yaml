@@ -84,10 +84,19 @@ jobs:
                   distribution: temurin
                   java-version: "17"
                   cache: gradle
+                  cache-dependency-path: |
+                      **/*.gradle*
+                      **/gradle-wrapper.properties
+                      buildSrc/**/Versions.kt
+                      buildSrc/**/Dependencies.kt
+                      gradle/*.versions.toml
+                      **/versions.properties
+                      .github/workflows/build.yaml
 
-            - name: 🚀 Verify Android release build
+            # shortcut: PR builds verify ARM64 only; validate all supported ABIs for releases.
+            - name: 🚀 Verify Android ARM64 release build
               working-directory: android
-              run: ./gradlew :app:assembleRelease --no-daemon
+              run: ./gradlew :app:assembleRelease --no-daemon --build-cache -PreactNativeArchitectures=arm64-v8a
 
     propose-infra:
         name: Request Infrastructure Release Proposal

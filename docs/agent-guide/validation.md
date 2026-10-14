@@ -47,7 +47,9 @@ or rerun an expensive build for an unrelated documentation edit.
   module is unavailable in Expo Go.
 - Shared API contracts: verify the backend build at `Senswave.sln` level.
 
-CI verifies lint, types, auth/build tests and the Android release build on PRs.
+CI verifies lint, types, auth/build tests and a cached ARM64 Android release build
+on PRs. This check covers one ABI; validate other supported architectures during
+release verification. Production and private next-dev build profiles are unchanged.
 Next-dev pushes can request an infrastructure version PR; all public jobs stay
 on GitHub-hosted runners. A human merge in private infra starts the VPS build.
 Production deployment and EAS remote version changes remain manual.
