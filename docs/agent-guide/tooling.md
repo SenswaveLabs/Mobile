@@ -9,8 +9,8 @@ pnpm start --dev-client       # subsequent runs (dev server)
 pnpm typecheck                # TypeScript check
 pnpm lint                     # ESLint check
 pnpm fix                      # ESLint auto-fix
-pnpm test:poc                 # auth validation, route boundaries and native reset behavior
-pnpm test:homes               # home selection, joining, loading and recovery behavior
+pnpm test:poc                 # native auth validation, submissions, route boundaries and reset behavior
+pnpm test:homes               # home selection, joining, creation, settings, maps and recovery
 ```
 
 - Run `pnpm typecheck`, `pnpm lint`, and `pnpm test:poc` before committing.
@@ -23,6 +23,16 @@ not re-linted after a native build. Source files remain covered by `pnpm lint`.
 Launch backgrounds in `app.json` match the shared canvas: light `#F9F7F1`, dark
 `#100D08`. Splash/adaptive-icon changes require prebuild and a new native build;
 a JavaScript reload updates in-app colors but not an installed splash screen.
+
+Home maps use `@maplibre/maplibre-react-native` 11 and its Expo plugin in `app.json`.
+Adding or updating this module requires prebuild and a new development client:
+`pnpm exec expo prebuild --platform android --no-install`, then `pnpm android`.
+Expo Go cannot render this native map. The picker uses the same OpenStreetMap
+raster source as web, with visible contributor attribution and a Senswave User-Agent.
+It relies on MapLibre's native HTTP cache and offers no offline download or prefetch
+feature. Public tiles follow the [OpenStreetMap tile policy](https://operations.osmfoundation.org/policies/tiles/)
+and have no availability guarantee; select a suitable hosted provider before scaling
+traffic beyond normal interactive use. Expo web shows a fallback and retains GPS.
 
 ## Environment variables
 
@@ -72,3 +82,5 @@ required before committing.
 Minimum API version controlled by `EXPO_PUBLIC_MINIMAL_API_VERSION`. Forced update also possible via Play Store.
 
 **PR rules** — notify on test failure, never merge autonomously. Title prefix `fix:` / `feat:` / `chore:`.
+
+React Native Reusables uses NativeWind 4.2.7 and Tailwind CSS 3.4.19; the previous DOM Tailwind v4/PostCSS pipeline is removed. Add native libraries with `pnpm exec expo install <package> --pnpm` so Expo selects SDK-compatible versions, and commit the resulting lockfile. `react-native-svg` and MapLibre require a new development client build; restart Metro with `--clear` after adding native dependencies or changing NativeWind configuration so its resolver includes the new modules.

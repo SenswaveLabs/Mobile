@@ -1,43 +1,32 @@
-import React, { FC, useCallback, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
-import { useWindowDimensions } from "react-native";
-import { usePathname, useRouter } from "expo-router";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import React, { createContext, FC, useContext } from "react";
+import { useRouter } from "expo-router";
 import { useSession } from "@/contexts/SessionProvider";
-import { useTheme } from "@/contexts/ThemeProvider";
 import { useConfiguration } from "@/contexts/ConfigurationProvider";
 import { useGoogleSignIn } from "@/hooks/useGoogleSignIn";
-import { useKeyboardVisible } from "@/hooks/useKeyboardVisible";
 import {
     validateEmail,
     validateLogin,
     validateRegistration,
     validateServerUrl,
 } from "@/utils/authValidation";
-import AuthPanel from "@/components/dom/AuthPanel";
-import { AUTH_SCREENS, getAuthScreen, type AuthPanelProps } from "@/components/dom/authTypes";
-import Button from "@/components/common/Button";
-import Text from "@/components/common/Text";
+import AuthPanel from "./AuthPanel";
+import { AUTH_SCREENS, type AuthPanelProps, type AuthScreen } from "./authTypes";
 
-export const AuthFlow: FC = () => {
+interface AuthFlowProps {
+    screen: AuthScreen;
+}
+
+export const ResendCooldownContext = createContext({ current: 0 });
+
+export const AuthFlow: FC<AuthFlowProps> = ({ screen }) => {
     const session = useSession();
-    const theme = useTheme();
     const configuration = useConfiguration();
     const router = useRouter();
-    const pathname = usePathname();
     const google = useGoogleSignIn();
-    const { fontScale } = useWindowDimensions();
-    const keyboardVisible = useKeyboardVisible();
-    const insets = useSafeAreaInsets();
-    const lastEmailSentAt = useRef(0);
-    const [ready, setReady] = useState(false);
-    const [loadError, setLoadError] = useState(false);
-    const [reloadCount, setReloadCount] = useState(0);
-    const onReady = useCallback(async () => setReady(true), []);
+    const lastEmailSentAt = useContext(ResendCooldownContext);
 
     const login: AuthPanelProps["onLogin"] = async (email, password) => {
-        // Validate again at the WebView/native boundary before calling the auth provider.
+        // Keep validation at the provider boundary as well as beside the fields.
         const errors = validateLogin(email, password);
         if (errors.email || errors.password) return { error: errors.email || errors.password };
 
@@ -120,83 +109,25 @@ export const AuthFlow: FC = () => {
     };
 
     return (
-        <KeyboardAvoidingView
-            behavior="height"
-            keyboardVerticalOffset={insets.top}
-            style={styles.container}>
-            <AuthPanel
-                key={reloadCount}
-                dom={{
-                    style: [
-                        styles.container,
-                        { backgroundColor: theme.current.colors.authBackground },
-                        !ready && styles.hidden,
-                    ],
-                    bounces: false,
-                    overScrollMode: "never",
-                    onLoadStart: () => setReady(false),
-                    onError: () => setLoadError(true),
-                }}
-                screen={getAuthScreen(pathname) ?? "start"}
-                theme={theme.current.type}
-                fontScale={fontScale}
-                keyboardVisible={keyboardVisible}
-                rememberMe={session.rememberMe}
-                isDevelopment={configuration.isDevelopment()}
-                serverUrl={configuration.getBaseUrl().toString()}
-                onReady={onReady}
-                onLogin={login}
-                onRegister={register}
-                onForgotPassword={forgotPassword}
-                onServerChange={changeServer}
-                onResendConfirmation={resendConfirmation}
-                onRememberMeChange={session.toogleRememberMe}
-                onGoogleLogin={google.signIn}
-                onNavigate={navigate}
-            />
-            {(!ready || loadError) && (
-                <View
-                    style={[
-                        styles.loading,
-                        { backgroundColor: theme.current.colors.authBackground },
-                    ]}
-                    accessibilityLiveRegion="polite">
-                    <Text bold size="xlarge" color="onBackground">
-                        Senswave
-                    </Text>
-                    {loadError ? (
-                        <>
-                            <Text color="onBackground">Unable to load this screen.</Text>
-                            <Button
-                                name="Try again"
-                                loading={false}
-                                onPress={() => {
-                                    setReady(false);
-                                    setLoadError(false);
-                                    setReloadCount((count) => count + 1);
-                                }}
-                            />
-                        </>
-                    ) : (
-                        <ActivityIndicator
-                            color={theme.current.colors.complementary}
-                            accessibilityLabel="Loading Senswave"
-                        />
-                    )}
-                </View>
-            )}
-        </KeyboardAvoidingView>
+        <AuthPanel
+            key={screen}
+            screen={screen}
+            rememberMe={session.rememberMe}
+            isDevelopment={configuration.isDevelopment()}
+            serverUrl={configuration.getBaseUrl().toString()}
+            onLogin={login}
+            onRegister={register}
+            onForgotPassword={forgotPassword}
+            onServerChange={changeServer}
+            onResendConfirmation={resendConfirmation}
+            onRememberMeChange={session.toogleRememberMe}
+            onGoogleLogin={async () => {
+                const result = await google.signIn();
+                return result.isSuccess
+                    ? {}
+                    : { error: result.errorMessage || "Google Sign-In error" };
+            }}
+            onNavigate={navigate}
+        />
     );
 };
-
-const styles = StyleSheet.create({
-    container: { flex: 1 },
-    hidden: { opacity: 0 },
-    loading: {
-        ...StyleSheet.absoluteFillObject,
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 20,
-        padding: 24,
-    },
-});

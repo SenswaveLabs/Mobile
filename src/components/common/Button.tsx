@@ -1,70 +1,92 @@
 import { useTheme } from "@/contexts/ThemeProvider";
 import { shadowStyles } from "@/styles/shadowStyles";
 import React, { FC } from "react";
+import { Button as ReusableButton } from "@/components/ui/button";
+import { Text } from "@/components/ui/text";
 import {
     StyleSheet,
-    Pressable,
     ActivityIndicator,
     StyleProp,
     ViewStyle,
-    Text,
     GestureResponderEvent,
 } from "react-native";
 
 interface ButtonProps {
+    ref?: React.ComponentProps<typeof ReusableButton>["ref"];
     name: string;
     loading: boolean;
     onPress: (event: GestureResponderEvent) => void;
-    type?: "default" | "alternative" | "outlined" | "auth" | "brand-outline";
+    type?:
+        | "default"
+        | "alternative"
+        | "outlined"
+        | "auth"
+        | "brand-outline"
+        | "brand-ghost"
+        | "brand-destructive";
     style?: StyleProp<ViewStyle>;
     disabled?: boolean;
+    accessibilityLabel?: string;
 }
 
 const Button: FC<ButtonProps> = ({
+    ref,
     name,
     loading,
     onPress,
     type = "default",
     style,
     disabled = false,
+    accessibilityLabel,
 }) => {
     const { colors } = useTheme().current;
-    const outlinedBrand = type === "brand-outline";
-    const auth = type === "auth" || outlinedBrand;
-    const foreground = auth
-        ? outlinedBrand
-            ? colors.authForeground
-            : colors.authOnPrimary
-        : type === "alternative"
-          ? colors.textOnSecondary
-          : colors.textOnPrimary;
+    const destructiveBrand = type === "brand-destructive";
+    const outlinedBrand = type === "brand-outline" || destructiveBrand;
+    const ghostBrand = type === "brand-ghost";
+    const auth = type === "auth" || outlinedBrand || ghostBrand;
+    const foreground = destructiveBrand
+        ? colors.error
+        : auth
+          ? outlinedBrand || ghostBrand
+              ? colors.authForeground
+              : colors.authOnPrimary
+          : type === "alternative"
+            ? colors.textOnSecondary
+            : colors.textOnPrimary;
     const unavailable = loading || disabled;
 
     return (
-        <Pressable
+        <ReusableButton
+            ref={ref}
+            variant="ghost"
+            className="h-auto rounded-none border-0 p-0 opacity-100 shadow-none active:opacity-80"
             accessibilityRole="button"
-            accessibilityLabel={name}
+            accessibilityLabel={accessibilityLabel ?? name}
             accessibilityState={{ disabled: unavailable, busy: loading }}
             disabled={unavailable}
-            style={({ pressed }) => [
+            style={[
                 styles.button,
                 auth && styles.authButton,
                 {
-                    borderColor: outlinedBrand
-                        ? colors.authBorder
-                        : type === "outlined"
-                          ? colors.secondary
-                          : "transparent",
-                    backgroundColor: outlinedBrand
-                        ? colors.authBackground
-                        : auth
-                          ? colors.authPrimary
-                          : type === "alternative"
+                    borderColor: destructiveBrand
+                        ? colors.error
+                        : outlinedBrand
+                          ? colors.authBorder
+                          : type === "outlined"
                             ? colors.secondary
-                            : colors.primary,
+                            : "transparent",
+                    backgroundColor: ghostBrand
+                        ? "transparent"
+                        : outlinedBrand
+                          ? colors.authBackground
+                          : auth
+                            ? colors.authPrimary
+                            : type === "alternative"
+                              ? colors.secondary
+                              : colors.primary,
                 },
                 !auth && shadowStyles.default,
-                pressed && styles.buttonPressed,
+                !auth && styles.legacyShadow,
                 disabled && styles.disabled,
                 style,
             ]}
@@ -73,7 +95,7 @@ const Button: FC<ButtonProps> = ({
             <Text style={[styles.label, auth && styles.authLabel, { color: foreground }]}>
                 {name}
             </Text>
-        </Pressable>
+        </ReusableButton>
     );
 };
 
@@ -90,11 +112,12 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         minHeight: 54,
         flexDirection: "row",
-        gap: 10,
+        rowGap: 10,
+        columnGap: 10,
     },
-    label: { fontSize: 20, fontWeight: "bold", flexShrink: 1, textAlign: "center" },
-    authButton: { minHeight: 48, borderRadius: 8, borderWidth: 1 },
-    authLabel: { fontSize: 16, fontWeight: "500" },
-    buttonPressed: { opacity: 0.8 },
+    label: { fontSize: 20, lineHeight: 24, fontWeight: "bold", flexShrink: 1, textAlign: "center" },
+    authButton: { minHeight: 48, borderRadius: 8, borderWidth: 1, paddingVertical: 11 },
+    authLabel: { fontSize: 16, lineHeight: 24, fontWeight: "500" },
+    legacyShadow: { shadowColor: "#000" },
     disabled: { opacity: 0.6 },
 });

@@ -1,5 +1,6 @@
-import type { FC } from "react";
+import React, { FC } from "react";
+import { AuthFlow } from "@/components/auth/AuthFlow";
 
-const Start: FC = () => null;
+const Start: FC = () => <AuthFlow screen="start" />;
 
 export default Start;

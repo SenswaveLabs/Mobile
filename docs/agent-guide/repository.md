@@ -10,8 +10,9 @@
 | State | Context API + custom hooks |
 | Real-time | SignalR (`@microsoft/signalr` 8.x) |
 | Auth storage | `expo-secure-store` |
-| UI | Hand-rolled primitives in `src/components/common/*` (`Pressable` + `StyleSheet` + `useTheme()`). Support libs: `reanimated-color-picker`, `@react-native-community/slider`, `react-native-markdown-display` |
-| Auth PoC | Welcome, login, registration, forgot password and development server selection share one persistent Expo DOM WebView (`react-native-webview`), with copied shadcn + Base UI + Tailwind CSS v4. Auth actions stay native. See the [auth PoC](../shadcn-dom-poc.md). |
+| UI | Local React Native Reusables primitives in `src/components/ui`, including AlertDialog with a named `@rn-primitives/portal` host in a native Modal, NativeWind 4 + Tailwind CSS 3. Existing `common` wrappers preserve their native APIs and appearance. Support libs: `reanimated-color-picker`, `@react-native-community/slider`, `react-native-markdown-display` |
+| Auth and home UI | Welcome, login, registration, forgot password and development server selection render native `auth/AuthPanel`. Home selection, joining, creation and settings use the same local primitives; `home/HomeForm` owns its fields and save actions. Session actions, Google OAuth and storage use the existing providers. See [native auth and home UI](../native-auth-ui.md). |
+| Home location | MapLibre React Native 11 with OpenStreetMap raster tiles; native modal picker and optional Expo Location GPS/address lookup. Expo web keeps a native-control fallback without importing the map SDK. |
 | Backend | .NET Minimal API — modular monolith (`Senswave.sln`) |
 
 App version: **1.1.0**. Version source: `remote` (EAS-managed).
@@ -21,7 +22,7 @@ App version: **1.1.0**. Version source: `remote` (EAS-managed).
 ```
 src/
   app/                      # Expo Router routes (file-based)
-    (auth)/                 # persistent AuthFlow layout; start, login, register,
+    (auth)/                 # native auth Stack; start, login, register,
                             #   forgotPassword, server (URL paths unchanged)
     (app)/                  # authenticated routes
       home/                 #   list, add, details, join, share; room/{add,details}
@@ -35,8 +36,8 @@ src/
     _layout.tsx
     confirmEmail / resetPassword / consents / maintenance / privacy / terms
   components/
-    dom/                    # local shadcn primitives, web styles, AuthPanel + authTypes bridge
-    common/                 # shared UI (Button, FormScreen, Text, Dropdown, Loading, ...)
+    ui/                     # copied React Native Reusables primitives
+    common/                 # shared UI (Button, Input, Text, Dropdown, Loading, ...)
     auth/ automations/ dataSource/ device/ headers/ home/ homeSharing/ room/ user/
   contexts/
     ConfigurationProvider   # API URL, SignalR URL, version check
@@ -47,7 +48,7 @@ src/
     custom/                 # feature providers: AutomationList, Automation, DeviceList,
                             #   Device, OperationForm, WidgetDetails
     domain/                 # entity providers: Home, User, LiveUpdate, Legal
-  hooks/                    # shared custom hooks, including native useGoogleSignIn/useKeyboardVisible
+  hooks/                    # shared custom hooks, including native useGoogleSignIn
   types/
     DeviceTypes.tsx         # OperationType, WidgetType, OperationDto, WidgetDto
     HomeTypes.tsx           # Home, Room, Location, HomeSharingDto, HomeRolesToName
@@ -56,8 +57,9 @@ src/
   utils/
     httpClient.tsx          # executeTimeout, HttpResponse — ONLY place fetch is called
     result.tsx              # Result<T>, SimpleResult
-    authValidation.ts       # shared email/login/register/reset/server validation at the DOM/native boundary
+    authValidation.ts       # shared email/login/register/reset/server validation
     location.tsx
+  lib/utils.ts              # class merging for React Native Reusables
   styles/                   # shared style helpers
 ```
 
@@ -84,3 +86,5 @@ src/
 Babel resolver `root` is `./src`, so bare imports resolve from there too.
 The Babel preset resolves through the installed `expo` package; do not rely on
 hoisted transitive dependencies, since Gradle invokes Node directly.
+
+React Native Reusables sources are copied from the official NativeWind registry, with local import aliases. `components.json` records these aliases; `metro.config.js`, `babel.config.js`, `tailwind.config.js` and `global.css` configure NativeWind. The root layout derives native CSS variables from `ThemeProvider`, keeping one palette. Do not reintroduce Expo DOM, Base UI or a WebView for these screens. React Native Web and React DOM remain only for Expo web support.

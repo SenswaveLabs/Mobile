@@ -1,5 +1,3 @@
-import type { DOMProps } from "expo/dom";
-
 export const AUTH_SCREENS = ["start", "login", "register", "forgotPassword", "server"] as const;
 export type AuthScreen = (typeof AUTH_SCREENS)[number];
 export type AuthDestination = AuthScreen | "back" | "terms" | "privacy";
@@ -16,15 +14,10 @@ export interface AuthActionResult {
 }
 
 export interface AuthPanelProps {
-    dom?: DOMProps;
     screen: AuthScreen;
-    theme: "light" | "dark";
-    fontScale: number;
-    keyboardVisible?: boolean;
     rememberMe: boolean;
     isDevelopment: boolean;
     serverUrl: string;
-    onReady(): Promise<void>;
     onLogin(email: string, password: string): Promise<AuthActionResult>;
     onRegister(
         email: string,
@@ -36,6 +29,6 @@ export interface AuthPanelProps {
     onServerChange(url: string | null): Promise<AuthActionResult>;
     onResendConfirmation(email: string): Promise<AuthActionResult>;
     onRememberMeChange(): Promise<void>;
-    onGoogleLogin(): Promise<void>;
+    onGoogleLogin(): Promise<AuthActionResult>;
     onNavigate(destination: AuthDestination): Promise<void>;
 }

@@ -2,6 +2,7 @@ import { useTheme } from "@/contexts/ThemeProvider";
 import React, { FC, ReactNode } from "react";
 import { Modal, Platform, Pressable, StyleSheet, View } from "react-native";
 import Text from "@/components/common/Text";
+import { Text as ActionText } from "@/components/ui/text";
 
 export interface DialogAction {
     label: string;
@@ -25,9 +26,12 @@ const DialogActionButton: FC<{ action: DialogAction }> = ({ action }) => {
     const { label, onPress, variant = "text", destructive = false } = action;
 
     const color = destructive ? theme.current.colors.error : theme.current.colors.info;
+    // White fails text contrast on the dark error and blue fills.
+    const filledForeground = destructive && theme.current.type === "light" ? "#FFFFFF" : "#100D08";
 
     return (
         <Pressable
+            cssInterop={false}
             onPress={onPress}
             style={({ pressed }) => [
                 styles.actionButton,
@@ -38,15 +42,18 @@ const DialogActionButton: FC<{ action: DialogAction }> = ({ action }) => {
                 pressed && styles.actionPressed,
             ]}
             accessibilityRole="button">
-            <Text
-                size="medium"
-                bold
+            <ActionText
                 style={{
-                    color: variant === "filled" ? "#FFFFFF" : color,
+                    color:
+                        variant === "filled"
+                            ? filledForeground
+                            : theme.current.colors.textOnPrimary,
+                    fontSize: 16,
+                    fontWeight: "bold",
                     letterSpacing: 0.1,
                 }}>
                 {label}
-            </Text>
+            </ActionText>
         </Pressable>
     );
 };
@@ -168,6 +175,7 @@ const styles = StyleSheet.create({
         paddingBottom: 16,
     },
     actionButton: {
+        minHeight: 48,
         paddingVertical: 10,
         paddingHorizontal: 12,
         borderRadius: 100,
@@ -175,6 +183,6 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     actionPressed: {
-        opacity: 0.7,
+        opacity: 0.94,
     },
 });

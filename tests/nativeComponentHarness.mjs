@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { runInNewContext } from "node:vm";
+import { setTimeout, clearTimeout } from "node:timers";
 import ts from "typescript";
 
 const require = createRequire(import.meta.url);
@@ -10,7 +11,12 @@ const require = createRequire(import.meta.url);
 // are replaced because Node cannot mount React Native. This is not a render test.
 export function mountNativeComponent(
     file,
-    { props = {}, modules = {}, exportName = "default" } = {},
+    {
+        props = {},
+        modules = {},
+        exportName = "default",
+        timers = { setTimeout, clearTimeout },
+    } = {},
 ) {
     const slots = [];
     const effects = [];
@@ -76,6 +82,9 @@ export function mountNativeComponent(
                 "FlatList",
                 "RefreshControl",
                 "ActivityIndicator",
+                "Image",
+                "ScrollView",
+                "Modal",
             ].map((name) => [name, name]),
         ),
         StyleSheet: { create: (value) => value },
@@ -100,6 +109,7 @@ export function mountNativeComponent(
             if (name in modules) return modules[name];
             if (name === "react") return react;
             if (name === "react-native") return native;
+            if (name === "lucide-react-native") return { CircleAlert: "CircleAlert", Info: "Info" };
             if (name === "react-native-keyboard-controller")
                 return {
                     KeyboardAwareScrollView: "KeyboardAwareScrollView",
@@ -109,13 +119,38 @@ export function mountNativeComponent(
                 return { useTheme: () => ({ current: { colors: {} } }) };
             if (name.includes("ToastProvider"))
                 return { useToast: () => ({ error: () => {}, info: () => {} }) };
+            if (name.endsWith("/ui/alert"))
+                return {
+                    Alert: "Alert",
+                    AlertDescription: "AlertDescription",
+                    AlertTitle: "AlertTitle",
+                };
+            const ui = name.match(/\/ui\/(button|input|text|checkbox|label)$/);
+            if (ui) {
+                const names = {
+                    button: ["Button", "Pressable"],
+                    input: ["Input", "TextInput"],
+                    text: ["Text", "Text"],
+                    checkbox: ["Checkbox", "Checkbox"],
+                    label: ["Label", "Label"],
+                };
+                const [exported, host] = names[ui[1]];
+                return { [exported]: host };
+            }
             const common = name.match(/\/common\/(Input|PasswordInput|Button|Text|Loading|Icon)$/);
             if (common) return common[1];
             if (name.startsWith("@/")) return load(resolve("src", name.slice(2)));
             if (name.startsWith(".")) return load(resolve(dirname(path), name));
             return require(name);
         };
-        runInNewContext(code, { module, exports: module.exports, require: localRequire });
+        runInNewContext(code, {
+            module,
+            exports: module.exports,
+            require: localRequire,
+            React: react,
+            Error,
+            ...timers,
+        });
         cache.set(path, module.exports);
         return module.exports;
     }

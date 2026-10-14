@@ -1,38 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createRequire } from "node:module";
 import { mountNativeComponent } from "./nativeComponentHarness.mjs";
 
-test("keyboard editing keeps the form available without screen actions above the keyboard", () => {
-    const listeners = new Map();
-    const screen = mountNativeComponent("src/components/common/FormScreen.tsx", {
-        props: { children: "Field content", actions: "Primary action" },
-        modules: {
-            "react-native-keyboard-controller": {
-                KeyboardAwareScrollView: "KeyboardAwareScrollView",
-                KeyboardAvoidingView: "KeyboardAvoidingView",
-                KeyboardController: { isVisible: () => false },
-                KeyboardEvents: {
-                    addListener: (event, callback) => {
-                        listeners.set(event, callback);
-                        return { remove: () => listeners.delete(event) };
-                    },
-                },
-            },
-        },
-    });
-    screen.flushEffects();
-    assert.ok(screen.text().includes("Primary action"));
-    listeners.get("keyboardWillShow")?.();
-    screen.render();
-    assert.ok(screen.text().includes("Field content"));
-    assert.equal(screen.text().includes("Primary action"), false);
-    listeners.get("keyboardDidHide")?.();
-    screen.render();
-    assert.ok(screen.text().includes("Primary action"));
-    listeners.get("keyboardDidShow")?.();
-    screen.render();
-    assert.equal(screen.text().includes("Primary action"), false);
-});
+const require = createRequire(import.meta.url);
+const navigationRequire = createRequire(require.resolve("@react-navigation/native/package.json"));
+const coreRequire = createRequire(navigationRequire.resolve("@react-navigation/core/package.json"));
+const { StackRouter } = coreRequire("@react-navigation/routers");
 
 function mountForm(submitClicked) {
     const form = mountNativeComponent("src/components/auth/ResetPasswordForm.tsx", {
@@ -121,4 +95,52 @@ test("reset recovers loading and exposes persistent error when callback rejects"
     assert.equal(form.button().props.loading, false);
     assert.match(form.text(), /try again/i);
     assert.ok(form.inputs().every((input) => input.props.editable !== false));
+});
+
+test("successful reset leaves no old auth screens after the next login", async () => {
+    const options = {
+        routeNames: ["(auth)", "(app)", "resetPassword", "consents"],
+        routeParamList: {},
+        routeGetIdList: {},
+    };
+    const router = StackRouter({ initialRouteName: "(auth)" });
+    let state = router.getInitialState(options);
+    const dispatch = (type, name, params) => {
+        state = router.getStateForAction(
+            state,
+            { type, target: state.key, payload: { name, params } },
+            options,
+        );
+    };
+    dispatch("PUSH", "resetPassword");
+    const form = mountNativeComponent("src/app/resetPassword.tsx", {
+        modules: {
+            "expo-router": {
+                useLocalSearchParams: () => ({ email: "user@example.com" }),
+                useRouter: () => ({
+                    replace: (href) => dispatch("REPLACE", "(auth)", { screen: href.slice(1) }),
+                    dismissTo: (href) => dispatch("POP_TO", "(auth)", { screen: href.slice(1) }),
+                }),
+            },
+            "@/contexts/SessionProvider": {
+                useSession: () => ({
+                    resetPassword: async () => ({ isSuccess: true, errorMessage: null }),
+                }),
+            },
+            "@/components/auth/ResetPasswordForm": "ResetPasswordForm",
+            "@expo/vector-icons": { Ionicons: "Ionicons" },
+        },
+    });
+
+    await form
+        .elements()
+        .find((node) => node.type === "ResetPasswordForm")
+        .props.submitClicked("Strong123!", "email-code");
+    assert.equal(state.routes[state.index].params.screen, "start");
+    dispatch("REPLACE", "consents");
+    dispatch("REPLACE", "(app)");
+    assert.deepEqual(
+        state.routes.map(({ name }) => name),
+        ["(app)"],
+    );
 });

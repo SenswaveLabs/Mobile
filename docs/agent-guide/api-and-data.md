@@ -98,6 +98,13 @@ other callers retain the existing notifications. This is a client context option
 with no change to backend contracts. Home selection remains available before a
 current home has been established.
 
+After a successful delete/leave, call the initializer with
+`{ silent: true, removedHomeId: id }`. It discards that home before recovery I/O,
+including when the initiating screen lost focus. It preserves a different current
+selection, including one selected during recovery. A failed initializer sends the
+active details screen to the picker; it must not repeat the destructive request.
+Ordinary initialization and refresh callers keep their existing behavior.
+
 **Auth endpoints**
 
 | Endpoint | Method | Purpose |

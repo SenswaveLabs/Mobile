@@ -12,6 +12,7 @@ const PressableText: FC<PressableTextProps> = ({ onPress, children, ...textProps
 
     return (
         <Pressable
+            cssInterop={false}
             style={({ pressed }) => ({
                 opacity: pressed ? 0.5 : 1,
                 borderRadius: 8,

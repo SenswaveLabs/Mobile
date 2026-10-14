@@ -35,6 +35,7 @@ const DefaultHeader: FC<DefaultHeaderProps> = ({
             ]}>
             <View style={[styles.left, brand && styles.brandLeft]}>
                 <Pressable
+                    cssInterop={false}
                     accessibilityRole="button"
                     accessibilityLabel="Go back"
                     onPress={backClicked}

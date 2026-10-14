@@ -6,11 +6,11 @@ import {
     validateRegistration,
     validateServerUrl,
 } from "../src/utils/authValidation.ts";
-import { AUTH_SCREENS, getAuthScreen } from "../src/components/dom/authTypes.ts";
+import { AUTH_SCREENS, getAuthScreen } from "../src/components/auth/authTypes.ts";
 import * as authValidation from "../src/utils/authValidation.ts";
-import * as authRoutes from "../src/components/dom/authTypes.ts";
+import * as authRoutes from "../src/components/auth/authTypes.ts";
 
-test("login validation rejects invalid bridge values and preserves password boundaries", () => {
+test("login validation rejects invalid input values and preserves password boundaries", () => {
     assert.equal(validateEmail(" user@example.com "), undefined);
     for (const email of ["", "user", "user@", "user @example.com", null, 42]) {
         assert.ok(validateEmail(email));
@@ -25,7 +25,7 @@ test("login validation rejects invalid bridge values and preserves password boun
     assert.equal(validateLogin("user@example.com", "x".repeat(64)).password, undefined);
 });
 
-test("registration enforces password policy, confirmation and explicit consent at the bridge", () => {
+test("registration enforces password policy, confirmation and explicit consent at the provider boundary", () => {
     const email = "user@example.com";
     const valid = "Strong123!";
     assert.ok(
@@ -55,7 +55,7 @@ test("registration enforces password policy, confirmation and explicit consent a
     assert.ok(validateRegistration(null, valid, valid, true).email);
 });
 
-test("server selection accepts absolute HTTP addresses and rejects unsafe bridge values", () => {
+test("server selection accepts absolute HTTP addresses and rejects unsafe input values", () => {
     for (const url of [
         "https://senswave.example.com",
         " http://10.0.2.2:8080 ",
@@ -78,7 +78,7 @@ test("server selection accepts absolute HTTP addresses and rejects unsafe bridge
     }
 });
 
-test("only the five DOM auth URLs share the persistent WebView", () => {
+test("only the five auth URLs select the native auth panel", () => {
     for (const screen of AUTH_SCREENS) assert.equal(getAuthScreen(`/${screen}`), screen);
     for (const path of [
         "/",
@@ -134,7 +134,7 @@ test("password reset enforces the new-password policy and matching confirmation"
     }
 });
 
-test("native password reset shares the auth surface without becoming a DOM screen", () => {
+test("password reset shares the auth surface without becoming a main auth route", () => {
     assert.equal(authRoutes.isAuthSurface?.("/resetPassword"), true);
     assert.equal(getAuthScreen("/resetPassword"), undefined);
     for (const screen of AUTH_SCREENS) assert.equal(authRoutes.isAuthSurface?.(`/${screen}`), true);

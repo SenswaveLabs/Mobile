@@ -43,6 +43,7 @@ export default function ButtonWidget({ widget, operations, disabled }: ButtonWid
 
     return (
         <Pressable
+            cssInterop={false}
             style={({ pressed }) => [
                 {
                     backgroundColor: pressed

@@ -2,7 +2,8 @@ import Button from "@/components/common/Button";
 import Icon from "@/components/common/Icon";
 import { useTheme } from "@/contexts/ThemeProvider";
 import React, { FC } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "@/components/ui/text";
 
 interface NoHomeScreenProps {
     onCreateHome: () => void;
@@ -72,7 +73,7 @@ const styles = StyleSheet.create({
         alignSelf: "center",
         paddingHorizontal: 24,
         paddingTop: 24,
-        paddingBottom: 32,
+        paddingBottom: 16,
     },
     content: {
         flexGrow: 1,

@@ -7,6 +7,7 @@ import { getCurrentLocation } from "@/utils/location";
 
 interface InitializeHomeOptions {
     silent?: boolean;
+    removedHomeId?: string;
 }
 
 interface HomesContextProps {
@@ -94,8 +95,13 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
         }
     };
 
-    const initializeCurrentHome = async ({ silent = false }: InitializeHomeOptions = {}) => {
+    const initializeCurrentHome = async ({
+        silent = false,
+        removedHomeId,
+    }: InitializeHomeOptions = {}) => {
         setLoading(true);
+        if (removedHomeId)
+            setCurrentHome((previous) => (previous?.id === removedHomeId ? undefined : previous));
         try {
             let path = "";
             const currentLocation = await getCurrentLocation();
@@ -110,7 +116,9 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
             if (response.statusCode === 404) {
                 if (!silent) toast.info("Create your first home!");
                 console.info("[HomesProvider] Homes not found.");
-                setCurrentHome(undefined);
+                setCurrentHome((previous) =>
+                    removedHomeId && previous?.id !== removedHomeId ? previous : undefined,
+                );
                 return false;
             } else if (!response.isSuccess || !response.response) {
                 if (!silent) toast.httpError(response);
@@ -127,7 +135,10 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
             const home = (await homeResponse.response.json()) as Home;
             if (!home?.id) throw new Error("Invalid home response");
-            setCurrentHome(home);
+            if (home.id === removedHomeId) throw new Error("Removed home returned as current");
+            setCurrentHome((previous) =>
+                removedHomeId && previous && previous.id !== removedHomeId ? previous : home,
+            );
             console.info("[HomesProvider] Current home loaded.");
             return true;
         } catch {

@@ -26,26 +26,18 @@ Accessibility and task completion take priority over matching a visual pattern.
 
 ## Implementation boundaries
 
-- This is React Native, not a Next.js app or PWA. Original shadcn/ui components use
-  React DOM and belong only inside an Expo DOM component.
-- Native screens reuse `src/components/common`, `StyleSheet.create()` and colors
-  from `useTheme()`. App components use `FC`/`FC<Props>` and interface props;
-  copied shadcn primitives keep their upstream signatures. Do not put color
-  literals in native component styles.
-- DOM screens reuse `src/components/dom/ui` and its installed Base UI APIs. Do not
-  assume Radix props or add another primitive library for an equivalent control.
-- Use `next-frontend/apps/web` and its shared UI as the brand reference when
-  available. Choose hierarchy, navigation and action placement for the mobile
-  task; web and mobile can serve different UX purposes and need not match 1:1.
-  Keep mobile imports local; do not import code from the sibling checkout.
-  Marketing layouts from `apps/landing` are not the default for the mobile product.
-- Match visual intent while keeping native navigation, keyboard and accessibility
-  behavior. This policy does not require migrating native screens into WebViews.
-- Authentication, API calls and SecureStore remain native. Send serializable UI
-  props/results across the DOM bridge and validate input at both boundaries.
-- For shadcn work, follow the official shadcn skill when available. Read
-  `components.json` when present; this checkout currently uses copied primitives
-  without that configuration, so inspect local sources before using a CLI.
+- Auth, home selection, creation and settings use local React Native Reusables components in
+  `src/components/ui`. These render native controls. Keep imports local; use
+  `next-frontend/apps/web` as a visual reference, without importing its DOM components.
+- App components use `FC`/`FC<Props>` and interface props. Copied React Native
+  Reusables primitives keep upstream signatures.
+- Screen styling uses `StyleSheet.create()` and `useTheme()` colors. Reusables
+  primitives use NativeWind; root CSS variables derive from the same `ThemeProvider`.
+  Keep the current brand palette, radii, typography and touch targets.
+- Authentication, HTTP calls, Google OAuth and SecureStore use the existing native
+  providers. Validate beside the fields and at the provider boundary.
+- Configure new Reusables primitives through `components.json`; inspect the local
+  component before copying another one. Install only the primitives a screen needs.
 
 ## Screen hierarchy and actions
 
@@ -55,15 +47,12 @@ Accessibility and task completion take priority over matching a visual pattern.
   actions. Place actions next to the object or content they affect.
 - Use progressive disclosure for advanced controls. Group related content by
   proximity and consistent spacing before adding cards, borders or separators.
-- Space between groups should make their hierarchy clear. Auth and invitation
-  forms share three regions: a header, scrollable context/fields and a separate
-  bottom action section in normal layout flow. Actions reserve their own space;
-  never overlay fields. While the native keyboard is open, hide the screen-level
-  action group so the available height belongs to editing. Submit through
-  Enter/Go/Done or dismiss the keyboard to restore bottom actions. Use the shared
-  keyboard visibility hook, hiding before opening and restoring after closing.
-  Short windows and large text must keep content and actions reachable. Back
-  stays in the header; password visibility stays in its field.
+- Space between groups should make their hierarchy clear. Auth, reset and invitation
+  screens own their layouts. Keep fields and actions in one keyboard-aware scrolling
+  page; use growing content or `marginTop: "auto"` for bottom placement on tall screens.
+  Actions stay reachable on short windows and with large text. Do not measure a shared
+  footer, nest keyboard-avoiding containers or hide submit actions while editing.
+  Back stays beside the header; password visibility stays beside the field.
 - Distinguish destructive actions through wording, semantics and styling. Use
   confirmation or undo when needed to prevent irreversible data loss.
 - Ambiguous icons need visible labels; every icon-only action needs an accessible
@@ -82,8 +71,6 @@ Accessibility and task completion take priority over matching a visual pattern.
   to the screen and keep system-bar icons legible in light and dark mode.
 - Touch targets must have at least a 48 × 48 dp effective area. A smaller visible
   icon is fine inside that target; padded or expanded targets must not overlap.
-  In the DOM WebView, keep the viewport at device width and use CSS sizing that
-  preserves the equivalent touch area rather than desktop component defaults.
 - The keyboard must not cover the focused input or required action. Use the
   existing keyboard-aware container and scrolling, correct input types, autofill,
   and Next/Done/Go actions appropriate to the form.
@@ -93,13 +80,13 @@ Accessibility and task completion take priority over matching a visual pattern.
 - Navigation follows information architecture. Keep frequent destinations easy to
   reach, make the current location clear and distinguish navigation from mutations.
 - Preserve Expo Router history, Android hardware/predictive Back behavior supported
-  by the app, and iOS back gestures. Do not add a second browser/router history in DOM.
+  by the app, and iOS back gestures.
 - Back closes a transient overlay before leaving its underlying screen. Dismissal,
   outside taps and unsaved-input handling must be predictable.
 - Use a dialog for a focused decision, a sheet/drawer for temporary contextual
   content, and a separate screen or inline flow for a complex or multi-step task.
 - Avoid stacked modals. Manage focus on open/close and expose a usable dismiss action.
-  Use existing native modal/menu providers or appropriate DOM primitives.
+  Use existing native modal/menu providers or appropriate native primitives.
 
 ## Forms, feedback and state
 
@@ -113,16 +100,48 @@ Accessibility and task completion take priority over matching a visual pattern.
   button with progress, disable relevant controls and prevent duplicate submission.
 - Load locally when only one section is waiting. Preserve usable context and give
   retry/recovery for failures rather than an unexplained blank screen.
-- Reuse current toast/error/loading mechanisms. Keep important errors or recovery
-  actions visible; do not rely on a short-lived toast alone.
+- Keep important errors and recovery actions visible. Auth, reset, home selection
+  joining, creation and settings use inline feedback; legacy toast overlays are disabled on these routes.
+
+### Form error placement — Senswave design decision
+
+Classify errors by what failed, not by whether validation ran locally or a backend
+response arrived after submission. A form may contain multiple fields.
+
+- **Field error:** a specific value is missing or invalid, such as an empty password,
+  malformed email, incomplete invitation code or mismatched password confirmation.
+  Show supporting/error text directly below the affected input and mark that field
+  invalid. A backend error may also belong to a field when it identifies that field.
+- **Action error:** the submission as a whole failed, such as invalid login credentials,
+  an expired/rejected invitation, a connection failure or an unavailable service.
+  Show one persistent inline message immediately above the primary action, within
+  the same keyboard-aware scroll content. Do not mark otherwise valid fields invalid
+  or move focus to an arbitrary field.
+- Render form action failures with the local [React Native Reusables Alert](https://reactnativereusables.com/docs/components/alert):
+  `Alert` with `variant="destructive"`, a `CircleAlert` icon and `AlertDescription`.
+  Use the default variant for informational notices. Keep these alerts in normal
+  layout flow above the action; field supporting text remains attached to its input.
+- Preserve entered values, release the pending lock and keep retry available. Clear
+  stale action feedback when the relevant input changes or a new attempt starts.
+  Expose errors to assistive technology. The message takes its own layout space;
+  it must not float over the button, dismiss the keyboard or trigger a duplicate toast.
+- Apply the same placement when an action uses two or more fields: an empty password
+  belongs below Password; "Invalid email or password" belongs above Sign in.
+  For joining, code length/format errors belong below the code; rejection returned
+  by the join request belongs above Join home.
+
+Material Design 3's [text-field documentation](https://github.com/material-components/material-web/blob/main/docs/components/text-field.md)
+supports field-associated error text. Placing action errors above the primary
+button is Senswave's explicit design decision, not a prescribed MD3 position.
+Expo's native UI guidance requires reachable actions and preserved drafts during
+failed saves; it does not prescribe this exact placement. Keep this policy in the
+repository guide rather than modifying installed Expo skills.
 
 ## Accessibility and motion
 
-- Native: provide accessible names, roles, states and logical screen-reader order;
-  announce relevant changes without interrupting every update. DOM: use semantic
-  elements, associated labels and existing accessible primitive behavior.
-- Support keyboard navigation and visible focus where applicable, including DOM
-  and external keyboards. Overlays must restore focus; no keyboard traps.
+- Provide native accessible names, roles, states and logical screen-reader order;
+  announce relevant changes without interrupting every update. Associate labels with fields.
+- Support keyboard navigation and visible focus where applicable, including external keyboards. Overlays must restore focus; no keyboard traps.
 - Preserve system text scaling and web zoom. Avoid fixed-height text containers
   that clip content at large font sizes.
 - Maintain WCAG AA contrast: at least 4.5:1 for normal text and 3:1 for large text;
@@ -131,43 +150,28 @@ Accessibility and task completion take priority over matching a visual pattern.
   must communicate selected, error and destructive states.
 - Motion explains cause/effect, spatial relationships or state changes. Keep it
   efficient; skip purely decorative animation. Respect native reduced-motion
-  settings and DOM `prefers-reduced-motion`.
-- Screen-reader and touch behavior must work across the native/DOM boundary.
+  settings.
+- Verify screen-reader and touch behavior on native screens.
 
 ## Visual tokens and component selection
 
-- Use the existing light/dark design tokens. In DOM, prefer roles such as
-  `background`, `foreground`, `primary`, `secondary`, `muted`, `accent`,
-  `destructive`, `border`, `input` and `ring`, with the matching foreground pair.
-  Native screens use the equivalent existing `ThemeProvider` roles.
-- Do not hardcode arbitrary component colors or replace Senswave's palette with
-  Material token values. Introduce a shared semantic role only for a concrete need,
-  with light/dark values; keep native and DOM surface colors aligned where they meet.
+- Use the existing light/dark `ThemeProvider` roles. React Native Reusables semantic
+  tokens (`background`, `foreground`, `card`, `primary`, `muted`, `border`, `input`, `ring`
+  and their foreground pairs) derive from those colors in the root layout.
+- Do not replace Senswave's palette with Material token values. Introduce a semantic
+  role only for a concrete need, with light/dark values.
 - Every screen uses the same themed canvas background: light `#F9F7F1`, dark
-  `#100D08`. Native `colors.background` and the existing `authBackground` role
-  match DOM `--surface`. Match headers, safe areas and launch backgrounds to this
+  `#100D08`. Native `colors.background` and `authBackground` match. Match headers, safe areas and launch backgrounds to this
   canvas; do not introduce different page backgrounds for auth, empty or loaded
   states. Fields, cards and overlays may use their appropriate surface roles.
 - Before creating a component, inspect the existing project component and the
-  applicable local shadcn primitive; compose them when appropriate. Create a new
+  applicable local React Native Reusables primitive; compose them when appropriate. Create a new
   component only when needed, without changing the meaning of a reused control.
 - Extend the existing visual system rather than introducing an unrelated one-off.
 
-Translate Material's interaction pattern into the component with the correct
-semantics. These DOM examples are choices, not a list of dependencies to install;
-use equivalent project/native controls outside DOM.
-
-| Interaction | DOM component choice |
-| --- | --- |
-| Focused decision | `Dialog`; `AlertDialog` for a consequential confirmation |
-| Contextual bottom sheet | `Drawer` |
-| Navigation drawer | `Sheet` or the existing navigation component |
-| Action menu | `DropdownMenu` |
-| Snackbar/notification | Existing toast mechanism |
-| Text entry | `Input` / `Textarea` |
-| Selection / immediate setting | `Checkbox` / `RadioGroup` / `Switch` by semantics |
-| Switch content panels | `Tabs` |
-| Choose a mode or value | `ToggleGroup` when its selection semantics fit |
+Translate Material's interaction patterns using the existing native modal/menu
+providers and appropriate React Native Reusables primitives. Install additional
+primitives only for a concrete screen need.
 
 Do not use tabs for an unrelated value selector or a switch for an action that
 requires an explicit submission.
@@ -189,50 +193,91 @@ approval or design document for a routine change.
 
 Implement the simplest interface that meets those needs. Verify the changed flow,
 Back, keyboard, touch targets, light/dark mode and text scaling in the relevant
-runtime. A DOM browser preview does not verify native keyboard, safe areas or
+runtime. A browser preview does not verify native keyboard, safe areas or
 hardware Back. Follow [Validation](validation.md) and report unverified behavior.
 
 ## Current component and screen conventions
 
-- App components are functional, typed `FC` / `FC<Props>`, with interface props; copied shadcn primitives retain upstream signatures.
-- Native styling: `StyleSheet.create()` + `useTheme()` colors. DOM styling: local Tailwind tokens and copied shadcn primitives; no imports from the frontend checkout.
-- The `(auth)` layout owns one `auth/AuthFlow` WebView outside its child `Slot`; route files return null. Navigate with Expo Router and pass the active screen as a prop. Do not mount a separate DOM component per auth route. Only form state resets between screens.
-- The root layout fills both system-bar safe areas with `colors.background` on every route. Its light/dark sRGB values and the existing `authBackground` role match `--surface` in `components/dom/styles/brand.css`. Status-bar icons follow the app theme. Background selection must not depend on the route or whether a home exists; `getAuthScreen` still selects only the five DOM screens.
-- Native reset password and `/home/join` reuse `common/FormScreen`: optional header, keyboard-aware scroll body and measured bottom actions, all constrained to 448 dp with 24 dp side padding. Body top/bottom spacing is 24/16 dp; actions use 16/32 dp. The container measures its window offset for keyboard avoidance and reserves the action section outside scrolling content. Use the existing native auth field/button variants and theme roles; important submission errors scroll with the fields. Screen-level actions are omitted while the keyboard is visible; the keyboard scroll offset excludes their height during editing.
-- Auth forms keep 24 dp base spacing between fields and 32 dp between context and fields. DOM rem spacing adapts to system text size. `AuthPanel` mirrors the native regions with `.auth-content` and `.auth-actions`, 24 px side padding and a constrained form width. Its viewport-height layout scrolls body content independently; preserve an 8 px horizontal scroll gutter around fields and actions so focus/validation rings and link outlines are not clipped. The action section can scroll when large text and a short window cannot show every action at once. Preserve HTML form submission and field focus. Native auth fields have a 52 dp minimum height, 1 dp border and 8 dp radius; submit buttons have a 48 dp minimum height and 8 dp radius.
-- Native `Input` connects its visible label to the text field, exposes field errors to assistive technology and shows focus/error borders. `PasswordInput` composes it with a named 48 dp visibility toggle. Native buttons keep their action label while loading and expose disabled/busy state. Async reset submissions return `Promise<SimpleResult>`, keep failure messages inline and always release the synchronous submission lock.
-- Auth DOM typography scales with native `useWindowDimensions().fontScale`. Touch targets retain a 48 CSS px floor independent of rem scaling; buttons grow with wrapped text. The local `control-border` semantic token identifies fields and unchecked checkboxes with sufficient contrast, while `border` remains decorative. Its native adapter uses the existing Keyboard Controller's `KeyboardAvoidingView`; keep the WebView scrollable. Native loading/error UI covers the initial WebView startup until the themed DOM reports ready.
-- Registration requires 10–64 characters, lowercase, uppercase, number, special character, matching confirmation, and explicit Terms/Privacy agreement. Validate again at the native bridge. Show email verification after registration; forgot password continues to `/resetPassword` with email.
-- Server selection is visible and writable only in Development. Validate absolute HTTP(S) addresses at both boundaries; use null in the bridge to restore the configured default, then update the form from the native URL prop.
-- Native home selection uses one `FlatList`, with the current home identified by text, a checkmark and selected state. Other homes switch immediately on tap; wait for a successful `HomeProvider.setCurrent` result before navigating and prevent duplicate switches. Keep switch errors beside the attempted home, with the existing toast as immediate feedback; list errors include a visible Retry action. Load once per focus and support pull-to-refresh. Expose Home details without a long press. Create/Join are secondary actions in the scrolling footer, using remaining space on short lists and scrolling with long lists or large text. Use the optional `DefaultHeader` `brand` variant, `Icon` `brand` color and `Button` `brand-outline` type on this screen.
-- Native `/home/join` uses the brand header and `HomeCodeInput`: eight decorative slots grouped 4+4 over one labeled native `TextInput`. Groups wrap with large text or narrow width; visible slots map taps to native selection, while paste/autofill/Backspace and long-press selection stay native. Trim and uppercase the invite code; validate all eight A–Z/0–9 characters before sending. Keep errors beside the field, preserve the code after failure and share one synchronous submit lock between button and keyboard. `FormScreen` keeps the primary action in the separate bottom region. Preserve an existing current home; await first-home initialization with `{ silent: true }` before leaving, so this screen owns feedback. If acceptance succeeds but initialization fails, open `/home/list` rather than resending the invitation. The picker stays available without a current home. Ignore late feedback/navigation after leaving; never log invite codes.
+- App components are functional, typed `FC` / `FC<Props>`, with interface props; copied React Native Reusables primitives retain upstream signatures.
+- Native screen styling uses `StyleSheet.create()` and `useTheme()` colors. Local
+  React Native Reusables primitives use NativeWind; there are no Expo DOM screens.
+- `(auth)` uses a native `Stack` with instant screen changes. Each route renders
+  `AuthFlow` with its own fixed screen, preserving its form while another route
+  covers it and restoring it on Back. The auth layout shares the resend cooldown
+  through `ResendCooldownContext`. Password reset and the public legal pages also
+  switch without animations in the root stack; headers remain inside their screens.
+  Navigation and Remember me keep fields and buttons visually enabled while their
+  synchronous guard prevents repeated actions. Form submissions retain pending feedback.
+- The root layout fills both system-bar safe areas with `colors.background` on every
+  route: light `#F9F7F1`, dark `#100D08`. Status-bar icons follow the app theme.
+- Auth, reset, home selection, empty state, joining and home forms use 16 dp of
+  bottom content padding above the root-managed gesture/system-bar safe area.
+  Keep section spacing off the auth scroll content container: the keyboard-aware
+  scroll view appends its own spacer, which must not receive another section gap.
+- `SenswaveModal` extends beneath the Android system bars; its container applies
+  safe-area padding once. The location picker grows its map into the available
+  height between the introduction and attribution/actions, with 16 dp below the
+  confirm button. A 220 dp minimum map height keeps short windows and large text
+  scrollable without shrinking the map away.
+- Home deletion/leaving uses the local React Native Reusables `AlertDialog` with
+  an explicit Cancel and Delete/Leave action. Keep its trigger, title, description
+  and actions within the same controlled root. A named portal inside a native
+  Modal isolates the covered screen for assistive technology and handles hardware
+  Back as cancellation. `common/Button` forwards the native ref so the primitive
+  can restore focus to its trigger. Scroll long confirmation text while keeping
+  actions visible; stack full-width actions at every window width. Retain the
+  existing request lock and inline recovery.
+- Auth and reset use 448 dp maximum width, 24 dp side padding, 24 dp field gaps and
+  32 dp section gaps. Native fields have a 52 dp minimum height, 1 dp border and
+  8 dp radius; submit buttons have a 48 dp minimum height and 8 dp radius.
+  Their keyboard-aware scroll content includes context, errors and actions.
+- Native `Input` connects its visible label to the field, exposes errors to assistive
+  technology and shows focus/error borders. `PasswordInput` adds a named 48 dp
+  visibility toggle. Buttons retain their label and expose disabled/busy state.
+  Async submissions keep inline failure messages and release their synchronous lock.
+- Registration requires 10–64 characters, lowercase, uppercase, number, special
+  character, matching confirmation and explicit Terms/Privacy agreement. Success
+  shows email verification; forgot password continues to `/resetPassword` with email.
+- Server selection is Development-only. Validate absolute HTTP(S) addresses in the
+  form and adapter; pass null to restore the configured default. The form follows
+  the effective URL from `ConfigurationProvider`.
+- Native home selection uses one `FlatList`, with the current home identified by text, a checkmark and selected state. Other homes switch immediately on tap; wait for a successful `HomeProvider.setCurrent` result before navigating and prevent duplicate switches. Keep switch errors beside the attempted home without an overlay toast; list errors include a visible Retry action. Load once per focus and support pull-to-refresh. Expose Home details without a long press. Create/Join are secondary actions in the scrolling footer, using remaining space on short lists and scrolling with long lists or large text. Use the optional `DefaultHeader` `brand` variant, `Icon` `brand` color and `Button` `brand-outline` type on this screen.
+- Native `/home/join` uses the brand header and `HomeCodeInput`: eight native Reusables inputs grouped 4+4. Groups wrap with large text or narrow width. Each segment owns its native focus and selection bounds; its active border uses `authFocus`, like other form fields. Focus is shown by the outline only, without a visible caret, selection highlight or handles; the selected character can still be replaced. Character entry advances focus, Backspace moves back, and complete paste/autofill replaces the invitation. Do not place a transparent editing surface over decorative slots. Trim and uppercase the invite code; validate all eight A–Z/0–9 characters before sending. Keep length/format errors below the field and request failures above Join home, preserve the code after failure and share one synchronous submit lock between button and keyboard. The primary action stays in the same keyboard-aware scroll content, with growing space above it. Preserve an existing current home; await first-home initialization with `{ silent: true }` before leaving, so this screen owns feedback. If acceptance succeeds but initialization fails, open `/home/list` rather than resending the invitation. The picker stays available without a current home. Ignore late feedback/navigation after leaving; never log invite codes.
 - The dashboard's `NoHomeScreen` is a native empty state with a clear setup heading, a short explanation and a decorative home icon. `Create home` is primary (`Button` `auth` type); `Join home` is secondary (`brand-outline`). Keep both in growing scroll content with a 448 dp maximum width and space above their group, so short windows and large text retain every action. Use brand foreground/muted tokens on the shared canvas background, keeping it aligned with its header and safe areas. Preserve the parent navigation and refresh callbacks.
+- Native `/home/add` and `/home/details` use `HomeForm`: one keyboard-aware scroll page, a brand header, 448 dp maximum width, 24 dp side padding and named Create/Save actions. Back leaves settings without saving. Validate the trimmed name at 3–64 characters. Keep field errors below Name and action alerts above Save/Create; changing the icon or location must not clear a name error. Maintain the mounted draft while saving, block duplicate submissions synchronously and release pending state after a request even if the retained screen lost focus. Successful saves update the saved baseline even while the screen is unfocused; subsequent edits send only fields changed since that save. Creation initializes the first home silently and recovers to `/home/list` after an accepted create with failed initialization. Returning to a retained screen after an accepted create also opens the picker; do not repeat POST.
+- Home icon selection opts into the existing `IconSelector` and `SenswaveModal` brand variants. Expose labeled 48 dp targets and selected state; size the brand grid from the available modal width. Both icon lists keep taps actionable while the keyboard is open. Existing icon-selector callers keep the legacy appearance. `LocalizationSelector` shows an address or “Selected location”, never raw coordinates. Choose on map opens `home/LocationMapPicker`: a native MapLibre map with a fixed center pin, pan/zoom and explicit confirmation. Cancellation preserves the draft; opening the map requests no location permission. Current-location lookup remains optional, with an inline permission/timeout error and a 10-second request bound. Zero coordinates are valid; restored coordinates update the display. An open picker or pending location request keeps Create/Save unavailable until it finishes. Keep the form's loading callback stable so its rerenders do not close the picker.
+- Home settings group the data source, access list and destructive action after the form. Only owners see source/access/delete actions; other members retain their existing edit permissions enforced by the API and can leave. Keep source/access loading local, provide Retry and empty states, and retain confirmations for deleting a home, leaving or removing access. `Button` `brand-destructive` uses a destructive outline and label; individual access-removal labels identify the affected email. After persisted deletion/leaving, discard only the removed current home, initialize the next selection silently and recover to the picker if initialization fails. Never retain a removed home or repeat a completed destructive request to retry selection.
 - Local UI / form state: `useState`.
+- Data-source states share the native `DataSourceState` badge. Home settings place
+  it beside the source name in a wrapping row. Match web labels and semantic tones:
+  Working/Connected → Connected (positive), Restarting/Connecting → warning,
+  Error → critical, and NotStarted/Stopped or unknown states → Disconnected
+  (neutral). The `dataSourceStatus` theme palettes mirror the web's light/dark
+  status colors; keep readable text, a decorative indicator and no pulse animation.
 - Re-fetch trigger: increment a numeric state counter.
 
 ## Existing native components
 
-| Component | Purpose |
-|-----------|---------|
-| `JsonPathSelector` | Define JSON field path list for parsing MQTT messages. Validates: no `"` or `\`, no control chars, max 64 chars/key |
-| `Icon` | Wrapper over `@expo/vector-icons`, curated set |
-| `Modal` | Generic modal via `ModalProvider` |
-| `PasswordInput` | Native secure input + show/hide toggle |
-| `FormScreen` | Native form header, keyboard-aware scrolling body and separate bottom actions |
-| `SafetyNote` | Info/warning callout in forms |
-| `Expander` | Collapsible section (Home details: sharing list, rooms) |
-| `Dropdown` | Selection (profile theme, language) |
-| `HorizontalSelector` | Tab-style horizontal option picker |
-| `LocalizationSelector` | Language picker |
-| `SimpleItemList` | Generic key-value list |
-| `UserProfileImage` | Avatar from email initial |
+| Component              | Purpose                                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `JsonPathSelector`     | Define JSON field path list for parsing MQTT messages. Validates: no `"` or `\`, no control chars, max 64 chars/key |
+| `Icon`                 | Wrapper over `@expo/vector-icons`, curated set                                                                      |
+| `Modal`                | Generic modal via `ModalProvider`                                                                                   |
+| `PasswordInput`        | Native secure input + show/hide toggle                                                                              |
+| `SafetyNote`           | Info/warning callout in forms                                                                                       |
+| `Expander`             | Collapsible section (Home details: sharing list, rooms)                                                             |
+| `Dropdown`             | Selection (profile theme, language)                                                                                 |
+| `HorizontalSelector`   | Tab-style horizontal option picker                                                                                  |
+| `LocalizationSelector` | Optional home location, native map selection and GPS; address/selected-place display |
+| `SimpleItemList`       | Generic key-value list                                                                                              |
+| `UserProfileImage`     | Avatar from email initial                                                                                           |
 
 ## Official references
 
 - [Material Design 3 foundations](https://m3.material.io/foundations/) — interaction, layout and accessibility guidance.
 - [Android layout structure](https://developer.android.com/design/ui/mobile/guides/layout-and-content/content-structure) and [action placement](https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns) — spacing, hierarchy and contextual controls.
 - [shadcn/ui](https://ui.shadcn.com/docs), [theming](https://ui.shadcn.com/docs/theming) and [agent skills](https://ui.shadcn.com/docs/skills) — components, semantic roles and composition.
-- [Expo DOM](https://docs.expo.dev/guides/dom-components/) — the native/web boundary.
+- [React Native Reusables](https://reactnativereusables.com/docs/installation) — native primitives and NativeWind setup.
 - [React Native accessibility](https://reactnative.dev/docs/accessibility) — native roles, states and assistive technology.
 - [Android accessibility](https://developer.android.com/guide/topics/ui/accessibility/views/apps-views) — effective touch targets.
 - [WCAG contrast](https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum) — text contrast requirements.

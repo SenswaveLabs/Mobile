@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Senswave mobile is a DIY Smart Home app built with React Native, Expo and TypeScript.
-The auth PoC uses local shadcn/Base UI components in Expo DOM; the rest of the app is native.
+Authentication, home selection, creation and settings use local React Native Reusables components; the app renders native React Native UI.
 
 ## Rules
 
@@ -22,7 +22,7 @@ Read the relevant guide before acting; do not load the whole guide for a small, 
 | When the task involves… | Read |
 | --- | --- |
 | Structure, imports, types, components, naming or dependencies | [Repository and conventions](docs/agent-guide/repository.md) |
-| UI, MD3, shadcn, navigation, forms, theming or accessibility | [Mobile UI design policy](docs/agent-guide/interface.md) |
+| UI, MD3, React Native Reusables, navigation, forms, theming or accessibility | [Mobile UI design policy](docs/agent-guide/interface.md) |
 | Domain entities, API contracts, authentication, contexts or SignalR | [Domain and API contracts](docs/agent-guide/api-and-data.md) |
 | Node, pnpm, environment variables, Android, CI or releases | [Tooling, builds and releases](docs/agent-guide/tooling.md) |
 | Tests, runtime checks or completion criteria | [Validation](docs/agent-guide/validation.md) |
@@ -30,9 +30,10 @@ Read the relevant guide before acting; do not load the whole guide for a small, 
 ## UI direction
 
 Material Design 3 guides UX and interaction; Senswave's shadcn-based product defines the visual language.
-Use `next-frontend/apps/web` as a brand reference; choose hierarchy and behavior for mobile tasks. Use web primitives only inside Expo DOM.
-App components use `FC` and interface props; copied shadcn primitives keep upstream signatures.
-Native styling uses `StyleSheet.create()` and `useTheme()` colors; all screens share the themed background. DOM styling uses local Tailwind tokens.
+Use `next-frontend/apps/web` as a brand reference; choose hierarchy and behavior for mobile tasks. Use React Native Reusables primitives for auth, home selection, creation and settings.
+App components use `FC` and interface props; copied React Native Reusables primitives keep upstream signatures.
+Native styling uses `StyleSheet.create()` and `useTheme()` colors; all screens share the themed background. React Native Reusables primitives use NativeWind and tokens derived from the same theme.
+Home location uses a native MapLibre picker with OpenStreetMap. See [Tooling](docs/agent-guide/tooling.md) for its development-client rebuild requirement.
 
 ## Finish the work
 
