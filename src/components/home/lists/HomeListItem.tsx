@@ -46,7 +46,7 @@ const HomeListItem: FC<HomeListItemProps> = ({
                 !selected && styles.alternative,
                 disabled && !loading && styles.dimmed,
             ]}>
-            <Icon icon={home.icon} size={24} color="brand" />
+            <Icon icon={home.icon} resource="homes" size={24} color="brand" />
             <View style={styles.description}>
                 <Text style={[styles.name, { color: colors.authForeground }]}>{home.name}</Text>
                 <Text style={[styles.ownership, { color: colors.authMuted }]}>

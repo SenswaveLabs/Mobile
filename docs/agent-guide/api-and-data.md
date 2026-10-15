@@ -105,6 +105,35 @@ selection, including one selected during recovery. A failed initializer sends th
 active details screen to the picker; it must not repeat the destructive request.
 Ordinary initialization and refresh callers keep their existing behavior.
 
+### Home and Device icons
+
+Authenticated `GET v1/homes/icons` and `GET v1/devices/icons` return resource-specific
+JSON string arrays, without a resource ID or an existing Home. Keys are opaque and
+case-sensitive; clients own glyphs and labels. `useIconCatalog()` loads through
+`useHttpClient()`, validates nonempty string arrays without duplicate keys, shares
+in-flight/successful requests and scopes its in-memory cache to the configured
+server and access token. A token refresh conservatively reloads the catalog. Server,
+session or resource changes immediately hide stale keys and ignore late responses.
+Failures expose inline feedback and retry, never a local allowed list.
+
+Home/Device forms pass the matching catalog to `IconSelector`; it constrains both
+the quick strip and full search. `resourceIcons.ts` maps keys to native glyphs and
+labels for presentation only, including safe Home/Device fallbacks. It is not an
+allowed list. Unknown or historical selections keep their original stored keys;
+their display fallback must never become a submitted replacement. Other selector
+callers retain their existing global icon browser.
+
+Create requires a nonempty catalog key, including validation of `home-outline` and
+`bulb-outline` defaults. PATCH omits an unchanged icon, so unrelated edits remain
+usable when the catalog fails. An omitted, null or empty icon preserves the backend
+value; an exact unchanged historical key is accepted even if absent from the
+catalog. A changed unsupported or wrong-resource key returns `400`. Existing v1/v2
+reads retain their public `icon` field.
+
+Coordinate rollout with `SenswaveLabs/Next-Backend` `dev` commit `4979c3c` or later.
+Older unrestricted clients can submit keys rejected by the new backend; clients
+need the catalog endpoints before new Home/Device choices are usable.
+
 **Auth endpoints**
 
 | Endpoint | Method | Purpose |

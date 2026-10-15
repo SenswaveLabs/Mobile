@@ -25,6 +25,15 @@ function Details() {
         const response = await httpClient.patch(`v1/devices/${deviceId}`, values);
 
         if (response.isSuccess) {
+            setDevice((current) =>
+                current
+                    ? {
+                          ...current,
+                          icon: values.icon ?? current.icon,
+                          name: values.name ?? current.name,
+                      }
+                    : current,
+            );
             toast.success("Device updated successfully.");
             setHasChanges(false);
             await devices.refresh();

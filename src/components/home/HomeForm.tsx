@@ -6,6 +6,7 @@ import { CircleAlert, Info } from "lucide-react-native";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Text } from "@/components/ui/text";
 import { useTheme } from "@/contexts/ThemeProvider";
+import { useIconCatalog } from "@/hooks/useIconCatalog";
 import { keyboardOffset } from "@/styles/defaultStyles";
 import Input from "../common/Input";
 import Button from "../common/Button";
@@ -13,19 +14,6 @@ import IconSelector from "../common/IconSelector";
 import LocalizationSelector from "../common/LocalizationSelector";
 
 const defaultIcon = "home-outline";
-const homeIcons = [
-    defaultIcon,
-    "business-outline",
-    "storefront-outline",
-    "location-outline",
-    "pin-outline",
-    "map-outline",
-    "people-outline",
-    "heart-outline",
-    "leaf-outline",
-    "sunny-outline",
-    "globe-outline",
-];
 
 export interface HomeFormValues {
     name: string;
@@ -55,6 +43,7 @@ const HomeForm: FC<HomeFormProps> = ({
     disabled = false,
     children,
 }) => {
+    const catalog = useIconCatalog("homes");
     const { colors } = useTheme().current;
     const initial = {
         name: initName,
@@ -74,6 +63,9 @@ const HomeForm: FC<HomeFormProps> = ({
     const active = useRef(true);
     const nameInput = useRef<TextInput>(null);
     const unavailable = loading || disabled;
+    const isIconValid =
+        (edit && values.icon === saved.icon) ||
+        (!catalog.loading && !catalog.error && catalog.keys.includes(values.icon));
     const dirty =
         values.name.trim() !== saved.name ||
         values.icon !== saved.icon ||
@@ -123,6 +115,8 @@ const HomeForm: FC<HomeFormProps> = ({
             nameInput.current?.focus();
             return;
         }
+
+        if (!isIconValid) return;
 
         const snapshot = { ...values, name };
         const request: Partial<HomeFormValues> = {};
@@ -186,11 +180,17 @@ const HomeForm: FC<HomeFormProps> = ({
                 />
                 <IconSelector
                     defaultIcon={values.icon}
-                    iconList={homeIcons}
+                    catalog={catalog}
+                    resource="homes"
                     onIconSelected={(icon) => change({ icon })}
                     variant="brand"
                     disabled={unavailable}
                 />
+                {!catalog.loading && !catalog.error && !isIconValid && (
+                    <Text style={{ color: colors.error }} accessibilityRole="alert">
+                        Select an available icon.
+                    </Text>
+                )}
                 <LocalizationSelector
                     initLocation={values}
                     onSelectLocation={(latitude, longitude) => change({ latitude, longitude })}
@@ -213,7 +213,7 @@ const HomeForm: FC<HomeFormProps> = ({
                     onPress={submit}
                     type="auth"
                     loading={loading}
-                    disabled={disabled || locationLoading || (edit && !dirty)}
+                    disabled={disabled || locationLoading || !isIconValid || (edit && !dirty)}
                 />
             </View>
             {!!children && <View style={styles.settings}>{children}</View>}

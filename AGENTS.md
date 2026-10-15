@@ -11,6 +11,7 @@ Authentication, home selection, creation and settings use local React Native Reu
 - Production releases are manual only, with strict versioning. Public CI verifies PRs with an ARM64 Android build and requests a release PR in private `Next-Infra`; a human merges that PR before the VPS builds and hosts the next-dev APK. Never give public `Mobile` a self-hosted runner or infrastructure write token. See [Tooling](docs/agent-guide/tooling.md).
 - Android CI checks compile ARM64 debug, export production JavaScript and upload Gradle profiles. Pushes and manual runs on `next-dev` seed Gradle cache for PRs. Validate release tasks and all supported ABIs before releases.
 - Never call `fetch` outside `src/utils/httpClient.tsx`; use `useHttpClient()`.
+- Home and Device icon choices come from backend catalogs. Keep opaque keys unchanged; see [Domain and API contracts](docs/agent-guide/api-and-data.md).
 - Changes to shared API contracts require a backend build at `Senswave.sln` level.
 - Use pnpm only, Node from `.nvmrc`, and the frozen pnpm lockfile. Preserve build approvals in `pnpm-workspace.yaml`.
 - Create `.env` from `.env.template` before the first run.
