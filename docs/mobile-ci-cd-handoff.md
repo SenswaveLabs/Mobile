@@ -92,6 +92,10 @@ kompilację Android debug ARM64 z cache Gradle i artefaktem `gradle-profile` na
 GitHub-hosted; po push build dystrybucyjny wykonuje dopiero VPS po zatwierdzeniu
 PR w infra.
 
+Push lub ręczne uruchomienie CI na `next-dev` wykonuje też ten sam publiczny job
+Android, aby zapisać bazowy cache Gradle dla pierwszych buildów nowych PR-ów.
+Ten job działa niezależnie od propozycji wydania w infra po przejściu quality.
+
 Prywatny workflow propozycji przyjmuje wyłącznie ID prawdziwego Mobile CI.
 Sprawdza repo i head_repository, branch next-dev, dokładną ścieżkę workflow,
 event push/manual, SHA, run number i ukończony z sukcesem job quality. Actor i
