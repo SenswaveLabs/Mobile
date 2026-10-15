@@ -3,7 +3,16 @@ import test from "node:test";
 import { mountNativeComponent } from "./nativeComponentHarness.mjs";
 
 const globalIcons = ["home-outline", "airplane-outline", "bulb-outline"];
-const readyCatalog = { keys: ["building", "home-outline"], loading: false, error: "", retry() {} };
+const readyCatalog = {
+    entries: [
+        { key: "building", labelKey: "icons.homes.building" },
+        { key: "home-outline", labelKey: "icons.homes.home-outline" },
+    ],
+    keys: ["building", "home-outline"],
+    loading: false,
+    error: "",
+    retry() {},
+};
 
 function mountSelector(props = {}) {
     return mountNativeComponent("src/components/common/IconSelector.tsx", {
@@ -41,6 +50,63 @@ test("resource catalog constrains the quick strip and the full searchable browse
         ["building"],
         "A stale or invalid selection cannot escape the catalog",
     );
+});
+
+test("resource picker search and accessibility labels use server labelKey values", () => {
+    const form = mountSelector({
+        resource: "homes",
+        catalog: {
+            entries: [{ key: "home-outline", labelKey: "icons.homes.factory" }],
+            keys: ["home-outline"],
+            loading: false,
+            error: "",
+            retry() {},
+        },
+    });
+    const quick = form.elements().find((node) => node.type === "FlatList");
+    assert.equal(
+        quick.props.renderItem({ item: "home-outline" }).props.accessibilityLabel,
+        "Factory icon",
+    );
+    form.elements()
+        .find((node) => node.props?.accessibilityLabel === "Browse all icons")
+        .props.onPress();
+    form.render();
+    const search = form
+        .elements()
+        .find((node) => node.props?.accessibilityLabel === "Search icons");
+    search.props.onChangeText("factory");
+    form.render();
+    const grid = form.elements().filter((node) => node.type === "FlatList")[1];
+    assert.deepEqual(Array.from(grid.props.data), ["home-outline"]);
+    const cell = grid.props.renderItem({ item: "home-outline" });
+    assert.equal(cell.props.accessibilityLabel, "Factory icon");
+    assert.ok(
+        form
+            .elements(cell)
+            .some((node) => node.type?.name === "Text" && node.props.children?.includes("Factory")),
+        "The Home catalog browser must show the server-provided English label",
+    );
+});
+
+test("unknown and prototype-shaped label keys fall back to the unchanged icon key", () => {
+    for (const labelKey of ["unknown.key", "constructor", "__proto__"]) {
+        const form = mountSelector({
+            resource: "homes",
+            catalog: {
+                entries: [{ key: "home-outline", labelKey }],
+                keys: ["home-outline"],
+                loading: false,
+                error: "",
+                retry() {},
+            },
+        });
+        const quick = form.elements().find((node) => node.type === "FlatList");
+        assert.equal(
+            quick.props.renderItem({ item: "home-outline" }).props.accessibilityLabel,
+            "home-outline icon",
+        );
+    }
 });
 
 test("catalog loading and failure block new choices and expose retry without replacing the current icon", () => {

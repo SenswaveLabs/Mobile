@@ -51,7 +51,7 @@ src/
                             #   Device, OperationForm, WidgetDetails
     domain/                 # entity providers: Home, User, LiveUpdate, Legal
   hooks/                    # shared custom hooks, including native useGoogleSignIn
-                            # useIconCatalog: validated Home/Device catalogs and scoped memory cache
+                            # useIconCatalog: Home/Device metadata, derived keys and scoped cache
   types/
     DeviceTypes.tsx         # OperationType, WidgetType, OperationDto, WidgetDto
     HomeTypes.tsx           # Home, Room, Location, HomeSharingDto, HomeRolesToName
@@ -61,7 +61,7 @@ src/
     httpClient.tsx          # executeTimeout, HttpResponse — ONLY place fetch is called
     result.tsx              # Result<T>, SimpleResult
     authValidation.ts       # shared email/login/register/reset/server validation
-    resourceIcons.ts        # Home/Device native glyphs and labels, not an allowed list
+    resourceIcons.ts        # Home/Device Lucide symbols and safe fallbacks, not an allowed list
     location.tsx
   lib/utils.ts              # class merging for React Native Reusables
   styles/                   # shared style helpers

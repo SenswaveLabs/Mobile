@@ -5,15 +5,21 @@ import { useSession } from "@/contexts/SessionProvider";
 import type { IconResource } from "@/utils/resourceIcons";
 
 export interface IconCatalog {
+    entries: IconCatalogEntry[];
     keys: string[];
     loading: boolean;
     error: string;
     retry: () => void;
 }
 
+export interface IconCatalogEntry {
+    key: string;
+    labelKey: string;
+}
+
 interface CachedCatalog {
     scope: string;
-    request: Promise<string[]>;
+    request: Promise<IconCatalogEntry[]>;
 }
 
 // Keep only the latest session/server entry for each resource, including in-flight requests.
@@ -27,14 +33,14 @@ export const useIconCatalog = (resource: IconResource): IconCatalog => {
     const [retryCount, setRetryCount] = useState(0);
     const [state, setState] = useState({
         scope: "",
-        keys: [] as string[],
+        entries: [] as IconCatalogEntry[],
         loading: true,
         error: "",
     });
 
     useEffect(() => {
         let active = true;
-        setState({ scope, keys: [], loading: session.authenticated, error: "" });
+        setState({ scope, entries: [], loading: session.authenticated, error: "" });
 
         if (!session.authenticated) {
             catalogs.clear();
@@ -47,16 +53,27 @@ export const useIconCatalog = (resource: IconResource): IconCatalog => {
                 const response = await get(`v1/${resource}/icons`);
                 if (!response.isSuccess || !response.response)
                     throw new Error("Catalog unavailable");
-                const keys: unknown = await response.response.json();
+                const entries: unknown = await response.response.json();
                 if (
-                    !Array.isArray(keys) ||
-                    keys.length === 0 ||
-                    !keys.every((key) => typeof key === "string" && key.trim().length > 0) ||
-                    new Set(keys).size !== keys.length
+                    !Array.isArray(entries) ||
+                    entries.length === 0 ||
+                    !entries.every(
+                        (entry) =>
+                            !!entry &&
+                            typeof entry === "object" &&
+                            !Array.isArray(entry) &&
+                            Object.prototype.hasOwnProperty.call(entry, "key") &&
+                            Object.prototype.hasOwnProperty.call(entry, "labelKey") &&
+                            typeof entry.key === "string" &&
+                            entry.key.trim().length > 0 &&
+                            typeof entry.labelKey === "string" &&
+                            entry.labelKey.trim().length > 0,
+                    ) ||
+                    new Set(entries.map(({ key }) => key)).size !== entries.length
                 ) {
                     throw new Error("Invalid icon catalog");
                 }
-                return keys as string[];
+                return entries.map(({ key, labelKey }) => ({ key, labelKey }));
             })();
             catalog = { scope, request };
             catalogs.set(resource, catalog);
@@ -64,15 +81,15 @@ export const useIconCatalog = (resource: IconResource): IconCatalog => {
 
         const entry = catalog;
         entry.request.then(
-            (keys) => {
-                if (active) setState({ scope, keys, loading: false, error: "" });
+            (entries) => {
+                if (active) setState({ scope, entries, loading: false, error: "" });
             },
             () => {
                 if (catalogs.get(resource) === entry) catalogs.delete(resource);
                 if (active) {
                     setState({
                         scope,
-                        keys: [],
+                        entries: [],
                         loading: false,
                         error: "Could not load icons. Retry to choose an icon.",
                     });
@@ -86,9 +103,10 @@ export const useIconCatalog = (resource: IconResource): IconCatalog => {
     }, [get, resource, scope, session.authenticated, retryCount]);
 
     const current =
-        state.scope === scope ? state : { keys: [], loading: session.authenticated, error: "" };
+        state.scope === scope ? state : { entries: [], loading: session.authenticated, error: "" };
     return {
-        keys: current.keys,
+        entries: current.entries,
+        keys: current.entries.map(({ key }) => key),
         loading: current.loading,
         error: current.error,
         retry: () => setRetryCount((count) => count + 1),

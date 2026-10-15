@@ -70,8 +70,9 @@ hook, shared selector and real form handlers with the existing native host adapt
 checking create/edit, constrained full search, exact-key submission, default and
 wrong-resource validation, stored selection/reset, historical keys, loading,
 failure/retry, cached success, server/account changes and late responses. Presentation
-checks cover every key from the backend catalog fixture and installed Ionicons glyphs.
-These handler checks do not establish native rendering, keyboard or screen-reader behavior.
+checks compare every catalog key's installed Lucide SVG primitives with the shared
+geometry fixture and retain the legacy Ionicons checks. These checks do not establish
+native layout, keyboard or screen-reader behavior.
 
 For user-facing changes, exercise the affected flow in a native development build
 or emulator when available. Check navigation/Back, keyboard/scrolling, safe areas,

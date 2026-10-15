@@ -108,20 +108,25 @@ Ordinary initialization and refresh callers keep their existing behavior.
 ### Home and Device icons
 
 Authenticated `GET v1/homes/icons` and `GET v1/devices/icons` return resource-specific
-JSON string arrays, without a resource ID or an existing Home. Keys are opaque and
-case-sensitive; clients own glyphs and labels. `useIconCatalog()` loads through
-`useHttpClient()`, validates nonempty string arrays without duplicate keys, shares
-in-flight/successful requests and scopes its in-memory cache to the configured
-server and access token. A token refresh conservatively reloads the catalog. Server,
-session or resource changes immediately hide stale keys and ignore late responses.
-Failures expose inline feedback and retry, never a local allowed list.
+arrays of `{ key, labelKey }` objects, without a resource ID or an existing Home.
+Keys are opaque and case-sensitive; the server owns label keys and the mobile app
+maps the currently supported English labels. `useIconCatalog()` loads through
+`useHttpClient()`, validates nonempty entries and unique keys, and exposes both the
+entries and their derived key list. It shares in-flight/successful requests and scopes
+its in-memory cache to the configured server and access token. A token refresh
+conservatively reloads the catalog. Server, session or resource changes immediately
+hide stale keys and ignore late responses. Failures expose inline feedback and retry,
+never a local allowed list. The V1 catalog accepts only object entries; it does not
+parse the previous string-array shape.
 
 Home/Device forms pass the matching catalog to `IconSelector`; it constrains both
-the quick strip and full search. `resourceIcons.ts` maps keys to native glyphs and
-labels for presentation only, including safe Home/Device fallbacks. It is not an
-allowed list. Unknown or historical selections keep their original stored keys;
-their display fallback must never become a submitted replacement. Other selector
-callers retain their existing global icon browser.
+the quick strip and full search. The full resource browser shows and searches the
+English label selected by each entry's `labelKey`; unknown labels fall back to the
+opaque key. `resourceIcons.ts` maps resource keys to native Lucide symbols for
+presentation only, including safe Home/Device fallbacks. It is not an allowed list.
+Unknown or historical selections keep their original stored keys; their display
+fallback must never become a submitted replacement. Other selector callers retain
+their existing global icon browser.
 
 Create requires a nonempty catalog key, including validation of `home-outline` and
 `bulb-outline` defaults. PATCH omits an unchanged icon, so unrelated edits remain

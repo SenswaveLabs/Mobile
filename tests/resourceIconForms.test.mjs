@@ -23,6 +23,10 @@ function mountForm(config, props = {}, catalogOverrides = {}) {
     const ref = { current: null };
     const catalog = {
         keys: [config.defaultKey, config.key],
+        entries: [config.defaultKey, config.key].map((key) => ({
+            key,
+            labelKey: `icons.${config.resource}.${key}`,
+        })),
         loading: false,
         error: "",
         retry() {},

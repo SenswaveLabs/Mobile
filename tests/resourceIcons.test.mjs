@@ -1,155 +1,125 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import Module from "node:module";
+import test from "node:test";
 import { URL } from "node:url";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { mountNativeComponent } from "./nativeComponentHarness.mjs";
 
-const iconModule = { exports: {} };
-runInNewContext(
-    ts.transpileModule(readFileSync("src/utils/resourceIcons.ts", "utf8"), {
-        compilerOptions: { module: ts.ModuleKind.CommonJS },
-    }).outputText,
-    { module: iconModule, exports: iconModule.exports },
+const require = createRequire(import.meta.url);
+const geometry = JSON.parse(
+    readFileSync(new URL("./fixtures/resource-icon-geometry.json", import.meta.url), "utf8"),
 );
-const { getResourceIcon } = iconModule.exports;
 
-// Backend catalog fixtures from Next-Backend 4979c3c; these are not client allowed lists.
-const keys = {
-    homes: [
-        "home-outline",
-        "home",
-        "business-outline",
-        "building",
-        "building-2",
-        "factory",
-        "warehouse",
-        "castle",
-        "hotel",
-        "storefront-outline",
-        "store",
-        "location-outline",
-        "map-pin",
-        "pin-outline",
-        "map-outline",
-        "people-outline",
-        "heart-outline",
-        "leaf-outline",
-        "trees",
-        "sunny-outline",
-        "sun",
-        "globe-outline",
-    ],
-    devices: [
-        "bulb-outline",
-        "thermometer-outline",
-        "lock-closed-outline",
-        "lock-outline",
-        "key-outline",
-        "camera-outline",
-        "shield",
-        "power-outline",
-        "plug-outline",
-        "zap-outline",
-        "fan-outline",
-        "hardware-chip-outline",
-        "cpu-outline",
-        "wifi-outline",
-        "radio-outline",
-        "phone-portrait-outline",
-        "laptop-outline",
-        "laptop",
-        "desktop-outline",
-        "tv-outline",
-        "server-outline",
-        "server",
-        "cloud",
-        "battery-charging-outline",
-        "battery",
-        "alarm-outline",
-        "mic-outline",
-        "finger-print-outline",
-        "water-outline",
-        "droplet-outline",
-        "leaf-outline",
-        "snow-outline",
-        "flame-outline",
-        "gauge",
-        "box",
-        "wrench",
-    ],
+// Load installed Lucide components and their real icon data without evaluating native SVG hosts.
+const originalLoad = Module._load;
+Module._load = function (request, parent, isMain) {
+    if (request === "react-native-svg") return {};
+    return originalLoad.call(this, request, parent, isMain);
 };
-const glyphs = JSON.parse(
-    readFileSync(
-        new URL(
-            "../node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/Ionicons.json",
-            import.meta.url,
-        ),
-        "utf8",
-    ),
-);
+let lucide;
+try {
+    lucide = require("lucide-react-native");
+} finally {
+    Module._load = originalLoad;
+}
 
-test("every current Home and Device catalog key renders an installed native glyph with a local label", () => {
+const transpile = (file, dependencies = {}) => {
+    const module = { exports: {} };
+    runInNewContext(
+        ts.transpileModule(readFileSync(file, "utf8"), {
+            compilerOptions: { module: ts.ModuleKind.CommonJS },
+        }).outputText,
+        { module, exports: module.exports, require: (name) => dependencies[name] },
+    );
+    return module.exports;
+};
+
+const lucideFileBySymbol = {
+    Building2: "building-complex",
+    Fingerprint: "fingerprint-pattern",
+    Waves: "waves-horizontal",
+};
+const iconModules = {
+    "@expo/vector-icons": { Ionicons: "Ionicons" },
+    "lucide-react-native": lucide,
+};
+for (const symbol of Object.keys(geometry.symbols)) {
+    if (symbol === "Leaf") continue;
+    const file =
+        lucideFileBySymbol[symbol] ?? symbol.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+    iconModules[`lucide-react-native/icons/${file}`] = lucide[symbol];
+}
+const { getResourceIcon } = transpile("src/utils/resourceIcons.ts", iconModules);
+
+const iconNode = (component) => {
+    const element = component.render({ size: 24, strokeWidth: 2, color: "#000" }, null);
+    return Array.from(element.props.icon.node, ([type, attributes]) => ({
+        type,
+        attributes: Object.fromEntries(
+            Object.entries(attributes).filter(([name]) => name !== "key"),
+        ),
+    }));
+};
+
+test("installed Lucide symbols match the shared SVG geometry fixture", () => {
+    assert.equal(geometry.viewBox, "0 0 24 24");
+    assert.equal(geometry.strokeWidth, 2);
+    assert.equal(Object.keys(geometry.symbols).length, 57);
+
+    for (const [symbol, expected] of Object.entries(geometry.symbols)) {
+        assert.ok(lucide[symbol], `${symbol} must be exported by installed lucide-react-native`);
+        if (symbol === "Leaf") continue;
+        assert.deepEqual(iconNode(lucide[symbol]), expected, `${symbol} SVG primitives changed`);
+    }
+});
+
+test("all Home and Device keys render their canonical native Lucide symbol geometry", () => {
     const icon = mountNativeComponent("src/components/common/Icon.tsx", {
         props: { icon: "home-outline", resource: "homes", size: 24 },
-        modules: { "@expo/vector-icons": { Ionicons: "Ionicons" } },
+        modules: iconModules,
     });
+
     for (const resource of ["homes", "devices"]) {
-        for (const key of keys[resource]) {
-            const presentation = getResourceIcon(key, resource);
-            assert.notEqual(
-                presentation.label,
-                key,
-                `${resource}/${key} needs a local presentation`,
-            );
-            assert.ok(
-                Object.hasOwn(glyphs, presentation.glyph),
-                `${key} must map to an installed glyph`,
-            );
-            icon.render({ icon: key, resource, size: 24 });
-            assert.equal(icon.output().props.name, presentation.glyph);
+        for (const item of geometry.resources[resource]) {
+            const presentation = getResourceIcon(item.key, resource);
+            assert.equal(presentation.symbol, item.symbol, `${resource}/${item.key} symbol`);
+
+            icon.render({ icon: item.key, resource, size: 24, color: "onBackground" });
+            const output = icon.output();
+            if (item.symbol === "Leaf") {
+                assert.equal(output.type.displayName, "Leaf");
+                assert.notEqual(
+                    output.type,
+                    lucide.Leaf,
+                    "Leaf must use the pinned resource geometry",
+                );
+            } else {
+                assert.equal(output.type, lucide[item.symbol], `${resource}/${item.key} component`);
+            }
+            assert.equal(output.props.size, 24);
+            assert.equal(output.props.strokeWidth, geometry.strokeWidth);
+            assert.deepEqual(iconNode(output.type), geometry.symbols[item.symbol]);
         }
     }
-    assert.equal(getResourceIcon("building", "homes").glyph, "library-outline");
-    assert.equal(getResourceIcon("lock-outline", "devices").glyph, "lock-closed");
-    assert.equal(getResourceIcon("gauge", "devices").glyph, "speedometer-outline");
 });
 
-test("Home catalog keys render distinct glyphs", () => {
-    const renderedGlyphs = keys.homes.map((key) => getResourceIcon(key, "homes").glyph);
-    assert.equal(
-        new Set(renderedGlyphs).size,
-        keys.homes.length,
-        "Each Home choice must have a distinct icon",
-    );
-});
-
-test("Device catalog keys render distinct glyphs", () => {
-    const renderedGlyphs = keys.devices.map((key) => getResourceIcon(key, "devices").glyph);
-    assert.equal(
-        new Set(renderedGlyphs).size,
-        keys.devices.length,
-        "Each Device choice must have a distinct icon",
-    );
-});
-
-test("unknown, historical and prototype-shaped keys render safe resource fallbacks", () => {
+test("unknown, historical and prototype-shaped keys use safe resource fallbacks", () => {
     for (const resource of ["homes", "devices"]) {
         for (const key of [
             "retired-key",
             "Future.Key",
             "__proto__",
             "constructor",
-            "BUILDING",
             "",
+            "BUILDING",
         ]) {
-            const presentation = getResourceIcon(key, resource);
             assert.equal(
-                presentation.glyph,
-                resource === "homes" ? "home-outline" : "bulb-outline",
+                getResourceIcon(key, resource).symbol,
+                resource === "homes" ? "HousePlug" : "Lightbulb",
             );
-            assert.equal(presentation.label, key, "The fallback must not rewrite the stored key");
         }
     }
 });
@@ -157,7 +127,7 @@ test("unknown, historical and prototype-shaped keys render safe resource fallbac
 test("icons outside Home and Device keep their existing Ionicons normalization", () => {
     const icon = mountNativeComponent("src/components/common/Icon.tsx", {
         props: { icon: "airplane", size: 24 },
-        modules: { "@expo/vector-icons": { Ionicons: "Ionicons" } },
+        modules: iconModules,
     });
     assert.equal(icon.output().props.name, "airplane-outline");
     icon.render({ icon: "logo-github", size: 24 });

@@ -16,7 +16,8 @@ import Text from "./Text";
 import SenswaveModal from "./SenswaveModal";
 import Button from "./Button";
 import { IconCatalog } from "@/hooks/useIconCatalog";
-import { getResourceIcon, IconResource } from "@/utils/resourceIcons";
+import { getEnglishIconLabel } from "@/utils/iconLabels";
+import { IconResource } from "@/utils/resourceIcons";
 
 const ICON_SIZE = 24;
 
@@ -77,10 +78,14 @@ const IconSelector: React.FC<IconProps> = ({
         (!!catalog && (catalog.loading || !!catalog.error || catalog.keys.length === 0));
     const availableIcons = catalog ? catalog.keys : AllIcons;
     const quickIcons = catalog ? catalog.keys : iconList;
-    const iconLabel = (key: string) =>
-        resource
-            ? getResourceIcon(key, resource).label
-            : key.replace(/-outline$/, "").replace(/-/g, " ");
+    const showResourceLabels = !!(resource && catalog);
+    const iconLabel = (key: string) => {
+        if (resource) {
+            const labelKey = catalog?.entries?.find((entry) => entry.key === key)?.labelKey;
+            return labelKey ? getEnglishIconLabel(labelKey, key) : key;
+        }
+        return key.replace(/-outline$/, "").replace(/-/g, " ");
+    };
 
     const triggerPulse = () => {
         Animated.sequence([
@@ -320,7 +325,11 @@ const IconSelector: React.FC<IconProps> = ({
                             disabled={unavailable}
                             style={[
                                 styles.gridCell,
-                                brand && { width: brandCellSize, height: brandCellSize },
+                                showResourceLabels && styles.catalogGridCell,
+                                brand && {
+                                    width: brandCellSize,
+                                    height: brandCellSize + (showResourceLabels ? 30 : 0),
+                                },
                             ]}
                             onPress={() => onModalSelect(item)}>
                             <View
@@ -342,6 +351,15 @@ const IconSelector: React.FC<IconProps> = ({
                                     }
                                 />
                             </View>
+                            {showResourceLabels && (
+                                <Text
+                                    color="onBackground"
+                                    size="small"
+                                    numberOfLines={2}
+                                    style={styles.catalogGridCellLabel}>
+                                    {iconLabel(item)}
+                                </Text>
+                            )}
                         </TouchableOpacity>
                     )}
                     showsVerticalScrollIndicator={false}
@@ -432,5 +450,14 @@ const styles = StyleSheet.create({
         height: ICON_CELL_SIZE,
         justifyContent: "center",
         alignItems: "center",
+    },
+    catalogGridCell: {
+        height: ICON_CELL_SIZE + 30,
+        justifyContent: "flex-start",
+        paddingTop: 4,
+    },
+    catalogGridCellLabel: {
+        width: ICON_CELL_SIZE - 4,
+        textAlign: "center",
     },
 });

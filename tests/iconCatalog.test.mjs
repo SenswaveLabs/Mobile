@@ -5,13 +5,16 @@ import { URL } from "node:url";
 import { mountNativeComponent } from "./nativeComponentHarness.mjs";
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
-const success = (keys) => ({
+const icon = (resource, key) => ({ key, labelKey: `icons.${resource}.${key}` });
+const catalogEntries = (entries) => Array.from(entries, ({ key, labelKey }) => ({ key, labelKey }));
+const homeIcons = [icon("homes", "home-outline"), icon("homes", "building")];
+const success = (entries) => ({
     isSuccess: true,
     statusCode: 200,
-    response: { json: async () => keys },
+    response: { json: async () => entries },
 });
 
-function mountCatalog(get = async () => success(["home-outline", "building"])) {
+function mountCatalog(get = async () => success(homeIcons)) {
     const paths = [];
     const scope = {
         server: "https://first.example.test",
@@ -51,12 +54,13 @@ test("both authenticated catalogs use the HTTP client and retain successful resu
     const hook = mountCatalog(async (path) =>
         success(
             path.includes("devices")
-                ? ["bulb-outline", "plug-outline"]
-                : ["home-outline", "building"],
+                ? [icon("devices", "bulb-outline"), icon("devices", "plug-outline")]
+                : homeIcons,
         ),
     );
     await hook.settle();
     assert.deepEqual(Array.from(hook.output().keys), ["home-outline", "building"]);
+    assert.deepEqual(catalogEntries(hook.output().entries), homeIcons);
     hook.render("devices");
     await hook.settle();
     assert.deepEqual(Array.from(hook.output().keys), ["bulb-outline", "plug-outline"]);
@@ -64,12 +68,19 @@ test("both authenticated catalogs use the HTTP client and retain successful resu
     await hook.settle();
     assert.deepEqual(hook.paths, ["v1/homes/icons", "v1/devices/icons"]);
     assert.deepEqual(Array.from(hook.output().keys), ["home-outline", "building"]);
+    assert.deepEqual(catalogEntries(hook.output().entries), homeIcons);
 });
 
 test("catalog keys stay opaque, including newly added keys and original letter case", async () => {
-    const hook = mountCatalog(async () => success(["home-outline", "Future.Key"]));
+    const hook = mountCatalog(async () =>
+        success([icon("homes", "home-outline"), icon("homes", "Future.Key")]),
+    );
     await hook.settle();
     assert.deepEqual(Array.from(hook.output().keys), ["home-outline", "Future.Key"]);
+    assert.deepEqual(catalogEntries(hook.output().entries), [
+        { key: "home-outline", labelKey: "icons.homes.home-outline" },
+        { key: "Future.Key", labelKey: "icons.homes.Future.Key" },
+    ]);
 });
 
 test("a catalog request already in flight is reused when its resource is revisited", async () => {
@@ -81,8 +92,8 @@ test("a catalog request already in flight is reused when its resource is revisit
     hook.render("homes");
     hook.flushEffects();
     assert.deepEqual(hook.paths, ["v1/homes/icons", "v1/devices/icons"]);
-    pending[0](success(["home-outline"]));
-    pending[1](success(["bulb-outline"]));
+    pending[0](success([icon("homes", "home-outline")]));
+    pending[1](success([icon("devices", "bulb-outline")]));
     await flush();
     hook.render();
     assert.deepEqual(Array.from(hook.output().keys), ["home-outline"]);
@@ -107,12 +118,19 @@ test("HTTP, parsing and malformed catalog failures expose retry without a local 
         ...[
             null,
             {},
-            { items: ["home-outline"] },
+            { items: [icon("homes", "home-outline")] },
             [],
+            ["home-outline"],
             [""],
             [" "],
             [42],
-            ["home-outline", "home-outline"],
+            [null],
+            [{}],
+            [{ key: "home-outline" }],
+            [{ labelKey: "icons.homes.home-outline" }],
+            [{ key: "", labelKey: "icons.homes.home-outline" }],
+            [{ key: "home-outline", labelKey: " " }],
+            [icon("homes", "home-outline"), icon("homes", "home-outline")],
         ].map((data) => () => success(data)),
     ];
     for (const fail of failures) {
@@ -122,7 +140,7 @@ test("HTTP, parsing and malformed catalog failures expose retry without a local 
                 first = false;
                 return fail();
             }
-            return success(["home-outline"]);
+            return success([icon("homes", "home-outline")]);
         });
         await hook.settle();
         assert.equal(hook.output().loading, false);
@@ -145,11 +163,11 @@ test("server and account changes hide previous keys immediately and ignore late 
     hook.render();
     assert.deepEqual(Array.from(hook.output().keys), []);
     hook.flushEffects();
-    pending[0](success(["old-server-key"]));
+    pending[0](success([icon("homes", "old-server-key")]));
     await flush();
     hook.render();
     assert.deepEqual(Array.from(hook.output().keys), []);
-    pending[1](success(["new-server-key"]));
+    pending[1](success([icon("homes", "new-server-key")]));
     await flush();
     hook.render();
     assert.deepEqual(Array.from(hook.output().keys), ["new-server-key"]);
@@ -157,7 +175,7 @@ test("server and account changes hide previous keys immediately and ignore late 
     hook.render();
     assert.deepEqual(Array.from(hook.output().keys), []);
     hook.flushEffects();
-    pending[2](success(["new-account-key"]));
+    pending[2](success([icon("homes", "new-account-key")]));
     await flush();
     hook.render();
     assert.deepEqual(Array.from(hook.output().keys), ["new-account-key"]);
