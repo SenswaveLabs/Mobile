@@ -111,9 +111,27 @@ test("every current Home and Device catalog key renders an installed native glyp
             assert.equal(icon.output().props.name, presentation.glyph);
         }
     }
-    assert.equal(getResourceIcon("building", "homes").glyph, "business-outline");
-    assert.equal(getResourceIcon("lock-outline", "devices").glyph, "lock-closed-outline");
+    assert.equal(getResourceIcon("building", "homes").glyph, "library-outline");
+    assert.equal(getResourceIcon("lock-outline", "devices").glyph, "lock-closed");
     assert.equal(getResourceIcon("gauge", "devices").glyph, "speedometer-outline");
+});
+
+test("Home catalog keys render distinct glyphs", () => {
+    const renderedGlyphs = keys.homes.map((key) => getResourceIcon(key, "homes").glyph);
+    assert.equal(
+        new Set(renderedGlyphs).size,
+        keys.homes.length,
+        "Each Home choice must have a distinct icon",
+    );
+});
+
+test("Device catalog keys render distinct glyphs", () => {
+    const renderedGlyphs = keys.devices.map((key) => getResourceIcon(key, "devices").glyph);
+    assert.equal(
+        new Set(renderedGlyphs).size,
+        keys.devices.length,
+        "Each Device choice must have a distinct icon",
+    );
 });
 
 test("unknown, historical and prototype-shaped keys render safe resource fallbacks", () => {
