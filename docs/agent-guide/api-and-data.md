@@ -135,9 +135,9 @@ value; an exact unchanged historical key is accepted even if absent from the
 catalog. A changed unsupported or wrong-resource key returns `400`. Existing v1/v2
 reads retain their public `icon` field.
 
-Coordinate rollout with `SenswaveLabs/Next-Backend` `dev` commit `4979c3c` or later.
-Older unrestricted clients can submit keys rejected by the new backend; clients
-need the catalog endpoints before new Home/Device choices are usable.
+Coordinate rollout across a metadata-capable `SenswaveLabs/Next-Backend` V1 that
+returns `{ key, labelKey }` entries and the updated web and mobile clients. Older
+clients expect string arrays and reject the object catalogs.
 
 **Auth endpoints**
 
