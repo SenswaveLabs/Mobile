@@ -1,5 +1,6 @@
-import type { FC } from "react";
+import React, { FC } from "react";
+import { AuthFlow } from "@/components/auth/AuthFlow";
 
-const ForgotPassword: FC = () => null;
+const ForgotPassword: FC = () => <AuthFlow screen="forgotPassword" />;
 
 export default ForgotPassword;

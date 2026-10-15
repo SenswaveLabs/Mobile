@@ -20,6 +20,7 @@ interface SenswaveModalProps {
     /** Controlled mode — skip ModalProvider context */
     visible?: boolean;
     onClose?: () => void;
+    variant?: "default" | "brand";
 }
 
 const styles = StyleSheet.create({
@@ -56,25 +57,44 @@ const styles = StyleSheet.create({
         opacity: 0.7,
         transform: [{ scale: 0.98 }],
     },
+    brandContainer: { paddingHorizontal: 24 },
+    brandHeader: { height: "auto", minHeight: 64, paddingTop: 8, paddingBottom: 8 },
+    brandCenter: { justifyContent: "flex-start", overflow: "visible" },
+    brandClose: { minHeight: 48, minWidth: 48, alignItems: "center", justifyContent: "center" },
 });
 
-const SenswaveModal: FC<SenswaveModalProps> = ({ children, title, visible, onClose }) => {
+const SenswaveModal: FC<SenswaveModalProps> = ({
+    children,
+    title,
+    visible,
+    onClose,
+    variant = "default",
+}) => {
     const theme = useTheme();
     const modal = useModal();
     const insets = useSafeAreaInsets();
+    const brand = variant === "brand";
 
     const isVisible = visible !== undefined ? visible : modal.opened;
     const handleClose = onClose ?? modal.close;
 
     return (
-        <NativeModal visible={isVisible} animationType="slide" onRequestClose={handleClose}>
-            <GestureHandlerRootView style={{ flex: 1 }}>
+        <NativeModal
+            visible={isVisible}
+            animationType="slide"
+            statusBarTranslucent
+            navigationBarTranslucent
+            onRequestClose={handleClose}
+            accessibilityViewIsModal>
+            <GestureHandlerRootView
+                style={{ flex: 1, backgroundColor: theme.current.colors.background }}>
                 <KeyboardAvoidingView
                     style={{ flex: 1 }}
                     behavior={Platform.OS === "ios" ? "padding" : "height"}>
                     <View
                         style={[
                             styles.container,
+                            brand && styles.brandContainer,
                             {
                                 backgroundColor: theme.current.colors.background,
                                 paddingTop: insets.top,
@@ -82,21 +102,36 @@ const SenswaveModal: FC<SenswaveModalProps> = ({ children, title, visible, onClo
                             },
                         ]}>
                         {/* Header — mirrors DefaultHeader layout */}
-                        <View style={styles.header}>
+                        <View style={[styles.header, brand && styles.brandHeader]}>
                             <View style={styles.left}>
                                 <Pressable
+                                    cssInterop={false}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Close dialog"
                                     onPress={handleClose}
                                     style={({ pressed }) => [
                                         styles.iconButton,
+                                        brand && styles.brandClose,
                                         pressed && styles.pressed,
                                     ]}>
-                                    <Icon icon="close-outline" size={28} color="onBackground" />
+                                    <Icon
+                                        icon="close-outline"
+                                        size={brand ? 20 : 28}
+                                        color={brand ? "brand" : "onBackground"}
+                                    />
                                 </Pressable>
                             </View>
 
-                            <View style={styles.center}>
+                            <View style={[styles.center, brand && styles.brandCenter]}>
                                 {typeof title === "string" ? (
-                                    <Text size="medium" bold color="onBackground" numberOfLines={1}>
+                                    <Text
+                                        size="medium"
+                                        bold
+                                        color="onBackground"
+                                        style={
+                                            brand && { color: theme.current.colors.authForeground }
+                                        }
+                                        numberOfLines={brand ? undefined : 1}>
                                         {title}
                                     </Text>
                                 ) : (
@@ -104,7 +139,7 @@ const SenswaveModal: FC<SenswaveModalProps> = ({ children, title, visible, onClo
                                 )}
                             </View>
 
-                            <View style={styles.right} />
+                            {!brand && <View style={styles.right} />}
                         </View>
 
                         {/* Content */}

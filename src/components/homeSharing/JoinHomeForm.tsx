@@ -1,23 +1,26 @@
 import React, { FC, useCallback, useRef, useState } from "react";
-import { AccessibilityInfo, StyleSheet, Text, TextInput, View } from "react-native";
+import { AccessibilityInfo, StyleSheet, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { CircleAlert } from "lucide-react-native";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Text } from "@/components/ui/text";
+import { keyboardOffset } from "@/styles/defaultStyles";
 import Button from "../common/Button";
-import FormScreen from "../common/FormScreen";
 import HomeCodeInput from "./HomeCodeInput";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useToast } from "@/contexts/ToastProvider";
 import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 
 const JoinHomeForm: FC = () => {
     const httpClient = useHttpClient();
     const router = useRouter();
-    const toast = useToast();
     const homes = useHomes();
     const { colors } = useTheme().current;
     const [loading, setLoading] = useState(false);
     const [code, setCode] = useState("");
     const [error, setError] = useState("");
+    const [submitError, setSubmitError] = useState("");
     const pending = useRef(false);
     const active = useRef(true);
     const codeInput = useRef<TextInput>(null);
@@ -44,6 +47,7 @@ const JoinHomeForm: FC = () => {
         pending.current = true;
         setLoading(true);
         setError("");
+        setSubmitError("");
         try {
             const result = await httpClient.put("/v1/homes/sharings", { password: code });
             if (!active.current) return;
@@ -55,8 +59,8 @@ const JoinHomeForm: FC = () => {
                         : !result.response
                           ? "Couldn't connect. Check your connection and try again."
                           : "Couldn't join this home. Try again, or contact the home owner.";
-                setError(message);
-                toast.error(message);
+                setSubmitError(message);
+                AccessibilityInfo.announceForAccessibility(message);
                 return;
             }
 
@@ -71,19 +75,21 @@ const JoinHomeForm: FC = () => {
             if (!active.current) return;
 
             if (!homeReady) {
-                toast.info("You've joined the home. Select it from your homes.");
+                AccessibilityInfo.announceForAccessibility(
+                    "You've joined the home. Select it from your homes.",
+                );
                 router.replace("/home/list");
                 return;
             }
 
-            toast.success("Joined home successfully.");
+            AccessibilityInfo.announceForAccessibility("Joined home successfully.");
             if (router.canGoBack()) router.back();
             else router.replace("/");
         } catch {
             if (active.current) {
                 const message = "Couldn't join this home. Please try again.";
-                setError(message);
-                toast.error(message);
+                setSubmitError(message);
+                AccessibilityInfo.announceForAccessibility(message);
             }
         } finally {
             pending.current = false;
@@ -92,10 +98,11 @@ const JoinHomeForm: FC = () => {
     };
 
     return (
-        <FormScreen
-            actions={
-                <Button name="Join home" onPress={submitClicked} type="auth" loading={loading} />
-            }>
+        <KeyboardAwareScrollView
+            bottomOffset={keyboardOffset}
+            keyboardShouldPersistTaps="handled"
+            style={styles.screen}
+            contentContainerStyle={styles.content}>
             <View style={styles.fields}>
                 <View style={styles.intro}>
                     <Text
@@ -113,6 +120,7 @@ const JoinHomeForm: FC = () => {
                         setValue={(value) => {
                             const normalized = value.trim().toUpperCase();
                             setCode(normalized);
+                            setSubmitError("");
                             setError(
                                 normalized.length > 8
                                     ? "Invite codes have 8 characters. Check the code you pasted."
@@ -129,13 +137,36 @@ const JoinHomeForm: FC = () => {
                     </Text>
                 </View>
             </View>
-        </FormScreen>
+            <View style={styles.actions}>
+                {!!submitError && (
+                    <Alert
+                        icon={CircleAlert}
+                        variant="destructive"
+                        accessibilityRole="alert"
+                        accessibilityLiveRegion="polite">
+                        <AlertDescription>{submitError}</AlertDescription>
+                    </Alert>
+                )}
+                <Button name="Join home" onPress={submitClicked} type="auth" loading={loading} />
+            </View>
+        </KeyboardAwareScrollView>
     );
 };
 
 export default JoinHomeForm;
 
 const styles = StyleSheet.create({
+    screen: { flex: 1 },
+    content: {
+        flexGrow: 1,
+        width: "100%",
+        maxWidth: 448,
+        alignSelf: "center",
+        paddingHorizontal: 24,
+        paddingTop: 24,
+        paddingBottom: 16,
+    },
+    actions: { marginTop: "auto", paddingTop: 32, gap: 12 },
     fields: { gap: 32 },
     intro: { gap: 12 },
     title: { fontSize: 30, lineHeight: 36, fontWeight: "600" },

@@ -22,7 +22,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white&style=flat)
 ![Expo](https://img.shields.io/badge/Expo-54-000020?logo=expo&logoColor=white&style=flat)
 ![Expo Router](https://img.shields.io/badge/Expo_Router-6-000020?logo=expo&logoColor=white&style=flat)
-![React Native Paper](https://img.shields.io/badge/React_Native_Paper-5-6200EE?logo=react&logoColor=white&style=flat)
+![React Native Reusables](https://img.shields.io/badge/UI-React_Native_Reusables-111111?logo=react&logoColor=white&style=flat)
 ![SignalR](https://img.shields.io/badge/SignalR-8-5C2D91?logo=dotnet&logoColor=white&style=flat)
 
 ## What is Senswave?
@@ -72,7 +72,7 @@ pnpm start --dev-client # subsequent runs
 ```
 
 Welcome, login, registration, forgot password and development server selection
-share a [shadcn/Expo DOM PoC](docs/shadcn-dom-poc.md).
+use [native React Native Reusables UI](docs/native-auth-ui.md), alongside the home picker.
 
 See [`AGENTS.md`](AGENTS.md) for the guide index and the relevant architecture,
 tooling and validation rules. The [mobile UI policy](docs/agent-guide/interface.md)
@@ -83,7 +83,7 @@ defines MD3 interaction principles with Senswave's shadcn-based visual language.
 Pull requests are welcome.
 
 - Read [`AGENTS.md`](AGENTS.md) and the guide relevant to your task before writing code.
-- Use `next-dev` for new UI changes; keep it separate from `main` for now. PRs get GitHub-hosted Android verification. After a push to `next-dev`, CI requests a version PR in private Next-Infra; a human merge starts the VPS build and APK hosting. See [Tooling](docs/agent-guide/tooling.md). Production releases are manual.
+- Use `next-dev` for new UI changes; keep it separate from `main` for now. PRs get GitHub-hosted ARM64 Android verification. After a push to `next-dev`, CI requests a version PR in private Next-Infra; a human merge starts the VPS build and APK hosting. See [Tooling](docs/agent-guide/tooling.md). Production releases are manual.
 - Report bugs using the **Bug report** issue template.
 - Propose features using the **Feature request** issue template.
 

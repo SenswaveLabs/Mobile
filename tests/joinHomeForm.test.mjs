@@ -78,98 +78,130 @@ function mountJoin({ put, current, initialize = async () => true, canGoBack = tr
     };
 }
 
-test("invite entry keeps eight OTP segments backed by one editable native input", () => {
-    const form = mountJoin();
-    assert.equal(form.input().type?.name, "HomeCodeInput", "Preserve the segmented OTP interface");
+function mountOtp(value = "A3B7C9D2", immediateFocus = false) {
     const changes = [];
-    const field = mountNativeComponent("src/components/homeSharing/HomeCodeInput.tsx", {
-        props: {
-            ...form.input().props,
-            value: "A3B7C9D2",
-            setValue: (value) => changes.push(value),
+    const focused = [];
+    const ref = { current: null };
+    const props = {
+        value,
+        error: "",
+        inputRef: ref,
+        setValue: (next) => {
+            changes.push(next);
+            props.value = next;
         },
+    };
+    const field = mountNativeComponent("src/components/homeSharing/HomeCodeInput.tsx", { props });
+    const inputs = () => field.elements().filter((node) => node.type === "TextInput");
+    inputs().forEach((input, index) => {
+        input.props.ref({
+            focus: () => {
+                focused.push(index);
+                if (immediateFocus) inputs()[index].props.onFocus();
+            },
+        });
     });
-    const inputs = field.elements().filter((node) => node.type === "TextInput");
-    assert.equal(inputs.length, 1, "Paste, selection and Backspace use one native editing context");
-    assert.equal(inputs[0].props.accessibilityLabel, "Invite code");
-    assert.equal(inputs[0].props.value, "A3B7C9D2");
-    const characters = field
-        .elements()
-        .filter((node) => node.type === "Text" && node.props.children.join("").length === 1);
-    assert.equal(characters.map((node) => node.props.children.join("")).join(""), "A3B7C9D2");
-    inputs[0].props.onChangeText("  a3b7c9d2  ");
-    inputs[0].props.onChangeText("A3B7C9D");
-    assert.deepEqual(changes, ["  a3b7c9d2  ", "A3B7C9D"]);
+    return { ...field, props, changes, focused, ref, inputs };
+}
+
+test("OTP segments own their native editing and selection geometry", () => {
+    const field = mountOtp();
+    assert.equal(
+        field.inputs().length,
+        8,
+        "Each visible segment needs its own native focus bounds",
+    );
+    assert.deepEqual(
+        field.inputs().map((input) => input.props.value),
+        [..."A3B7C9D2"],
+    );
+    field.inputs().forEach((input, index) => {
+        assert.match(input.props.accessibilityLabel, new RegExp(`${index + 1} of 8`));
+        assert.equal(
+            input.props.selectTextOnFocus,
+            true,
+            "Replace the character in the tapped cell",
+        );
+        assert.equal(
+            input.props.onTouchEnd,
+            undefined,
+            "Native focus must not use overlay coordinates",
+        );
+    });
+    field.ref.current.focus();
+    assert.deepEqual(field.focused, [0], "Validation can focus the first native segment");
+
+    field.inputs()[6].props.onFocus();
+    field.render();
+    field.inputs()[6].props.onChangeText("x");
+    field.render();
+    assert.equal(field.props.value, "A3B7C9X2");
+    assert.equal(field.focused.at(-1), 7);
 });
 
-test("OTP taps select the visible wrapped cell without overriding native long press or drag", () => {
-    const selections = [];
-    const ref = { current: null };
-    const props = { value: "A3B7C9D2", setValue: () => {}, error: "", inputRef: ref };
-    const field = mountNativeComponent("src/components/homeSharing/HomeCodeInput.tsx", {
-        props,
-    });
-    const input = field.elements().find((node) => node.type === "TextInput");
-    assert.equal(typeof input.props.onTouchEnd, "function", "Map native taps to visible slots");
-    const host = { setSelection: (start, end) => selections.push([start, end]) };
-    if (typeof input.props.ref === "function") input.props.ref(host);
-    else input.props.ref.current = host;
-    assert.equal(ref.current, host, "Keep the caller's focus ref attached to the same input");
-
-    const groups = field
-        .elements()
-        .filter(
-            (node) =>
-                node.type === "View" &&
-                Array.isArray(node.props.children[0]) &&
-                node.props.children[0].length === 4,
-        );
-    groups.forEach((group, row) => {
-        group.props.onLayout({
-            nativeEvent: { layout: { x: 0, y: row * 68, width: 200, height: 56 } },
-        });
-        group.props.children[0].forEach((slot, column) => {
-            slot.props.onLayout({
-                nativeEvent: { layout: { x: column * 50, y: 0, width: 44, height: 56 } },
-            });
-        });
-    });
-    const touch = (timestamp, locationX = 122, locationY = 96) => ({
-        nativeEvent: { timestamp, locationX, locationY },
-    });
-    input.props.onTouchStart(touch(100));
-    input.props.onTouchEnd(touch(200));
-    assert.deepEqual(
-        selections,
-        [[6, 7]],
-        "Second row's third cell selects character 6 for replacement, not single-line native glyph geometry",
-    );
-
-    input.props.onTouchStart(touch(300));
-    input.props.onTouchEnd(touch(1100));
-    input.props.onTouchStart(touch(1200));
-    input.props.onTouchMove(touch(1250, 150));
-    input.props.onTouchEnd(touch(1300));
-    input.props.onTouchStart(touch(1400));
-    input.props.onTouchCancel();
-    input.props.onTouchEnd(touch(1450));
-    assert.deepEqual(
-        selections,
-        [[6, 7]],
-        "Leave native long press, drag and cancelled touches alone",
-    );
-
-    props.value = "A3B";
+test("OTP supports whole-code paste, autofill, deletion and consecutive keyboard focus", () => {
+    const field = mountOtp("");
+    field.inputs()[0].props.onChangeText("a");
     field.render();
-    const shorterInput = field.elements().find((node) => node.type === "TextInput");
-    shorterInput.props.ref(host);
-    shorterInput.props.onTouchStart(touch(1500));
-    shorterInput.props.onTouchEnd(touch(1550));
-    assert.deepEqual(
-        selections.at(-1),
-        [3, 3],
-        "Empty cells put the cursor at the end of the code",
+    assert.equal(field.props.value, "A");
+    assert.equal(field.focused.at(-1), 1);
+    field.inputs()[1].props.onChangeText("3");
+    field.render();
+    assert.equal(field.props.value, "A3");
+    assert.equal(field.focused.at(-1), 2);
+    field.inputs()[2].props.onKeyPress({ nativeEvent: { key: "Backspace" } });
+    field.render();
+    assert.equal(field.props.value, "A");
+    assert.equal(field.focused.at(-1), 1);
+
+    field.inputs()[1].props.onChangeText("  a3b7c9d2  ");
+    field.render();
+    assert.equal(
+        field.props.value,
+        "A3B7C9D2",
+        "A complete pasted code replaces the whole invitation",
     );
+    assert.equal(field.focused.at(-1), 7);
+    field.inputs()[2].props.onChangeText("");
+    field.render();
+    assert.equal(field.props.value, "A37C9D2");
+    assert.equal(field.focused.at(-1), 1);
+
+    field.inputs()[0].props.onChangeText("A3B7C9D2E");
+    field.render();
+    assert.equal(
+        field.props.value,
+        "A3B7C9D2E",
+        "Do not silently join with a truncated pasted code",
+    );
+});
+
+test("OTP keeps the latest code and next focus before parent updates commit", () => {
+    const field = mountOtp("", true);
+    field.inputs()[0].props.onChangeText("A");
+    assert.deepEqual(field.focused, [1]);
+    field.inputs()[1].props.onChangeText("3");
+    assert.equal(field.props.value, "A3");
+    assert.deepEqual(field.focused, [1, 2]);
+});
+
+test("OTP preserves invalid pasted suffixes and selects the final character for replacement", () => {
+    const field = mountOtp("ABCDEFGHI", true);
+    field.inputs()[0].props.onChangeText("X");
+    field.render();
+    assert.equal(
+        field.props.value,
+        "XBCDEFGHI",
+        "Editing must not silently truncate an invalid code",
+    );
+    field.inputs()[0].props.onChangeText("ABCDEFGH");
+    field.render();
+    assert.deepEqual({ ...field.inputs()[7].props.selection }, { start: 0, end: 1 });
+    assert.equal(field.inputs()[7].props.selectionColor, "transparent");
+    assert.equal(field.inputs()[7].props.caretHidden, true);
+    field.inputs()[7].props.onChangeText("J");
+    field.render();
+    assert.equal(field.props.value, "ABCDEFGJ");
 });
 
 test("join validates the whole code locally and pastes a normalized invitation", async () => {
@@ -237,7 +269,19 @@ test("invalid or expired invitations and connection failures stay visible and al
         form.enter("A3B7C9D2");
         await form.button().props.onPress();
         form.render();
-        assert.match(form.input().props.error, /new invitation|try again/i);
+        assert.equal(form.input().props.error, "", "Request failures belong to the join action");
+        const actions = form
+            .elements()
+            .find((node) => node.type === "View" && node.props.children.includes(form.button()));
+        const message = actions.props.children[0];
+        assert.equal(message.props.accessibilityRole, "alert");
+        assert.match(
+            JSON.stringify(message),
+            failure.statusCode === 400 || failure.statusCode === 404
+                ? /new invitation/i
+                : /try again/i,
+        );
+        assert.deepEqual(form.messages, [], "Inline errors must not also produce overlay toasts");
         assert.equal(form.input().props.value, "A3B7C9D2");
         assert.equal(form.input().props.editable, true);
         assert.equal(form.button().props.loading, false);
@@ -260,7 +304,11 @@ test("accepted invitations recover through the home picker if the first home can
         await form.button().props.onPress();
         assert.equal(form.requests.length, 1, "An accepted invitation must not be resent");
         assert.deepEqual(form.navigation, ["/home/list"]);
-        assert.ok(form.messages.some((message) => /joined.*select/i.test(message)));
+        assert.deepEqual(
+            form.messages,
+            [],
+            "Recovery must not cover home-picker actions with a toast",
+        );
     }
 });
 

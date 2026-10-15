@@ -1,17 +1,20 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from "react";
-import { View, StyleSheet } from "react-native";
-import CurrentHome from "./lists/CurrentHome";
+import React, { FC, ReactNode, useCallback, useRef, useState } from "react";
+import { StyleSheet, TextInput, View } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { CircleAlert, Info } from "lucide-react-native";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Text } from "@/components/ui/text";
+import { useTheme } from "@/contexts/ThemeProvider";
+import { keyboardOffset } from "@/styles/defaultStyles";
 import Input from "../common/Input";
+import Button from "../common/Button";
 import IconSelector from "../common/IconSelector";
 import LocalizationSelector from "../common/LocalizationSelector";
-import Divider from "../common/Divider";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { keyboardOffset } from "@/styles/defaultStyles";
 
-const DefaultHomeIcon: string = "home-outline";
-
-const HomeIcons = [
-    "home-outline",
+const defaultIcon = "home-outline";
+const homeIcons = [
+    defaultIcon,
     "business-outline",
     "storefront-outline",
     "location-outline",
@@ -22,203 +25,220 @@ const HomeIcons = [
     "leaf-outline",
     "sunny-outline",
     "globe-outline",
-] as string[];
+];
 
-export interface HomeFormHandle {
-    isDirty: boolean;
-    isValid: boolean;
-    triggerSave: () => void;
-    triggerReset: () => void;
+export interface HomeFormValues {
+    name: string;
+    icon: string;
+    latitude?: number;
+    longitude?: number;
 }
 
 interface HomeFormProps {
     initName?: string;
     initIcon?: string;
-    initIsOwner?: boolean;
     initLongitude?: number;
     initLatitude?: number;
-
-    onSubmit: (values: any) => Promise<void>;
-    onDirtyChange?: (dirty: boolean) => void;
-    onValidChange?: (valid: boolean) => void;
+    onSubmit: (values: Partial<HomeFormValues>) => Promise<string | void>;
     edit?: boolean;
-    children?: React.ReactNode;
+    disabled?: boolean;
+    children?: ReactNode;
 }
 
-const HomeForm = forwardRef<HomeFormHandle, HomeFormProps>(function HomeForm(
-    {
-        initName,
-        initIcon,
-        initIsOwner,
-        initLongitude,
-        initLatitude,
-        onSubmit,
-        onDirtyChange,
-        onValidChange,
-        edit = false,
-        children,
-    },
-    ref,
-) {
+const HomeForm: FC<HomeFormProps> = ({
+    initName = "",
+    initIcon = defaultIcon,
+    initLongitude,
+    initLatitude,
+    onSubmit,
+    edit = false,
+    disabled = false,
+    children,
+}) => {
+    const { colors } = useTheme().current;
+    const initial = {
+        name: initName,
+        icon: initIcon,
+        latitude: initLatitude,
+        longitude: initLongitude,
+    };
+    const [values, setValues] = useState<HomeFormValues>(initial);
+    const [saved, setSaved] = useState<HomeFormValues>(initial);
+    const [nameError, setNameError] = useState("");
+    const [submitError, setSubmitError] = useState("");
+    const [success, setSuccess] = useState("");
     const [loading, setLoading] = useState(false);
-    const [name, setName] = useState<string>(initName ?? "");
-    const [nameError, setNameError] = useState<string>("");
-    const [icon, setIcon] = useState(initIcon ?? DefaultHomeIcon);
-    const [longitude, setLongitude] = useState<number | undefined>(initLongitude);
-    const [latitude, setLatitude] = useState<number | undefined>(initLatitude);
+    const [locationLoading, setLocationLoading] = useState(false);
+    const pending = useRef(false);
+    const locationPending = useRef(false);
+    const active = useRef(true);
+    const nameInput = useRef<TextInput>(null);
+    const unavailable = loading || disabled;
+    const dirty =
+        values.name.trim() !== saved.name ||
+        values.icon !== saved.icon ||
+        values.latitude !== saved.latitude ||
+        values.longitude !== saved.longitude;
 
-    const isValid = name.length >= 3 && name.length <= 64;
+    useFocusEffect(
+        useCallback(() => {
+            active.current = true;
+            return () => {
+                active.current = false;
+            };
+        }, []),
+    );
 
-    const isDirty =
-        name !== (initName ?? "") ||
-        icon !== (initIcon ?? DefaultHomeIcon) ||
-        latitude !== initLatitude ||
-        longitude !== initLongitude ||
-        !edit;
-
-    const validateForm = (): boolean => {
-        let valid: boolean = true;
-
-        if (name === "") {
-            valid = false;
-            setNameError("");
-        } else if (name.length > 64) {
-            valid = false;
-            setNameError("Name is too long.");
-        } else if (name.length < 3) {
-            valid = false;
-            setNameError("Name is too short.");
-        } else {
-            setNameError("");
-        }
-
-        return valid;
+    const change = (patch: Partial<HomeFormValues>) => {
+        if (pending.current || unavailable) return;
+        setValues((previous) => ({ ...previous, ...patch }));
+        if ("name" in patch) setNameError("");
+        setSubmitError("");
+        setSuccess("");
     };
 
-    const triggerSave = async () => {
-        if (loading) {
-            console.info("[HomeForm] Form is processing");
+    const updateLocationLoading = useCallback((busy: boolean) => {
+        locationPending.current = busy;
+        setLocationLoading(busy);
+    }, []);
+
+    const submit = async () => {
+        if (
+            pending.current ||
+            locationPending.current ||
+            disabled ||
+            !active.current ||
+            (edit && !dirty)
+        )
+            return;
+        const name = values.name.trim();
+        if (name.length < 3 || name.length > 64) {
+            setNameError(
+                !name
+                    ? "Enter a home name."
+                    : name.length < 3
+                      ? "Use at least 3 characters."
+                      : "Use no more than 64 characters.",
+            );
+            nameInput.current?.focus();
             return;
         }
 
-        if (!validateForm()) {
-            console.info("[HomeForm] Form is invalid");
-            return;
-        }
-
-        setLoading(true);
-
-        let values: any = {};
-
+        const snapshot = { ...values, name };
+        const request: Partial<HomeFormValues> = {};
         if (edit) {
-            if (name !== initName) values.name = name;
-            if (icon !== initIcon) values.icon = icon;
-            if (longitude !== initLongitude) values.longitude = longitude;
-            if (latitude !== initLatitude) values.latitude = latitude;
-        } else {
-            values = { name, icon, longitude, latitude };
+            if (name !== saved.name) request.name = name;
+            if (values.icon !== saved.icon) request.icon = values.icon;
+            if (values.latitude !== saved.latitude) request.latitude = values.latitude;
+            if (values.longitude !== saved.longitude) request.longitude = values.longitude;
         }
-
-        await onSubmit(values);
-
-        setLoading(false);
+        pending.current = true;
+        setLoading(true);
+        setNameError("");
+        setSubmitError("");
+        setSuccess("");
+        try {
+            const message = await onSubmit(edit ? request : snapshot);
+            setValues(snapshot);
+            setSaved(snapshot);
+            if (edit) setSuccess(message || "Home saved.");
+        } catch (error) {
+            if (active.current)
+                setSubmitError(
+                    error instanceof Error ? error.message : "Couldn't save your home. Try again.",
+                );
+        } finally {
+            pending.current = false;
+            setLoading(false);
+        }
     };
-
-    const triggerReset = () => {
-        setName(initName ?? "");
-        setIcon(initIcon ?? DefaultHomeIcon);
-        setLatitude(initLatitude);
-        setLongitude(initLongitude);
-    };
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useImperativeHandle(ref, () => ({ isDirty, isValid, triggerSave, triggerReset }), [
-        isDirty,
-        isValid,
-        loading,
-        name,
-        icon,
-        latitude,
-        longitude,
-    ]);
-
-    useEffect(() => {
-        onDirtyChange?.(isDirty);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isDirty]);
-
-    useEffect(() => {
-        onValidChange?.(isValid);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isValid]);
-
-    useEffect(() => {
-        validateForm();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [name]);
 
     return (
-        <View style={styles.container}>
-            <View style={styles.displayContainer}>
-                <CurrentHome
-                    initName={name ?? ""}
-                    initIcon={icon}
-                    initIsOwner={initIsOwner}
-                    disableClicks={true}
+        <KeyboardAwareScrollView
+            bottomOffset={keyboardOffset}
+            keyboardShouldPersistTaps="handled"
+            style={styles.screen}
+            contentContainerStyle={styles.content}>
+            <View style={styles.fields}>
+                <View style={styles.intro}>
+                    <Text
+                        accessibilityRole="header"
+                        style={[styles.title, { color: colors.authForeground }]}>
+                        {edit ? "Home settings" : "Create a home"}
+                    </Text>
+                    <Text style={[styles.description, { color: colors.authMuted }]}>
+                        {edit
+                            ? "Manage your home's name, icon and location."
+                            : "Give your smart home a name. You can add rooms and devices next."}
+                    </Text>
+                </View>
+                <Input
+                    title="Name"
+                    placeholder="e.g. My home"
+                    value={values.name}
+                    setValue={(name) => change({ name })}
+                    error={nameError}
+                    variant="auth"
+                    inputRef={nameInput}
+                    editable={!unavailable}
+                    returnKeyType="done"
+                    onSubmitEditing={submit}
+                />
+                <IconSelector
+                    defaultIcon={values.icon}
+                    iconList={homeIcons}
+                    onIconSelected={(icon) => change({ icon })}
+                    variant="brand"
+                    disabled={unavailable}
+                />
+                <LocalizationSelector
+                    initLocation={values}
+                    onSelectLocation={(latitude, longitude) => change({ latitude, longitude })}
+                    disabled={unavailable}
+                    onLoadingChange={updateLocationLoading}
                 />
             </View>
-
-            <Divider style={{ paddingHorizontal: 15 }} />
-
-            <KeyboardAwareScrollView
-                bottomOffset={keyboardOffset}
-                style={styles.scrollContainer}
-                contentContainerStyle={{ paddingBottom: edit ? 80 : 16 }}>
-                <View style={{ paddingHorizontal: 15 }}>
-                    <Input
-                        error={nameError}
-                        value={name}
-                        title="Name"
-                        placeholder="Your home name"
-                        setValue={setName}
-                    />
-
-                    <IconSelector
-                        defaultIcon={DefaultHomeIcon}
-                        onIconSelected={setIcon}
-                        iconList={HomeIcons}
-                    />
-
-                    <LocalizationSelector
-                        onSelectLocation={(latitude: number, longitude: number) => {
-                            setLatitude(latitude);
-                            setLongitude(longitude);
-                        }}
-                        initLocation={{ latitude: latitude, longitude: longitude }}
-                    />
-                </View>
-
-                <View>{children}</View>
-            </KeyboardAwareScrollView>
-        </View>
+            <View style={[styles.actions, !edit && styles.createActions]}>
+                {(!!submitError || !!success) && (
+                    <Alert
+                        icon={submitError ? CircleAlert : Info}
+                        variant={submitError ? "destructive" : "default"}
+                        accessibilityRole="alert"
+                        accessibilityLiveRegion="polite">
+                        <AlertDescription>{submitError || success}</AlertDescription>
+                    </Alert>
+                )}
+                <Button
+                    name={edit ? "Save changes" : "Create home"}
+                    onPress={submit}
+                    type="auth"
+                    loading={loading}
+                    disabled={disabled || locationLoading || (edit && !dirty)}
+                />
+            </View>
+            {!!children && <View style={styles.settings}>{children}</View>}
+        </KeyboardAwareScrollView>
     );
-});
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 0,
-        margin: 0,
-        marginTop: 0,
-    },
-    displayContainer: {
-        paddingHorizontal: 15,
-        paddingTop: 5,
-    },
-    scrollContainer: {
-        paddingHorizontal: 0,
-        margin: 0,
-    },
-});
+};
 
 export default HomeForm;
+
+const styles = StyleSheet.create({
+    screen: { flex: 1 },
+    content: {
+        flexGrow: 1,
+        width: "100%",
+        maxWidth: 448,
+        alignSelf: "center",
+        paddingHorizontal: 24,
+        paddingTop: 24,
+        paddingBottom: 16,
+    },
+    fields: { gap: 24 },
+    intro: { gap: 12, marginBottom: 8 },
+    title: { fontSize: 30, lineHeight: 36, fontWeight: "600" },
+    description: { fontSize: 16, lineHeight: 24 },
+    actions: { paddingTop: 32, gap: 12 },
+    createActions: { marginTop: "auto" },
+    settings: { paddingTop: 32, gap: 32 },
+});

@@ -28,6 +28,7 @@ const ProfileHeader = () => {
             <View style={styles.center}>
                 {!homes.loading && homes.current && (
                     <Pressable
+                        cssInterop={false}
                         style={({ pressed }) => [pressed && styles.pressed]}
                         onPress={hamburgerClicked}>
                         <Text size="medium" bold color="onBackground" numberOfLines={1}>

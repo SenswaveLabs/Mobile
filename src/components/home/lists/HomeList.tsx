@@ -1,19 +1,12 @@
 import Button from "@/components/common/Button";
+import { Button as ReusableButton } from "@/components/ui/button";
+import { Text } from "@/components/ui/text";
 import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { useToast } from "@/contexts/ToastProvider";
 import { ListResponse } from "@/utils/httpClient";
 import React, { FC, useCallback, useRef, useState } from "react";
-import {
-    ActivityIndicator,
-    FlatList,
-    Pressable,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    View,
-} from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from "react-native";
 import HomeListItem from "./HomeListItem";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Home } from "@/types/HomeTypes";
@@ -28,7 +21,6 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
     const httpClient = useHttpClient();
     const router = useRouter();
     const { colors } = useTheme().current;
-    const toast = useToast();
     const [loading, setLoading] = useState(true);
     const [homesList, setHomesList] = useState<Home[]>([]);
     const [refreshing, setRefreshing] = useState(false);
@@ -96,7 +88,6 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
             if (id === requestId.current) {
                 const message = "Couldn't switch homes. Tap this home to try again.";
                 setSwitchError({ homeId: home.id, message });
-                toast.error(message);
             }
         } finally {
             switching.current = false;
@@ -135,20 +126,19 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
                                 disabled={disabled}
                                 onPress={() => void selectHome(homes.current!)}
                             />
-                            <Pressable
+                            <ReusableButton
+                                variant="link"
+                                className="h-auto justify-start p-0 opacity-100 active:opacity-60"
                                 accessibilityRole="button"
                                 accessibilityLabel="Home details"
                                 disabled={disabled}
                                 accessibilityState={{ disabled }}
                                 onPress={() => router.navigate("home/details")}
-                                style={({ pressed }) => [
-                                    styles.details,
-                                    (pressed || disabled) && styles.dimmed,
-                                ]}>
+                                style={[styles.details, disabled && styles.dimmed]}>
                                 <Text style={[styles.link, { color: colors.authForeground }]}>
                                     Home details
                                 </Text>
-                            </Pressable>
+                            </ReusableButton>
                         </View>
                     )}
                     <Text
@@ -248,11 +238,11 @@ const styles = StyleSheet.create({
         alignSelf: "center",
         paddingHorizontal: 24,
         paddingTop: 24,
-        paddingBottom: 32,
+        paddingBottom: 16,
     },
     header: { gap: 24, paddingBottom: 8 },
     intro: { gap: 8 },
-    title: { fontSize: 30, fontWeight: "600" },
+    title: { fontSize: 30, lineHeight: 36, fontWeight: "600" },
     description: { fontSize: 16, lineHeight: 24 },
     currentSection: { gap: 8 },
     details: {
@@ -262,8 +252,8 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         paddingHorizontal: 8,
     },
-    link: { fontSize: 16, fontWeight: "500", textDecorationLine: "underline" },
-    sectionTitle: { fontSize: 18, fontWeight: "600" },
+    link: { fontSize: 16, lineHeight: 24, fontWeight: "500", textDecorationLine: "underline" },
+    sectionTitle: { fontSize: 18, lineHeight: 24, fontWeight: "600" },
     message: { fontSize: 14, lineHeight: 20 },
     error: { gap: 12 },
     empty: { paddingVertical: 24 },

@@ -1,5 +1,7 @@
 import React, { FC } from "react";
-import { ActivityIndicator, Pressable, View, Text, StyleSheet } from "react-native";
+import { ActivityIndicator, View, StyleSheet } from "react-native";
+import { Button } from "@/components/ui/button";
+import { Text } from "@/components/ui/text";
 import { useTheme } from "@/contexts/ThemeProvider";
 import Icon from "@/components/common/Icon";
 import { Home } from "@/types/HomeTypes";
@@ -23,7 +25,9 @@ const HomeListItem: FC<HomeListItemProps> = ({
 }) => {
     const { colors } = useTheme().current;
     return (
-        <Pressable
+        <Button
+            variant="ghost"
+            className="h-auto justify-start rounded-none border-0 p-0 opacity-100 shadow-none active:opacity-60"
             accessibilityRole="button"
             accessibilityLabel={`${home.name}, ${home.isOwner ? "owned by you" : "shared with you"}${selected ? ", current home" : ""}`}
             accessibilityHint={
@@ -33,14 +37,14 @@ const HomeListItem: FC<HomeListItemProps> = ({
             accessibilityState={{ selected, disabled, busy: loading }}
             disabled={disabled}
             onPress={onPress}
-            style={({ pressed }) => [
+            style={[
                 styles.row,
                 {
                     borderColor: selected ? colors.authFocus : colors.authBorder + "55",
                     backgroundColor: selected ? colors.authFieldBackground : colors.authBackground,
                 },
                 !selected && styles.alternative,
-                (pressed || (disabled && !loading)) && styles.dimmed,
+                disabled && !loading && styles.dimmed,
             ]}>
             <Icon icon={home.icon} size={24} color="brand" />
             <View style={styles.description}>
@@ -71,7 +75,7 @@ const HomeListItem: FC<HomeListItemProps> = ({
                     color="brand"
                 />
             )}
-        </Pressable>
+        </Button>
     );
 };
 
@@ -86,12 +90,13 @@ const styles = StyleSheet.create({
         padding: 16,
         flexDirection: "row",
         alignItems: "center",
-        gap: 16,
+        rowGap: 16,
+        columnGap: 16,
     },
     alternative: { borderWidth: 0, borderBottomWidth: 1, borderRadius: 0 },
     description: { flex: 1, minWidth: 0, gap: 4 },
-    name: { fontSize: 16, fontWeight: "600" },
-    ownership: { fontSize: 14, lineHeight: 20 },
-    current: { fontSize: 14, fontWeight: "500", marginTop: 4 },
+    name: { fontSize: 16, lineHeight: 20, fontWeight: "600" },
+    ownership: { fontSize: 14, lineHeight: 20, fontWeight: "400" },
+    current: { fontSize: 14, lineHeight: 20, fontWeight: "500", marginTop: 4 },
     dimmed: { opacity: 0.6 },
 });

@@ -1,14 +1,9 @@
 import { useTheme } from "@/contexts/ThemeProvider";
 import React, { FC, useId, useState } from "react";
-import {
-    Text as NativeText,
-    TextInput,
-    TextInputProps,
-    View,
-    StyleSheet,
-    StyleProp,
-    ViewStyle,
-} from "react-native";
+import { Input as ReusableInput } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Text as NativeText } from "@/components/ui/text";
+import { TextInput, TextInputProps, View, StyleSheet, StyleProp, ViewStyle } from "react-native";
 import { shadowStyles } from "@/styles/shadowStyles";
 
 export interface InputProps extends Omit<TextInputProps, "value" | "onChangeText" | "style"> {
@@ -53,15 +48,18 @@ const Input: FC<InputProps> = ({
     return (
         <View style={[styles.container, style]}>
             {!!title && (
-                <NativeText
+                <Label
                     nativeID={labelId}
+                    onPress={() => {
+                        if (inputRef && typeof inputRef !== "function") inputRef.current?.focus();
+                    }}
                     style={[
                         styles.label,
                         auth && styles.authLabel,
                         { color: auth ? colors.authForeground : colors.textOnBackground },
                     ]}>
                     {title}
-                </NativeText>
+                </Label>
             )}
             <View
                 style={[
@@ -79,7 +77,8 @@ const Input: FC<InputProps> = ({
                                 : "transparent",
                     },
                 ]}>
-                <TextInput
+                <ReusableInput
+                    className="h-auto w-auto rounded-none border-0 bg-transparent p-0 shadow-none dark:bg-transparent"
                     {...inputProps}
                     ref={inputRef}
                     accessibilityLabel={inputProps.accessibilityLabel ?? (title || placeholder)}
@@ -109,7 +108,14 @@ const Input: FC<InputProps> = ({
             </View>
             {!!error && (
                 <NativeText
-                    style={[styles.error, { color: colors.error, fontSize: auth ? 14 : 12 }]}
+                    style={[
+                        styles.error,
+                        {
+                            color: colors.error,
+                            fontSize: auth ? 14 : 12,
+                            lineHeight: auth ? 20 : 16,
+                        },
+                    ]}
                     accessibilityLiveRegion="polite">
                     {error}
                 </NativeText>
@@ -131,7 +137,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
     },
-    input: { flex: 1, minHeight: 48, padding: 10 },
+    input: { flex: 1, minHeight: 48, padding: 10, fontSize: 14 },
     authField: { minHeight: 52, borderRadius: 8, borderWidth: 1 },
     authInput: { minHeight: 50, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
     error: { marginTop: 6 },

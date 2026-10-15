@@ -72,14 +72,14 @@ function InternalLayout() {
             <Stack.Screen
                 name="home/details"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Home" />,
+                    header: () => <DefaultHeader titlePrefix="Home" variant="brand" />,
                 }}
             />
 
             <Stack.Screen
                 name="home/add"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Add" titleSuffix="Home" />,
+                    header: () => <DefaultHeader titlePrefix="Homes" variant="brand" />,
                 }}
             />
 

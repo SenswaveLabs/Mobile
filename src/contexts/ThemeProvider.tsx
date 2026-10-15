@@ -29,16 +29,20 @@ type ThemeColors = {
     success: string;
     warning: string;
     info: string;
+    dataSourceStatus: Record<
+        "positive" | "warning" | "critical" | "neutral",
+        { foreground: string; background: string; border: string }
+    >;
 };
 
 const LightMode: ThemeColors = {
     primary: "#F5F5F5",
     secondary: "#33363F",
     background: "#F9F7F1",
-    authBackground: "#F9F7F1", // sRGB equivalent of the light DOM --surface token.
+    authBackground: "#F9F7F1",
     authForeground: "#1B1610",
     authMuted: "#615A50",
-    authFieldBackground: "#F9F7F1", // Transparent DOM input over the auth surface.
+    authFieldBackground: "#F9F7F1",
     authBorder: "#8C857A",
     authFocus: "#009286",
     authPrimary: "#F7B817",
@@ -51,16 +55,22 @@ const LightMode: ThemeColors = {
     success: "#81C784",
     warning: "#FFB74D",
     info: "#1E88E5",
+    dataSourceStatus: {
+        positive: { foreground: "#00362B", background: "#CAF2E5", border: "#74B7A4" },
+        warning: { foreground: "#532E04", background: "#FFECC5", border: "#D9B577" },
+        critical: { foreground: "#830001", background: "#FFE2DC", border: "#E99489" },
+        neutral: { foreground: "#403A30", background: "#EBE7E1", border: "#BCB7AD" },
+    },
 };
 
 const DarkMode: ThemeColors = {
     primary: "#1E1E1E",
     secondary: "#2A2A2A",
     background: "#100D08",
-    authBackground: "#100D08", // sRGB equivalent of the dark DOM --surface token.
+    authBackground: "#100D08",
     authForeground: "#EEEBE5",
     authMuted: "#AAA498",
-    authFieldBackground: "#211D16", // DOM --input at 30% opacity over the auth surface.
+    authFieldBackground: "#211D16",
     authBorder: "#847C70",
     authFocus: "#47BAAC",
     authPrimary: "#FBC031",
@@ -73,6 +83,12 @@ const DarkMode: ThemeColors = {
     success: "#81C784",
     warning: "#FFB74D",
     info: "#1E88E5",
+    dataSourceStatus: {
+        positive: { foreground: "#A4E4D1", background: "#082D25", border: "#256B5A" },
+        warning: { foreground: "#FADA99", background: "#3B270C", border: "#7C5D2F" },
+        critical: { foreground: "#FFBFB8", background: "#431F1D", border: "#904D49" },
+        neutral: { foreground: "#CFCAC2", background: "#2A2620", border: "#585148" },
+    },
 };
 
 type Theme = {

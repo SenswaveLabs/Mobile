@@ -7,6 +7,7 @@ import {
     TextInput,
     Animated,
     Dimensions,
+    useWindowDimensions,
 } from "react-native";
 import Icon, { AllIcons } from "./Icon";
 import { useTheme } from "@/contexts/ThemeProvider";
@@ -35,14 +36,26 @@ interface IconProps {
     defaultIcon?: string;
     iconList?: string[];
     onIconSelected?: (icon: string) => void;
+    variant?: "default" | "brand";
+    disabled?: boolean;
 }
 
 const IconSelector: React.FC<IconProps> = ({
     defaultIcon = InitialIcon,
     iconList = DefaultIcons,
     onIconSelected = () => {},
+    variant = "default",
+    disabled = false,
 }) => {
     const theme = useTheme();
+    const brand = variant === "brand";
+    const { width } = useWindowDimensions();
+    const brandCellSize = (width - 48) / NUM_COLUMNS;
+    const { colors } = theme.current;
+    const iconColor = brand ? "brand" : "onBackground";
+    const selectedStyle = brand
+        ? { backgroundColor: colors.authFieldBackground, borderColor: colors.authFocus }
+        : { ...shadowStyles.default, backgroundColor: colors.primary };
     const [selectedIcon, setSelectedIcon] = useState<string>(defaultIcon);
 
     useEffect(() => {
@@ -71,9 +84,10 @@ const IconSelector: React.FC<IconProps> = ({
     };
 
     const onSelected = (icon: string) => {
+        if (disabled) return;
         setSelectedIcon(icon);
         onIconSelected?.(icon);
-        triggerPulse();
+        if (!brand) triggerPulse();
     };
 
     const onModalSelect = (icon: string) => {
@@ -93,8 +107,16 @@ const IconSelector: React.FC<IconProps> = ({
 
     return (
         <View style={styles.mainContainer}>
-            <Text style={{ marginBottom: 5 }} bold size="medium" color="onBackground">
-                Select icon
+            <Text
+                style={[
+                    { marginBottom: 5 },
+                    brand && styles.brandLabel,
+                    brand && { color: colors.authForeground },
+                ]}
+                bold={!brand}
+                size="medium"
+                color="onBackground">
+                Icon
             </Text>
 
             <View style={styles.iconRow}>
@@ -103,14 +125,21 @@ const IconSelector: React.FC<IconProps> = ({
                     <Animated.View
                         style={[
                             styles.iconContainer,
-                            shadowStyles.default,
+                            !brand && shadowStyles.default,
+                            brand && styles.brandIcon,
                             {
-                                backgroundColor: theme.current.colors.primary,
-                                borderColor: theme.current.colors.secondary,
+                                backgroundColor: brand
+                                    ? colors.authFieldBackground
+                                    : colors.primary,
+                                borderColor: brand ? colors.authFocus : colors.secondary,
                                 transform: [{ scale: scaleAnim }],
                             },
                         ]}>
-                        <Icon icon={selectedIcon} size={ICON_SIZE} color="onPrimary" />
+                        <Icon
+                            icon={selectedIcon}
+                            size={ICON_SIZE}
+                            color={brand ? "brand" : "onPrimary"}
+                        />
                     </Animated.View>
                 </View>
 
@@ -128,23 +157,34 @@ const IconSelector: React.FC<IconProps> = ({
                     data={iconList}
                     renderItem={({ item }) => (
                         <TouchableOpacity
+                            disabled={disabled}
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                                item.replace(/-outline$/, "").replace(/-/g, " ") + " icon"
+                            }
+                            accessibilityState={{ selected: item === selectedIcon, disabled }}
                             style={[
                                 styles.iconContainer,
-                                item === selectedIcon && {
-                                    ...shadowStyles.default,
-                                    backgroundColor: theme.current.colors.primary,
-                                },
+                                brand && styles.brandIcon,
+                                item === selectedIcon && selectedStyle,
                             ]}
                             onPress={() => onSelected(item)}>
                             <Icon
                                 icon={item}
                                 size={ICON_SIZE}
-                                color={item === selectedIcon ? "onPrimary" : "onBackground"}
+                                color={
+                                    brand
+                                        ? "brand"
+                                        : item === selectedIcon
+                                          ? "onPrimary"
+                                          : "onBackground"
+                                }
                             />
                         </TouchableOpacity>
                     )}
                     keyExtractor={(item) => item}
                     horizontal
+                    keyboardShouldPersistTaps="handled"
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.iconListContainer}
                     style={styles.iconList}
@@ -152,29 +192,48 @@ const IconSelector: React.FC<IconProps> = ({
 
                 {/* Browse all button */}
                 <TouchableOpacity
+                    disabled={disabled}
+                    accessibilityRole="button"
+                    accessibilityLabel="Browse all icons"
+                    accessibilityState={{ disabled }}
                     style={[
                         styles.browseButton,
+                        brand && styles.brandIcon,
                         { borderColor: theme.current.colors.textOnBackground },
                     ]}
                     onPress={() => setModalVisible(true)}>
-                    <Icon icon="grid-outline" size={20} color="onBackground" />
+                    <Icon icon="grid-outline" size={20} color={iconColor} />
                 </TouchableOpacity>
             </View>
 
             {/* Full icon browser */}
-            <SenswaveModal visible={modalVisible} onClose={closeModal} title="Select Icon">
+            <SenswaveModal
+                visible={modalVisible}
+                onClose={closeModal}
+                title="Select icon"
+                variant={variant}>
                 {/* Search bar */}
                 <View
                     style={[
                         styles.searchContainer,
-                        shadowStyles.default,
-                        { backgroundColor: theme.current.colors.primary },
+                        !brand && shadowStyles.default,
+                        brand && styles.brandSearch,
+                        {
+                            backgroundColor: brand ? colors.authFieldBackground : colors.primary,
+                            borderColor: colors.authBorder,
+                        },
                     ]}>
-                    <Icon icon="search-outline" size={18} color="onPrimary" />
+                    <Icon icon="search-outline" size={18} color={brand ? "brand" : "onPrimary"} />
                     <TextInput
-                        style={[styles.searchInput, { color: theme.current.colors.textOnPrimary }]}
+                        accessibilityLabel="Search icons"
+                        style={[
+                            styles.searchInput,
+                            { color: brand ? colors.authForeground : colors.textOnPrimary },
+                        ]}
                         placeholder="Search icons..."
-                        placeholderTextColor={theme.current.colors.textOnPrimary + "99"}
+                        placeholderTextColor={
+                            brand ? colors.authMuted : colors.textOnPrimary + "99"
+                        }
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                         autoCapitalize="none"
@@ -182,9 +241,16 @@ const IconSelector: React.FC<IconProps> = ({
                     />
                     {searchQuery.length > 0 && (
                         <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Clear icon search"
                             onPress={() => setSearchQuery("")}
+                            style={brand && styles.brandIcon}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                            <Icon icon="close-outline" size={18} color="onPrimary" />
+                            <Icon
+                                icon="close-outline"
+                                size={18}
+                                color={brand ? "brand" : "onPrimary"}
+                            />
                         </TouchableOpacity>
                     )}
                 </View>
@@ -197,20 +263,33 @@ const IconSelector: React.FC<IconProps> = ({
                     key={NUM_COLUMNS}
                     renderItem={({ item }) => (
                         <TouchableOpacity
-                            style={styles.gridCell}
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                                item.replace(/-outline$/, "").replace(/-/g, " ") + " icon"
+                            }
+                            accessibilityState={{ selected: item === selectedIcon, disabled }}
+                            disabled={disabled}
+                            style={[
+                                styles.gridCell,
+                                brand && { width: brandCellSize, height: brandCellSize },
+                            ]}
                             onPress={() => onModalSelect(item)}>
                             <View
                                 style={[
                                     styles.iconContainer,
-                                    item === selectedIcon && {
-                                        ...shadowStyles.default,
-                                        backgroundColor: theme.current.colors.primary,
-                                    },
+                                    brand && styles.brandIcon,
+                                    item === selectedIcon && selectedStyle,
                                 ]}>
                                 <Icon
                                     icon={item}
                                     size={ICON_SIZE}
-                                    color={item === selectedIcon ? "onPrimary" : "onBackground"}
+                                    color={
+                                        brand
+                                            ? "brand"
+                                            : item === selectedIcon
+                                              ? "onPrimary"
+                                              : "onBackground"
+                                    }
                                 />
                             </View>
                         </TouchableOpacity>
@@ -227,6 +306,9 @@ const IconSelector: React.FC<IconProps> = ({
 export default IconSelector;
 
 const styles = StyleSheet.create({
+    brandLabel: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
+    brandIcon: { minWidth: 48, minHeight: 48, borderWidth: 1, borderRadius: 8 },
+    brandSearch: { minHeight: 52, borderWidth: 1, borderRadius: 8 },
     mainContainer: {
         marginTop: 6,
     },
