@@ -87,7 +87,8 @@ Mobile next-dev push / manual CI
 ```
 
 Publiczny job propozycji nie checkoutuje ani nie wykonuje kodu aplikacji.
-Nie działa dla PR. Publiczne PR mają istniejącą weryfikację Android release na
+Nie działa dla PR. Publiczne PR sprawdzają produkcyjny bundle Android JS oraz
+kompilację Android debug ARM64 z cache Gradle i artefaktem `gradle-profile` na
 GitHub-hosted; po push build dystrybucyjny wykonuje dopiero VPS po zatwierdzeniu
 PR w infra.
 

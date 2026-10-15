@@ -60,18 +60,22 @@ traffic beyond normal interactive use. Expo web shows a fallback and retains GPS
 
 | Workflow | Trigger |
 |----------|---------|
-| `build.yaml` | PRs to `next-dev`: lint, types, auth/build tests and cached ARM64 Android verification on GitHub-hosted runners. Pushes or manual runs on `next-dev`: quality checks, then request an infrastructure release PR. |
+| `build.yaml` | PRs to `next-dev`: lint, types, auth/build tests, production Android JS export and ARM64 debug compilation on GitHub-hosted runners. Pushes or manual runs on `next-dev`: quality checks, then request an infrastructure release PR. |
 
 New UI changes live on `next-dev`. Verification jobs read Node from `.nvmrc` and pnpm from
 `packageManager`; installs use the frozen lockfile. The build job creates `.env`
-from `.env.template`, runs `pnpm exec expo prebuild --platform android --no-install`,
-then `./gradlew :app:assembleRelease --no-daemon --build-cache -PreactNativeArchitectures=arm64-v8a`
-in `android` using Java 17. PR checks build one ABI to avoid repeating native
-compilation for ARM32 and both x86 variants. Gradle output caching reuses eligible
-task results from the existing setup-java cache. Release profiles retain their
-configured architecture coverage; PR CI does not establish other ABIs work.
-The cache key includes the workflow and the standard Gradle inputs so this policy
-creates a fresh cache with build outputs after its first successful run.
+from `.env.template`, verifies production JavaScript with
+`pnpm exec expo export --platform android`, then generates the native project with
+`pnpm exec expo prebuild --platform android --no-install`. Java 17 and
+`gradle/actions/setup-gradle@v4` prepare Gradle; do not also enable `setup-java`'s
+Gradle cache. The native check runs `./gradlew :app:assembleDebug
+-PreactNativeArchitectures=arm64-v8a --build-cache --parallel --no-daemon --profile
+--console=plain` in `android`. `cache-read-only: false` saves reusable Gradle state
+for subsequent runs of the same PR; PR caches are not shared with sibling PRs.
+The `gradle-profile` artifact contains `android/build/reports/profile/` and is
+uploaded even after a failed build when a report exists. This check covers
+production JS bundling and ARM64 native compilation; release-only tasks and other
+ABIs require validation before releases.
 The generated project's debug key signs the PR verification APK. All public
 `Mobile` jobs use GitHub-hosted runners; they never build on the VPS. PRs cannot
 request a release. `CI=true` disables interactive tooling; superseded PR runs
@@ -116,7 +120,7 @@ update; production can remain installed alongside it.
 See `Next-Infra/docs/next-dev-mobile.md` for the GitHub App setup, private workflow
 permissions, signing key, OAuth registration, VPS prerequisites and DNS/TLS.
 Production store releases remain manual; this flow does not use EAS Build,
-upload artifacts to GitHub storage, or publish to Google Play.
+upload APKs to GitHub storage, or publish to Google Play.
 
 **Versioning** — `{major}.{minor}.{patch}`:
 

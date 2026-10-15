@@ -9,6 +9,7 @@ Authentication, home selection, creation and settings use local React Native Reu
 - New UI work belongs on `next-dev`. Keep it separate from `main` until integration is explicitly requested.
 - Never merge PRs autonomously. Notify on test failure and wait for human. Commit/PR titles start with `fix:`, `feat:` or `chore:`.
 - Production releases are manual only, with strict versioning. Public CI verifies PRs with an ARM64 Android build and requests a release PR in private `Next-Infra`; a human merges that PR before the VPS builds and hosts the next-dev APK. Never give public `Mobile` a self-hosted runner or infrastructure write token. See [Tooling](docs/agent-guide/tooling.md).
+- PR Android checks compile ARM64 debug, export production JavaScript and upload Gradle profiles. Validate release tasks and all supported ABIs before releases.
 - Never call `fetch` outside `src/utils/httpClient.tsx`; use `useHttpClient()`.
 - Changes to shared API contracts require a backend build at `Senswave.sln` level.
 - Use pnpm only, Node from `.nvmrc`, and the frozen pnpm lockfile. Preserve build approvals in `pnpm-workspace.yaml`.
