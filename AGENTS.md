@@ -13,7 +13,8 @@ Authentication, home selection, creation and settings use local React Native Reu
 - Never call `fetch` outside `src/utils/httpClient.tsx`; use `useHttpClient()`.
 - Home and Device icon choices come from backend catalogs. Keep opaque keys unchanged; see [Domain and API contracts](docs/agent-guide/api-and-data.md).
 - Changes to shared API contracts require a backend build at `Senswave.sln` level.
-- Use pnpm only, Node from `.nvmrc`, and the frozen pnpm lockfile. Preserve build approvals in `pnpm-workspace.yaml`.
+- Use pnpm only, Node from `.nvmrc`, and the frozen pnpm lockfile. Keep every dependency version in `package.json` exact and preserve build approvals in `pnpm-workspace.yaml`.
+- Run `pnpm hooks:install` once per clone to enable whole-repository formatting and lint before commits.
 - Create `.env` from `.env.template` before the first run.
 - Keep this index and the affected guide documents current in the same commit as changes to structure, stack, conventions, contracts, configuration or workflows.
 

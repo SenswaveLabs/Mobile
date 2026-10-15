@@ -1,0 +1,16 @@
+{
+    "$schema": "./node_modules/oxfmt/configuration_schema.json",
+    "printWidth": 100,
+    "tabWidth": 4,
+    "bracketSameLine": true,
+    "endOfLine": "lf",
+    "ignorePatterns": [
+        ".expo/**",
+        "android/**",
+        "node_modules/**",
+        "dist/**",
+        "build/**",
+        "*.config.js",
+        "*.config.cjs"
+    ]
+}

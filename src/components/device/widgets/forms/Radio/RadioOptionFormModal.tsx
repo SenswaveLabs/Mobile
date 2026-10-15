@@ -38,7 +38,9 @@ const RadioOptionFormModal = ({
 }: RadioOptionFormModalProps) => {
     const widgetDetails = useWidgetDetails();
 
-    const options = (widgetDetails.operation?.configuration?.options as OptionInfo[]).map((x) => ({
+    const operationOptions =
+        (widgetDetails.operation?.configuration?.options as OptionInfo[] | undefined) ?? [];
+    const options = operationOptions.map((x) => ({
         name: x.name,
         value: x.name,
     }));
@@ -47,7 +49,7 @@ const RadioOptionFormModal = ({
     const [nameError, setNameError] = useState<string>("");
     const [optionError, setOptionError] = useState<string>("");
     const [icon, setIcon] = useState<string>("bulb-outline");
-    const [selectedOption, setSelectedOption] = useState<string>(options[0].value);
+    const [selectedOption, setSelectedOption] = useState<string>(options[0]?.value ?? "");
 
     const validateNewOption = () => {
         if (name.length < 1) {
