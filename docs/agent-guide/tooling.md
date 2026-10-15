@@ -7,8 +7,9 @@ pnpm install --frozen-lockfile # install deps
 pnpm android                  # first build (compiles native code)
 pnpm start --dev-client       # subsequent runs (dev server)
 pnpm typecheck                # TypeScript check
-pnpm lint                     # ESLint check
-pnpm fix                      # ESLint auto-fix
+pnpm lint                     # Oxlint and Oxfmt checks
+pnpm fix                      # Oxlint and Oxfmt fixes
+pnpm hooks:install            # enable local pre-commit formatting
 pnpm test:poc                 # native auth validation, submissions, route boundaries and reset behavior
 pnpm test:homes               # home selection, joining, creation, settings, maps and recovery
 pnpm test:build               # separate next-dev identity and Android version-code validation
@@ -16,12 +17,15 @@ pnpm test:icons               # Home/Device catalogs, selectors, glyphs and subm
 ```
 
 - Run `pnpm typecheck`, `pnpm lint`, and `pnpm test:poc` before committing.
-- Use pnpm only; commit `pnpm-lock.yaml`. Project pnpm settings live in `pnpm-workspace.yaml`; keep its existing build approvals.
+- Use pnpm only; commit `pnpm-lock.yaml`. Keep all `dependencies` and `devDependencies` versions in `package.json` exact; `saveExact` applies this to future additions. Project pnpm settings live in `pnpm-workspace.yaml`; keep its existing build approvals.
 - Dev URL override: `ConfigurationProvider.overrideUrl(url)` — only when `EXPO_PUBLIC_ENVIRONMENT=Development`.
 - Prereqs: Node.js **26.10.0** (`.nvmrc`), **pnpm 12.8.1** (`packageManager`), Android Studio + Java 17. Expo CLI comes from project dependencies.
 
-ESLint ignores the generated `android/**` directory so production bundles are
-not re-linted after a native build. Source files remain covered by `pnpm lint`.
+Oxlint and Oxfmt ignore the generated `android/**` directory so production
+bundles are not re-linted after a native build. Source files remain covered by
+`pnpm lint`.
+The pre-commit hook runs `pnpm fix` across the whole repository. Run
+`pnpm hooks:install` once per clone to enable it.
 Launch backgrounds in `app.json` match the shared canvas: light `#F9F7F1`, dark
 `#100D08`. Splash/adaptive-icon changes require prebuild and a new native build;
 a JavaScript reload updates in-app colors but not an installed splash screen.
