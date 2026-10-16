@@ -1,132 +1,175 @@
-import ConfirmDialog from "@/components/common/ConfirmDialog";
-import FAB, { FABAction } from "@/components/common/FAB";
-import Loading from "@/components/common/Loading";
-import { DataSourceForm, DataSourceFormHandle } from "@/components/dataSource/DataSourceForm";
+import Button from "@/components/common/Button";
+import { DataSourceForm, DataSourceFormValues } from "@/components/dataSource/DataSourceForm";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useToast } from "@/contexts/ToastProvider";
 import { DataSourceDto } from "@/types/DataSourcesTypes";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { PortalHost } from "@rn-primitives/portal";
+import { CircleAlert } from "lucide-react-native";
+import React, { FC, useEffect, useId, useRef, useState } from "react";
+import { Modal as NativeModal, StyleSheet, View } from "react-native";
 
-function DataSourceDetailsSection() {
-    const { id } = useLocalSearchParams();
+interface DataSourceDetailsSectionProps {
+    dataSource: DataSourceDto;
+    onSaved: (dataSource: DataSourceDto) => void;
+    onDeleted: () => void;
+}
+
+const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
+    dataSource,
+    onSaved,
+    onDeleted,
+}) => {
     const httpClient = useHttpClient();
-    const toast = useToast();
-    const router = useRouter();
-
-    const formRef = useRef<DataSourceFormHandle>(null);
-    const [loading, setLoading] = useState(false);
-    const [dataSource, setDataSource] = useState<DataSourceDto | undefined>(undefined);
-    const [isFormDirty, setIsFormDirty] = useState(false);
+    const dialogHost = useId();
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [deleteError, setDeleteError] = useState("");
+    const [deleting, setDeleting] = useState(false);
+    const deletePending = useRef(false);
+    const active = useRef(true);
 
-    const editClicked = async (values: any) => {
-        setLoading(true);
+    useEffect(() => {
+        active.current = true;
+        return () => {
+            active.current = false;
+        };
+    }, []);
 
-        const response = await httpClient.patch("v1/datasources/brokers/" + id, values);
-
-        if (response.isSuccess) {
-            toast.success("Data source updated successfully.");
-        } else {
-            const content = await response.response?.text();
-            console.error(content);
-            toast.error("Failed to update data source.");
+    const saveSettings = async (values: DataSourceFormValues) => {
+        const response = await httpClient.patch(`v1/datasources/brokers/${dataSource.id}`, values);
+        if (!response.isSuccess) {
+            if (response.response?.status === 404)
+                throw new Error(
+                    "This data source is no longer available. Return to the list and try again.",
+                );
+            throw new Error("Couldn't save broker settings. Check your connection and try again.");
         }
 
-        setLoading(false);
+        if (!active.current) return;
+        onSaved({
+            ...dataSource,
+            name: values.name,
+            url: values.url,
+            clientName: values.clientName,
+            port: values.port,
+            mqttVersion: values.protocolVersion,
+            tls: values.useTls,
+        });
     };
 
     const deleteDataSource = async () => {
-        setLoading(true);
+        if (deletePending.current) return;
+        deletePending.current = true;
+        setDeleting(true);
+        setDeleteError("");
+        setShowDeleteDialog(false);
 
         try {
-            const response = await httpClient.delete("v1/datasources/brokers/" + id);
-
-            if (response.isSuccess) {
-                toast.success("Data source removed successfully.");
-                router.back();
-            } else {
-                toast.httpError(response);
-            }
+            const response = await httpClient.delete(`v1/datasources/brokers/${dataSource.id}`);
+            if (!response.isSuccess && response.response?.status !== 404)
+                throw new Error(
+                    "Couldn't delete this data source. Check your connection and try again.",
+                );
+            if (active.current) onDeleted();
+        } catch (error) {
+            if (active.current)
+                setDeleteError(
+                    error instanceof Error
+                        ? error.message
+                        : "Couldn't delete this data source. Try again.",
+                );
         } finally {
-            setLoading(false);
+            deletePending.current = false;
+            if (active.current) setDeleting(false);
         }
     };
 
-    const deleteClicked = () => {
-        setShowDeleteDialog(true);
-    };
-
-    useEffect(() => {
-        const load = async () => {
-            setLoading(true);
-
-            const response = await httpClient.get("v1/datasources/brokers/" + id);
-
-            if (response.isSuccess) {
-                const content = (await response.response?.json()) as DataSourceDto;
-                setDataSource(content);
-            } else {
-                toast.httpError(response);
-            }
-
-            setLoading(false);
-        };
-
-        load();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    if (loading) return <Loading />;
-
-    const fabActions: FABAction[] = [
-        ...(isFormDirty
-            ? [
-                  {
-                      icon: "checkmark-outline",
-                      label: "Save",
-                      onPress: () => formRef.current?.triggerSave(),
-                  },
-                  {
-                      icon: "refresh-outline",
-                      label: "Restore",
-                      onPress: () => formRef.current?.triggerReset(),
-                  },
-              ]
-            : []),
-        { icon: "trash-outline", label: "Delete Data Source", onPress: deleteClicked },
-    ];
-
     return (
-        <View style={{ flex: 1 }}>
-            <ConfirmDialog
-                visible={showDeleteDialog}
-                title="Remove Data Source"
-                content="Are you sure you want to remove this data source?"
-                onConfirm={() => {
-                    setShowDeleteDialog(false);
-                    deleteDataSource();
-                }}
-                onCancel={() => setShowDeleteDialog(false)}
-            />
-            <DataSourceForm
-                ref={formRef}
-                edit={true}
-                onClick={editClicked}
-                onDirtyChange={setIsFormDirty}
-                id={dataSource?.id}
-                initServer={dataSource?.url}
-                initName={dataSource?.name}
-                initClientName={dataSource?.clientName}
-                initPort={dataSource?.port}
-                initMqttVersion={dataSource?.mqttVersion}
-                initTls={dataSource?.tls}
-            />
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog} asChild>
+            <View style={styles.container}>
+                <NativeModal
+                    visible={showDeleteDialog}
+                    transparent
+                    statusBarTranslucent
+                    navigationBarTranslucent
+                    accessibilityViewIsModal
+                    onRequestClose={() => setShowDeleteDialog(false)}>
+                    <PortalHost name={dialogHost} />
+                </NativeModal>
+                <AlertDialogContent
+                    portalHost={dialogHost}
+                    accessibilityViewIsModal
+                    className="max-w-md"
+                    style={styles.dialogContent}>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete data source</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This permanently removes the broker and its subscriptions. This action
+                            cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="sm:flex-col-reverse">
+                        <AlertDialogCancel asChild>
+                            <Button
+                                name="Cancel"
+                                type="brand-outline"
+                                loading={false}
+                                disabled={deleting}
+                                onPress={() => setShowDeleteDialog(false)}
+                            />
+                        </AlertDialogCancel>
+                        <AlertDialogAction asChild>
+                            <Button
+                                name="Delete"
+                                type="brand-destructive"
+                                loading={deleting}
+                                disabled={deleting}
+                                onPress={() => void deleteDataSource()}
+                            />
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
 
-            <FAB actions={fabActions} forceExpanded={isFormDirty} />
-        </View>
+                {deleteError !== "" && (
+                    <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
+                        <AlertDescription>{deleteError}</AlertDescription>
+                    </Alert>
+                )}
+                <DataSourceForm
+                    edit
+                    id={dataSource.id}
+                    initServer={dataSource.url}
+                    initName={dataSource.name}
+                    initClientName={dataSource.clientName}
+                    initPort={dataSource.port}
+                    initMqttVersion={dataSource.mqttVersion}
+                    initTls={dataSource.tls}
+                    onClick={saveSettings}>
+                    <Button
+                        name="Delete data source"
+                        type="brand-destructive"
+                        loading={deleting}
+                        disabled={deleting}
+                        onPress={() => setShowDeleteDialog(true)}
+                    />
+                </DataSourceForm>
+            </View>
+        </AlertDialog>
     );
-}
+};
 
 export default DataSourceDetailsSection;
+
+const styles = StyleSheet.create({
+    container: { flex: 1 },
+    dialogContent: { width: "100%", maxWidth: 560 },
+});

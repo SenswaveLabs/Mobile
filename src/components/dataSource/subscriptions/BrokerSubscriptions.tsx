@@ -1,146 +1,237 @@
+import Button from "@/components/common/Button";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
-import FAB, { FABAction } from "@/components/common/FAB";
-import Loading from "@/components/common/Loading";
+import Text from "@/components/common/Text";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useToast } from "@/contexts/ToastProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { SubscriptionDto } from "@/types/DataSourcesTypes";
-import { shadowStyles } from "@/styles/shadowStyles";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import React, { FC, useCallback, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import Text from "@/components/common/Text";
-import Icon from "@/components/common/Icon";
 import { ListResponse } from "@/utils/httpClient";
+import { useFocusEffect, useRouter } from "expo-router";
+import { CircleAlert } from "lucide-react-native";
+import React, { FC, useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 
-const BrokerSubscriptions: FC = () => {
-    const { id } = useLocalSearchParams();
+interface BrokerSubscriptionsProps {
+    id: string;
+}
+
+const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
     const httpClient = useHttpClient();
-    const toast = useToast();
     const theme = useTheme();
     const router = useRouter();
-
-    const [loading, setLoading] = useState(false);
-    const [refreshing, setRefreshing] = useState(false);
     const [subscriptions, setSubscriptions] = useState<SubscriptionDto[]>([]);
+    const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
+    const [loadError, setLoadError] = useState("");
+    const [removeError, setRemoveError] = useState("");
+    const [reload, setReload] = useState(0);
     const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+    const [removing, setRemoving] = useState(false);
+    const [removingId, setRemovingId] = useState<string | null>(null);
+    const requestPending = useRef(false);
+    const readSequence = useRef(0);
+    const removePending = useRef(false);
+    const firstFocus = useRef(true);
+    const active = useRef(true);
 
-    const load = useCallback(
-        async (isRefresh = false) => {
-            if (isRefresh) setRefreshing(true);
-            else setLoading(true);
+    useEffect(() => {
+        let current = true;
+        const sequence = ++readSequence.current;
+        active.current = true;
+        requestPending.current = true;
+        setLoadState("loading");
+        setLoadError("");
+
+        const load = async () => {
             try {
                 const result = await httpClient.get(
-                    `v1/datasources/brokers/${id}/subscriptions?page=1&size=400`,
+                    `v1/datasources/brokers/${id}/subscriptions?page=1&size=300`,
                 );
-                if (result.isSuccess) {
-                    const content =
-                        (await result.response?.json()) as ListResponse<SubscriptionDto>;
+                if (!result.isSuccess || !result.response) {
+                    if (result.response?.status === 404)
+                        throw new Error("This data source is no longer available.");
+                    throw new Error(
+                        "Couldn't load subscriptions. Check your connection and try again.",
+                    );
+                }
+                const content = (await result.response.json()) as ListResponse<SubscriptionDto>;
+                if (current && sequence === readSequence.current)
                     setSubscriptions(content.items ?? []);
-                } else {
-                    toast.httpError(result);
+                if (current && sequence === readSequence.current) setLoadState("ready");
+            } catch (error) {
+                if (current && sequence === readSequence.current) {
+                    setLoadState("error");
+                    setLoadError(
+                        error instanceof Error &&
+                            error.message === "This data source is no longer available."
+                            ? error.message
+                            : "Couldn't load subscriptions. Check your connection and try again.",
+                    );
                 }
             } finally {
-                if (isRefresh) setRefreshing(false);
-                else setLoading(false);
+                if (current && sequence === readSequence.current) requestPending.current = false;
             }
-        },
-        [id, httpClient, toast],
-    );
+        };
+
+        void load();
+        return () => {
+            current = false;
+            active.current = false;
+        };
+        // The HTTP client binding changes identity during provider renders; reload only for id/reload.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id, reload]);
 
     useFocusEffect(
         useCallback(() => {
-            load();
-        }, [load]),
+            if (firstFocus.current) {
+                firstFocus.current = false;
+                return;
+            }
+            readSequence.current++;
+            requestPending.current = true;
+            setReload((value) => value + 1);
+        }, []),
     );
 
-    const confirmDelete = (subscriptionId: string) => {
-        setPendingDeleteId(subscriptionId);
+    const retryLoad = () => {
+        if (requestPending.current) return;
+        readSequence.current++;
+        requestPending.current = true;
+        setReload((value) => value + 1);
     };
 
-    const onDelete = async (subscriptionId: string) => {
-        setLoading(true);
+    const addSubscription = () => {
+        router.push({
+            pathname: "dataSource/brokers/addSubscription",
+            params: { brokerId: id },
+        });
+    };
+
+    const removeSubscription = async (subscriptionId: string) => {
+        if (removePending.current) return;
+        removePending.current = true;
+        setRemoving(true);
+        setRemovingId(subscriptionId);
+        setRemoveError("");
+
         try {
             const result = await httpClient.delete(
                 `v1/datasources/brokers/${id}/subscriptions/${subscriptionId}`,
             );
-            if (result.isSuccess) {
-                toast.success("Subscription removed.");
-                load();
-            } else {
-                toast.httpError(result);
-            }
+            if (!result.isSuccess && result.response?.status !== 404)
+                throw new Error(
+                    "Couldn't remove subscription. Check your connection and try again.",
+                );
+            if (active.current)
+                setSubscriptions((current) => current.filter((item) => item.id !== subscriptionId));
+        } catch (error) {
+            if (active.current)
+                setRemoveError(
+                    error instanceof Error
+                        ? error.message
+                        : "Couldn't remove subscription. Try again.",
+                );
         } finally {
-            setLoading(false);
+            removePending.current = false;
+            if (active.current) {
+                setRemoving(false);
+                setRemovingId(null);
+            }
         }
     };
 
-    const onAdd = () => {
-        router.push({
-            pathname: "dataSource/brokers/addSubscription",
-            params: { brokerId: id as string },
-        });
+    const confirmRemove = () => {
+        const subscriptionId = pendingDeleteId;
+        setPendingDeleteId(null);
+        if (subscriptionId) void removeSubscription(subscriptionId);
     };
 
-    if (loading && !refreshing) return <Loading size={64} />;
-
-    const fabActions: FABAction[] = [
-        { icon: "add-outline", label: "Add Subscription", onPress: onAdd },
-    ];
+    const cancelRemove = () => {
+        if (!removing) setPendingDeleteId(null);
+    };
 
     return (
-        <View style={{ flex: 1 }}>
-            <ConfirmDialog
-                visible={pendingDeleteId !== null}
-                title="Remove Subscription"
-                content="Broker will not register any events incoming to this topic. This action cannot be undone."
-                onConfirm={() => {
-                    const id = pendingDeleteId!;
-                    setPendingDeleteId(null);
-                    onDelete(id);
-                }}
-                onCancel={() => setPendingDeleteId(null)}
-            />
-            <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={styles.content}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
-                }>
-                {subscriptions.length === 0 ? (
-                    <View style={styles.empty}>
-                        <Text size="medium" color="onBackground">
-                            No subscriptions yet.
-                        </Text>
-                    </View>
-                ) : (
-                    subscriptions.map((item) => (
+        <View style={styles.section}>
+            <View style={styles.header}>
+                <View style={styles.titleGroup}>
+                    <Text color="onBackground" size="large" bold>
+                        Subscriptions
+                    </Text>
+                    <Text color="onBackground" style={styles.description}>
+                        Topics this broker client listens to.
+                    </Text>
+                </View>
+                <Button
+                    name="Add subscription"
+                    type="auth"
+                    loading={false}
+                    onPress={addSubscription}
+                    style={styles.addButton}
+                />
+            </View>
+
+            {!!loadError && (
+                <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
+                    <AlertDescription>{loadError}</AlertDescription>
+                </Alert>
+            )}
+            {!!removeError && (
+                <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
+                    <AlertDescription>{removeError}</AlertDescription>
+                </Alert>
+            )}
+
+            {loadState === "loading" ? (
+                <View style={styles.loadState}>
+                    <ActivityIndicator color={theme.current.colors.authForeground} />
+                    <Text color="onBackground">Loading subscriptions…</Text>
+                </View>
+            ) : loadState === "error" ? (
+                <Button
+                    name="Retry"
+                    type="brand-outline"
+                    loading={false}
+                    disabled={requestPending.current}
+                    onPress={retryLoad}
+                />
+            ) : subscriptions.length === 0 ? (
+                <Text color="onBackground" style={styles.empty}>
+                    No subscriptions yet.
+                </Text>
+            ) : (
+                <View style={styles.list}>
+                    {subscriptions.map((item) => (
                         <View
                             key={item.id}
                             style={[
-                                styles.tile,
-                                shadowStyles.default,
+                                styles.subscription,
                                 { backgroundColor: theme.current.colors.primary },
                             ]}>
-                            <View style={styles.tileIcon}>
-                                <Icon icon="git-merge-outline" size={24} color="onPrimary" />
-                            </View>
-                            <View style={styles.tileContent}>
-                                <Text size="medium" color="onPrimary" bold={true}>
-                                    {item.topic}
-                                </Text>
-                            </View>
-                            <TouchableOpacity
-                                style={styles.tileDelete}
-                                onPress={() => confirmDelete(item.id)}>
-                                <Icon icon="trash-outline" size={22} color="error" />
-                            </TouchableOpacity>
+                            <Text color="onPrimary" style={styles.topic} selectable>
+                                {item.topic}
+                            </Text>
+                            <Button
+                                name="Remove"
+                                accessibilityLabel={`Remove subscription ${item.topic}`}
+                                type="brand-destructive"
+                                loading={removingId === item.id}
+                                disabled={removing}
+                                onPress={() => setPendingDeleteId(item.id)}
+                                style={styles.removeButton}
+                            />
                         </View>
-                    ))
-                )}
-            </ScrollView>
+                    ))}
+                </View>
+            )}
 
-            <FAB actions={fabActions} />
+            <ConfirmDialog
+                visible={pendingDeleteId !== null}
+                title="Remove subscription"
+                content="Broker will stop listening to this topic. This action cannot be undone."
+                confirmLabel="Remove"
+                onConfirm={confirmRemove}
+                onCancel={cancelRemove}
+            />
         </View>
     );
 };
@@ -148,30 +239,23 @@ const BrokerSubscriptions: FC = () => {
 export default BrokerSubscriptions;
 
 const styles = StyleSheet.create({
-    content: {
-        paddingHorizontal: 15,
-        paddingTop: 15,
-        paddingBottom: 90,
-    },
-    empty: {
-        alignItems: "center",
-        marginTop: 30,
-    },
-    tile: {
-        flexDirection: "row",
-        alignItems: "center",
+    section: { gap: 14 },
+    header: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12 },
+    titleGroup: { flexGrow: 1, flexBasis: 190, gap: 4 },
+    description: { lineHeight: 21, flexShrink: 1 },
+    addButton: { flexGrow: 1, flexBasis: 160 },
+    loadState: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 10 },
+    empty: { paddingVertical: 10 },
+    list: { gap: 10 },
+    subscription: {
+        minHeight: 72,
         borderRadius: 12,
-        paddingHorizontal: 10,
-        paddingVertical: 12,
-        marginBottom: 10,
+        padding: 12,
+        flexDirection: "row",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: 12,
     },
-    tileIcon: {
-        paddingRight: 12,
-    },
-    tileContent: {
-        flex: 1,
-    },
-    tileDelete: {
-        paddingLeft: 12,
-    },
+    topic: { flexGrow: 1, flexBasis: 180, lineHeight: 22, flexShrink: 1 },
+    removeButton: { width: 96, minWidth: 96, minHeight: 48, paddingHorizontal: 8 },
 });

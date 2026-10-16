@@ -11,6 +11,7 @@
         "hooks:install": "git config core.hooksPath .githooks",
         "typecheck": "tsc --noEmit",
         "test:poc": "node --test tests/authValidation.test.mjs tests/authPanel.test.mjs tests/resetPasswordForm.test.mjs tests/feedback.test.mjs",
+        "test:data-sources": "node --test tests/dataSourceDetails.test.mjs",
         "test:homes": "node --test tests/homeList.test.mjs tests/joinHomeForm.test.mjs tests/homeForm.test.mjs tests/locationMapPicker.test.mjs",
         "test:build": "node --test tests/buildConfig.test.mjs",
         "test:icons": "node --test tests/iconCatalog.test.mjs tests/iconSelector.test.mjs tests/resourceIconForms.test.mjs tests/resourceIcons.test.mjs"
