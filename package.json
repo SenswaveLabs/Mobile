@@ -11,7 +11,7 @@
         "hooks:install": "git config core.hooksPath .githooks",
         "typecheck": "tsc --noEmit",
         "test:poc": "node --test tests/authValidation.test.mjs tests/authPanel.test.mjs tests/resetPasswordForm.test.mjs tests/feedback.test.mjs",
-        "test:data-sources": "node --test tests/dataSourceDetails.test.mjs",
+        "test:data-sources": "node --test tests/dataSourceDetails.test.mjs tests/bottomSheetSelect.test.mjs",
         "test:homes": "node --test tests/homeList.test.mjs tests/joinHomeForm.test.mjs tests/homeForm.test.mjs tests/locationMapPicker.test.mjs",
         "test:build": "node --test tests/buildConfig.test.mjs",
         "test:icons": "node --test tests/iconCatalog.test.mjs tests/iconSelector.test.mjs tests/resourceIconForms.test.mjs tests/resourceIcons.test.mjs"
@@ -30,6 +30,7 @@
         "@rn-primitives/label": "1.5.2",
         "@rn-primitives/portal": "1.5.3",
         "@rn-primitives/slot": "1.5.2",
+        "@rn-primitives/tabs": "1.5.2",
         "babel-plugin-module-resolver": "5.0.2",
         "class-variance-authority": "0.7.1",
         "clsx": "2.1.1",

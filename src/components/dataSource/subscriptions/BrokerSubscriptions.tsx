@@ -7,9 +7,9 @@ import { useTheme } from "@/contexts/ThemeProvider";
 import { SubscriptionDto } from "@/types/DataSourcesTypes";
 import { ListResponse } from "@/utils/httpClient";
 import { useFocusEffect, useRouter } from "expo-router";
-import { CircleAlert } from "lucide-react-native";
+import { CircleAlert, Plus, Trash2 } from "lucide-react-native";
 import React, { FC, useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text as NativeText, View } from "react-native";
 
 interface BrokerSubscriptionsProps {
     id: string;
@@ -153,21 +153,36 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
     return (
         <View style={styles.section}>
             <View style={styles.header}>
-                <View style={styles.titleGroup}>
-                    <Text color="onBackground" size="large" bold>
+                <View style={styles.headingRow}>
+                    <NativeText
+                        accessibilityRole="header"
+                        style={[styles.title, { color: theme.current.colors.authForeground }]}>
                         Subscriptions
-                    </Text>
-                    <Text color="onBackground" style={styles.description}>
-                        Topics this broker client listens to.
-                    </Text>
+                    </NativeText>
+                    <Pressable
+                        cssInterop={false}
+                        accessibilityRole="button"
+                        accessibilityLabel="Add subscription"
+                        onPress={addSubscription}
+                        android_ripple={{ color: theme.current.colors.authBorder }}
+                        style={({ pressed }) => [styles.addAction, pressed && styles.pressed]}>
+                        <Plus
+                            size={18}
+                            color={theme.current.colors.authForeground}
+                            accessible={false}
+                        />
+                        <NativeText
+                            style={[
+                                styles.addLabel,
+                                { color: theme.current.colors.authForeground },
+                            ]}>
+                            Add
+                        </NativeText>
+                    </Pressable>
                 </View>
-                <Button
-                    name="Add subscription"
-                    type="auth"
-                    loading={false}
-                    onPress={addSubscription}
-                    style={styles.addButton}
-                />
+                <NativeText style={[styles.description, { color: theme.current.colors.authMuted }]}>
+                    Topics this broker client listens to.
+                </NativeText>
             </View>
 
             {!!loadError && (
@@ -205,20 +220,44 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
                             key={item.id}
                             style={[
                                 styles.subscription,
-                                { backgroundColor: theme.current.colors.primary },
+                                { borderBottomColor: theme.current.colors.authBorder },
                             ]}>
-                            <Text color="onPrimary" style={styles.topic} selectable>
+                            <NativeText
+                                style={[
+                                    styles.topic,
+                                    { color: theme.current.colors.authForeground },
+                                ]}
+                                selectable>
                                 {item.topic}
-                            </Text>
-                            <Button
-                                name="Remove"
+                            </NativeText>
+                            <Pressable
+                                cssInterop={false}
+                                accessibilityRole="button"
                                 accessibilityLabel={`Remove subscription ${item.topic}`}
-                                type="brand-destructive"
-                                loading={removingId === item.id}
+                                accessibilityState={{
+                                    disabled: removing,
+                                    busy: removingId === item.id,
+                                }}
                                 disabled={removing}
                                 onPress={() => setPendingDeleteId(item.id)}
-                                style={styles.removeButton}
-                            />
+                                android_ripple={{ color: theme.current.colors.authBorder }}
+                                style={({ pressed }) => [
+                                    styles.removeAction,
+                                    pressed && styles.pressed,
+                                ]}>
+                                {removingId === item.id ? (
+                                    <ActivityIndicator
+                                        size="small"
+                                        color={theme.current.colors.error}
+                                    />
+                                ) : (
+                                    <Trash2
+                                        size={20}
+                                        color={theme.current.colors.error}
+                                        accessible={false}
+                                    />
+                                )}
+                            </Pressable>
                         </View>
                     ))}
                 </View>
@@ -240,22 +279,44 @@ export default BrokerSubscriptions;
 
 const styles = StyleSheet.create({
     section: { gap: 14 },
-    header: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12 },
-    titleGroup: { flexGrow: 1, flexBasis: 190, gap: 4 },
-    description: { lineHeight: 21, flexShrink: 1 },
-    addButton: { flexGrow: 1, flexBasis: 160 },
+    header: { gap: 4 },
+    headingRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+    },
+    title: { fontSize: 20, lineHeight: 26, fontWeight: "600", flexShrink: 1 },
+    description: { fontSize: 14, lineHeight: 20 },
+    addAction: {
+        minWidth: 72,
+        minHeight: 48,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+    },
+    addLabel: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
+    pressed: { opacity: 0.72 },
     loadState: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 10 },
     empty: { paddingVertical: 10 },
-    list: { gap: 10 },
+    list: { gap: 0 },
     subscription: {
-        minHeight: 72,
-        borderRadius: 12,
-        padding: 12,
+        minHeight: 64,
+        paddingVertical: 8,
         flexDirection: "row",
-        flexWrap: "wrap",
         alignItems: "center",
         gap: 12,
+        borderBottomWidth: StyleSheet.hairlineWidth,
     },
-    topic: { flexGrow: 1, flexBasis: 180, lineHeight: 22, flexShrink: 1 },
-    removeButton: { width: 96, minWidth: 96, minHeight: 48, paddingHorizontal: 8 },
+    topic: { flexGrow: 1, flexBasis: 0, minWidth: 0, fontSize: 16, lineHeight: 22, flexShrink: 1 },
+    removeAction: {
+        width: 48,
+        height: 48,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 8,
+    },
 });

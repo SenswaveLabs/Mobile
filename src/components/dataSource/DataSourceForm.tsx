@@ -1,8 +1,9 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { Pressable, View, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import Input from "../common/Input";
 import PasswordInput from "../common/PasswordInput";
 import DataSourceTile from "./tile/DataSourceTile";
+import BottomSheetSelect from "@/components/common/BottomSheetSelect";
 import { MqttVersion } from "@/types/DataSourcesTypes";
 import UserNote from "@/components/common/UserNote";
 import Divider from "../common/Divider";
@@ -44,7 +45,6 @@ export interface DataSourceFormHandle {
     isDirty: boolean;
     isValid: boolean;
     triggerSave: () => void;
-    triggerReset: () => void;
 }
 
 interface DataSourceFormProps {
@@ -235,24 +235,7 @@ export const DataSourceForm = forwardRef<DataSourceFormHandle, DataSourceFormPro
             }
         };
 
-        const triggerReset = () => {
-            if (pending.current) return;
-            setValues(saved);
-            setUsername("");
-            setPassword("");
-            setErrors({
-                server: "",
-                name: "",
-                clientName: "",
-                port: "",
-                username: "",
-                password: "",
-            });
-            setSubmitError("");
-            setSuccess("");
-        };
-
-        useImperativeHandle(ref, () => ({ isDirty, isValid, triggerSave, triggerReset }));
+        useImperativeHandle(ref, () => ({ isDirty, isValid, triggerSave }));
 
         useEffect(() => {
             onDirtyChange?.(isDirty);
@@ -268,55 +251,6 @@ export const DataSourceForm = forwardRef<DataSourceFormHandle, DataSourceFormPro
             validateForm();
             // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [values, username, password, isAuthVisible]);
-
-        const renderChoiceOption = (
-            field: string,
-            label: string,
-            selected: boolean,
-            onSelect: () => void,
-        ) => (
-            <Pressable
-                key={`${field}-${label}`}
-                accessibilityRole="radio"
-                accessibilityLabel={`${field}, ${label}`}
-                accessibilityHint={`Choose one ${field} option.`}
-                accessibilityState={{ checked: selected, selected, disabled: loading }}
-                disabled={loading}
-                onPress={onSelect}
-                style={[
-                    styles.choiceOption,
-                    {
-                        backgroundColor: selected ? colors.authPrimary : colors.authBackground,
-                        borderColor: selected ? colors.authPrimary : colors.authBorder,
-                    },
-                ]}>
-                <View
-                    style={[
-                        styles.choiceIndicator,
-                        {
-                            borderColor: selected ? colors.authOnPrimary : colors.authBorder,
-                        },
-                    ]}>
-                    {selected && (
-                        <View
-                            style={[
-                                styles.choiceIndicatorSelected,
-                                { backgroundColor: colors.authOnPrimary },
-                            ]}
-                        />
-                    )}
-                </View>
-                <Text
-                    style={[
-                        styles.choiceLabel,
-                        {
-                            color: selected ? colors.authOnPrimary : colors.authForeground,
-                        },
-                    ]}>
-                    {label}
-                </Text>
-            </Pressable>
-        );
 
         return (
             <View style={styles.container}>
@@ -392,53 +326,45 @@ export const DataSourceForm = forwardRef<DataSourceFormHandle, DataSourceFormPro
 
                     <View style={styles.inlineContainer}>
                         <View style={styles.inlineField}>
-                            <View style={styles.choiceGroup}>
-                                <Text
-                                    style={[styles.choiceTitle, { color: colors.authForeground }]}>
-                                    TLS
-                                </Text>
-                                <View style={styles.choiceOptions}>
-                                    {[
-                                        { label: "Use TLS", value: true },
-                                        { label: "Don't use TLS", value: false },
-                                    ].map((option) => {
-                                        const selected = values.tls === option.value;
-                                        return renderChoiceOption(
-                                            "TLS",
-                                            option.label,
-                                            selected,
-                                            () =>
-                                                setValues((current) => ({
-                                                    ...current,
-                                                    tls: option.value,
-                                                })),
-                                        );
-                                    })}
-                                </View>
-                            </View>
+                            <BottomSheetSelect
+                                title="TLS"
+                                value={values.tls ? "Enabled" : "Disabled"}
+                                disabled={loading}
+                                options={[
+                                    {
+                                        label: "Enabled",
+                                        selected: values.tls,
+                                        onPress: () =>
+                                            setValues((current) => ({ ...current, tls: true })),
+                                    },
+                                    {
+                                        label: "Disabled",
+                                        selected: !values.tls,
+                                        onPress: () =>
+                                            setValues((current) => ({ ...current, tls: false })),
+                                    },
+                                ]}
+                            />
                         </View>
                         <View style={styles.inlineField}>
-                            <View style={styles.choiceGroup}>
-                                <Text
-                                    style={[styles.choiceTitle, { color: colors.authForeground }]}>
-                                    MQTT version
-                                </Text>
-                                <View style={styles.choiceOptions}>
-                                    {mqttVersionOptions.map((option) => {
-                                        const selected = values.mqttVersion === option.value;
-                                        return renderChoiceOption(
-                                            "MQTT version",
-                                            option.label,
-                                            selected,
-                                            () =>
-                                                setValues((current) => ({
-                                                    ...current,
-                                                    mqttVersion: option.value,
-                                                })),
-                                        );
-                                    })}
-                                </View>
-                            </View>
+                            <BottomSheetSelect
+                                title="MQTT version"
+                                value={
+                                    mqttVersionOptions.find(
+                                        (option) => option.value === values.mqttVersion,
+                                    )?.label ?? mqttVersionOptions[0].label
+                                }
+                                disabled={loading}
+                                options={mqttVersionOptions.map((option) => ({
+                                    label: option.label,
+                                    selected: values.mqttVersion === option.value,
+                                    onPress: () =>
+                                        setValues((current) => ({
+                                            ...current,
+                                            mqttVersion: option.value,
+                                        })),
+                                }))}
+                            />
                         </View>
                     </View>
 
@@ -518,13 +444,14 @@ export const DataSourceForm = forwardRef<DataSourceFormHandle, DataSourceFormPro
                                 disabled={!isDirty}
                                 onPress={triggerSave}
                             />
-                            <Button
-                                name="Reset"
-                                type="brand-outline"
-                                loading={false}
-                                disabled={!isDirty || loading}
-                                onPress={triggerReset}
-                            />
+                        </View>
+                    )}
+                    {edit && children && (
+                        <View
+                            style={[
+                                styles.destructiveSection,
+                                { borderTopColor: colors.authBorder },
+                            ]}>
                             {children}
                         </View>
                     )}
@@ -547,30 +474,8 @@ const styles = StyleSheet.create({
     description: { fontSize: 14, lineHeight: 20 },
     inlineContainer: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
     inlineField: { flexGrow: 1, flexBasis: 150 },
-    choiceGroup: { gap: 8 },
-    choiceTitle: { marginBottom: 2, fontSize: 16, lineHeight: 22, fontWeight: "600" },
-    choiceOptions: { gap: 8 },
-    choiceOption: {
-        minHeight: 48,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        borderWidth: 1,
-        borderRadius: 8,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-    },
-    choiceIndicator: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        borderWidth: 1.5,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    choiceIndicatorSelected: { width: 10, height: 10, borderRadius: 5 },
-    choiceLabel: { flexShrink: 1, lineHeight: 22 },
     portField: { maxWidth: 260, width: "100%" },
     authSection: { gap: 16, paddingTop: 8 },
     actions: { gap: 12, paddingTop: 12 },
+    destructiveSection: { gap: 12, paddingTop: 20, borderTopWidth: 1 },
 });

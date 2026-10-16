@@ -29,6 +29,7 @@ function mountSettingsForm(onClick) {
         modules: {
             "../common/Input": "Input",
             "../common/PasswordInput": "PasswordInput",
+            "@/components/common/BottomSheetSelect": "BottomSheetSelect",
             "./tile/DataSourceTile": "DataSourceTile",
             "../common/Dropdown": { __esModule: true, default: "Dropdown" },
             "../common/SwitchDropdown": "SwitchDropdown",
@@ -114,6 +115,11 @@ function mountSubscriptions(httpClient) {
                         focus = callback;
                     },
                 },
+                "lucide-react-native": {
+                    CircleAlert: "CircleAlert",
+                    Plus: "Plus",
+                    Trash2: "Trash2",
+                },
                 "@/components/common/ConfirmDialog": "ConfirmDialog",
                 "@/components/common/Button": "Button",
                 "@/components/common/Text": "Text",
@@ -159,6 +165,12 @@ function mountDetailsRoute(httpClient) {
             "@/components/dataSource/subscriptions/BrokerSubscriptions": "BrokerSubscriptions",
             "@/components/ui/alert": { Alert: "Alert", AlertDescription: "AlertDescription" },
             "@/components/ui/text": { Text: "Text" },
+            "@/components/ui/tabs": {
+                Tabs: "Tabs",
+                TabsList: "TabsList",
+                TabsTrigger: "TabsTrigger",
+                TabsContent: "TabsContent",
+            },
         },
     });
 }
@@ -196,7 +208,7 @@ test("failed settings save keeps draft and credentials available for retry", asy
     assert.doesNotMatch(form.text(), /secret-123/);
 });
 
-test("settings save locks immediately and reset returns to last successful values", async () => {
+test("settings save locks immediately, updates the saved baseline, and has no Reset action", async () => {
     let attempts = 0;
     let finish;
     const form = mountSettingsForm(async () => {
@@ -212,18 +224,20 @@ test("settings save locks immediately and reset returns to last successful value
     const first = save.props.onPress();
     const duplicate = save.props.onPress();
     assert.equal(attempts, 1, "A second tap before rerender must not send another update");
+    form.render();
+    const pendingSelector = form.elements().find((node) => node.type === "BottomSheetSelect");
+    assert.ok(pendingSelector, "settings selectors should be present while saving");
+    assert.equal(pendingSelector.props.disabled, true, "selectors stay disabled while saving");
     finish();
     await Promise.all([first, duplicate]);
     form.render();
 
     form.change("Name", "Temporary name");
-    const reset = form.button("Reset");
-    assert.ok(reset, "Settings must expose Reset beside Save");
-    reset.props.onPress();
     form.render();
 
-    assert.equal(form.input("Name").props.value, "Cabin broker");
-    assert.equal(form.button("Save changes").props.disabled, true);
+    assert.equal(form.input("Name").props.value, "Temporary name");
+    assert.equal(form.button("Reset"), undefined);
+    assert.equal(form.button("Save changes").props.disabled, false);
     assert.equal(attempts, 1);
 });
 
@@ -557,43 +571,53 @@ test("subscription refocus during its first read reloads and ignores the stale l
     assert.doesNotMatch(subscriptions.text(), /old\/topic/);
 });
 
-test("settings choices expose accessible 48dp radio rows and preserve exact values", async () => {
+test("settings selectors keep TLS boolean and MQTT enum values in the saved payload", async () => {
     let saved;
     const form = mountSettingsForm(async (values) => {
         saved = values;
     });
-    const choice = (label) =>
+    const selector = (title) =>
         form
             .elements()
-            .find((node) => node.type === "Pressable" && node.props.accessibilityLabel === label);
+            .find((node) => node.type === "BottomSheetSelect" && node.props.title === title);
+    const tls = selector("TLS");
+    const mqtt = selector("MQTT version");
+    assert.ok(tls, "TLS must be a selected-value field");
+    assert.ok(mqtt, "MQTT version must be a selected-value field");
+    assert.equal(tls.props.value, "Disabled");
+    assert.equal(mqtt.props.value, "5.0.0");
+    assert.deepEqual(
+        Array.from(mqtt.props.options, ({ label, selected }) => [label, selected]),
+        [
+            ["5.0.0", true],
+            ["3.1.1", false],
+            ["3.1.0", false],
+        ],
+    );
 
-    const useTls = choice("TLS, Use TLS");
-    const noTls = choice("TLS, Don't use TLS");
-    const mqtt311 = choice("MQTT version, 3.1.1");
-    assert.ok(useTls, "TLS options must be individually named");
-    assert.ok(noTls);
-    assert.ok(mqtt311, "MQTT options must be individually named");
-    for (const option of [useTls, noTls, mqtt311]) {
-        assert.equal(option.props.accessibilityRole, "radio");
-        assert.ok(option.props.style[0].minHeight >= 48);
-        assert.equal(option.props.style[0].height, undefined);
-    }
-    assert.equal(noTls.props.accessibilityState.checked, true);
-    assert.equal(noTls.props.accessibilityState.selected, true);
-    assert.equal(mqtt311.props.accessibilityState.selected, false);
-
-    useTls.props.onPress();
-    mqtt311.props.onPress();
+    tls.props.options.find((option) => option.selected).onPress();
+    mqtt.props.options.find((option) => option.selected).onPress();
     form.render();
-    assert.equal(choice("TLS, Use TLS").props.accessibilityState.checked, true);
-    assert.equal(choice("MQTT version, 3.1.1").props.accessibilityState.selected, true);
+    assert.equal(form.button("Save changes").props.disabled, true, "unchanged choices stay clean");
+
+    selector("TLS")
+        .props.options.find((option) => option.label === "Enabled")
+        .onPress();
+    selector("MQTT version")
+        .props.options.find((option) => option.label === "3.1.1")
+        .onPress();
+    form.render();
+    assert.equal(selector("TLS").props.value, "Enabled");
+    assert.equal(selector("MQTT version").props.value, "3.1.1");
 
     form.change("Username", "broker-user");
     form.change("Password", "secret-123");
     await form.button("Save changes").props.onPress();
 
+    assert.equal(typeof saved.useTls, "boolean");
     assert.equal(saved.useTls, true);
     assert.equal(saved.protocolVersion, "MqttV311");
+    assert.equal(typeof saved.protocolVersion, "string");
 });
 
 test("subscription removal can be cancelled, retried after failure, and recover", async () => {
@@ -618,7 +642,11 @@ test("subscription removal can be cancelled, retried after failure, and recover"
     const remove = () =>
         subscriptions
             .elements()
-            .find((node) => node.type === "Button" && node.props.name === "Remove");
+            .find(
+                (node) =>
+                    node.type === "Pressable" &&
+                    node.props.accessibilityLabel === "Remove subscription home/kitchen",
+            );
 
     remove().props.onPress();
     subscriptions.render();
@@ -689,17 +717,22 @@ test("details route keeps the settings panel mounted while switching tabs", asyn
     details.flushEffects();
     await settle();
     details.render();
+    const tabs = () => details.elements().find((node) => node.type === "Tabs");
+    assert.ok(tabs(), "details should use the shared RNR tabs root");
+    assert.equal(tabs().props.value, "Overview");
     const settings = details
         .elements()
-        .find((node) => node.type === "Pressable" && node.props.accessibilityLabel === "Settings");
-    assert.ok(settings);
-    settings.props.onPress();
+        .find((node) => node.type === "TabsTrigger" && node.props.value === "Settings");
+    assert.ok(settings, "Settings should be a tab trigger");
+    tabs().props.onValueChange("Settings");
     details.render();
+    assert.equal(tabs().props.value, "Settings");
     assert.ok(details.elements().some((node) => node.type === "DataSourceDetailsSection"));
-    details
-        .elements()
-        .find((node) => node.type === "Pressable" && node.props.accessibilityLabel === "Overview")
-        .props.onPress();
+    const panels = details.elements().filter((node) => node.type === "TabsContent");
+    assert.equal(panels.length, 2, "both panels remain mounted across tab changes");
+    assert.ok(panels.every((node) => node.props.forceMount));
+    tabs().props.onValueChange("Overview");
     details.render();
+    assert.equal(tabs().props.value, "Overview");
     assert.ok(details.elements().some((node) => node.type === "DataSourceDetailsSection"));
 });

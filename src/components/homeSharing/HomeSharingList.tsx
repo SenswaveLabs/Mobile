@@ -1,7 +1,7 @@
 import React, { FC, useCallback, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text as NativeText, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { CircleAlert } from "lucide-react-native";
+import { CircleAlert, Plus } from "lucide-react-native";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { useHomes } from "@/contexts/domain/HomeProvider";
@@ -26,6 +26,8 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
     const [sharings, setSharings] = useState<HomeSharingDto[]>([]);
     const [reload, setReload] = useState(0);
     const homeId = home?.id;
+    const isOwner = !!home?.isOwner;
+    const inviteDisabled = disabled || !isOwner;
 
     useFocusEffect(
         useCallback(() => {
@@ -61,7 +63,39 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
     );
 
     return (
-        <View style={styles.container}>
+        <View style={styles.section}>
+            <View style={styles.header}>
+                <View style={styles.headingRow}>
+                    <NativeText
+                        accessibilityRole="header"
+                        style={[styles.title, { color: colors.authForeground }]}>
+                        Sharing
+                    </NativeText>
+                    <Pressable
+                        cssInterop={false}
+                        accessibilityRole="button"
+                        accessibilityLabel="Invite someone"
+                        accessibilityState={{
+                            disabled: inviteDisabled,
+                            busy: disabled && isOwner,
+                        }}
+                        disabled={inviteDisabled}
+                        onPress={() => {
+                            if (!inviteDisabled && homeId)
+                                router.push({ pathname: "home/share", params: { id: homeId } });
+                        }}
+                        android_ripple={{ color: colors.authBorder }}
+                        style={({ pressed }) => [styles.inviteAction, pressed && styles.pressed]}>
+                        <Plus size={18} color={colors.authForeground} accessible={false} />
+                        <NativeText style={[styles.inviteLabel, { color: colors.authForeground }]}>
+                            Invite
+                        </NativeText>
+                    </Pressable>
+                </View>
+                <NativeText style={[styles.description, { color: colors.authMuted }]}>
+                    Invite someone and manage their access to this home.
+                </NativeText>
+            </View>
             {loading && (
                 <View
                     accessible
@@ -103,23 +137,20 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
                     No one has access yet.
                 </Text>
             )}
-            {sharings.map((sharing) => (
-                <HomeSharingListItem
-                    key={sharing.sharingId}
-                    id={sharing.sharingId}
-                    email={sharing.friendEmail}
-                    type={sharing.sharingType}
-                    disabled={disabled || !home?.isOwner}
-                    onRemove={() => setReload((value) => value + 1)}
-                />
-            ))}
-            <Button
-                name="Invite someone"
-                type="brand-outline"
-                loading={false}
-                disabled={disabled || !home?.isOwner}
-                onPress={() => router.push({ pathname: "home/share", params: { id: homeId } })}
-            />
+            {!loading && !error && sharings.length > 0 && (
+                <View style={styles.list}>
+                    {sharings.map((sharing) => (
+                        <HomeSharingListItem
+                            key={sharing.sharingId}
+                            id={sharing.sharingId}
+                            email={sharing.friendEmail}
+                            type={sharing.sharingType}
+                            disabled={disabled || !isOwner}
+                            onRemove={() => setReload((value) => value + 1)}
+                        />
+                    ))}
+                </View>
+            )}
         </View>
     );
 };
@@ -127,8 +158,29 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
 export default HomeSharingList;
 
 const styles = StyleSheet.create({
-    container: { gap: 16 },
+    section: { gap: 14 },
+    header: { gap: 4 },
+    headingRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+    },
+    title: { fontSize: 20, lineHeight: 26, fontWeight: "600", flexShrink: 1 },
+    description: { fontSize: 14, lineHeight: 20 },
+    inviteAction: {
+        minWidth: 72,
+        minHeight: 48,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+    },
+    inviteLabel: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
+    pressed: { opacity: 0.72 },
     loading: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 16 },
     loadingText: { flex: 1 },
-    description: { fontSize: 14, lineHeight: 20 },
+    list: { gap: 0 },
 });

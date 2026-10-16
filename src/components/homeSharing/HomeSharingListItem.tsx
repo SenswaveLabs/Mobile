@@ -1,8 +1,15 @@
 import React, { FC, useCallback, useId, useRef, useState } from "react";
-import { Modal as NativeModal, ScrollView, StyleSheet, View } from "react-native";
+import {
+    ActivityIndicator,
+    Modal as NativeModal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
 import { useFocusEffect } from "expo-router";
 import { PortalHost } from "@rn-primitives/portal";
-import { CircleAlert } from "lucide-react-native";
+import { CircleAlert, Trash2 } from "lucide-react-native";
 import Button from "@/components/common/Button";
 import {
     AlertDialog,
@@ -74,7 +81,7 @@ const HomeSharingListItem: FC<HomeSharingListItemProps> = ({
 
     return (
         <AlertDialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog} asChild>
-            <View style={[styles.container, { borderColor: colors.authBorder + "55" }]}>
+            <View style={[styles.container, { borderColor: colors.authBorder }]}>
                 <NativeModal
                     visible={showRemoveDialog}
                     transparent
@@ -118,11 +125,38 @@ const HomeSharingListItem: FC<HomeSharingListItemProps> = ({
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
-                <View accessible style={styles.identity}>
-                    <Text style={[styles.email, { color: colors.authForeground }]}>{email}</Text>
-                    <Text style={[styles.role, { color: colors.authMuted }]}>
-                        {HomeRolesToName.get(type) || "Unknown role"}
-                    </Text>
+                <View style={styles.row}>
+                    <View accessible style={styles.identity}>
+                        <Text style={[styles.email, { color: colors.authForeground }]}>
+                            {email}
+                        </Text>
+                        <Text style={[styles.role, { color: colors.authMuted }]}>
+                            {HomeRolesToName.get(type) || "Unknown role"}
+                        </Text>
+                    </View>
+                    <AlertDialogTrigger asChild disabled={disabled || loading}>
+                        <Pressable
+                            cssInterop={false}
+                            accessibilityRole="button"
+                            accessibilityLabel={"Remove access for " + email}
+                            accessibilityState={{ disabled: disabled || loading, busy: loading }}
+                            disabled={disabled || loading}
+                            onPress={() => {
+                                setError("");
+                                setShowRemoveDialog(true);
+                            }}
+                            android_ripple={{ color: colors.authBorder }}
+                            style={({ pressed }) => [
+                                styles.removeAction,
+                                pressed && styles.pressed,
+                            ]}>
+                            {loading ? (
+                                <ActivityIndicator size="small" color={colors.error} />
+                            ) : (
+                                <Trash2 size={20} color={colors.error} accessible={false} />
+                            )}
+                        </Pressable>
+                    </AlertDialogTrigger>
                 </View>
                 {!!error && (
                     <Alert
@@ -133,20 +167,6 @@ const HomeSharingListItem: FC<HomeSharingListItemProps> = ({
                         <AlertDescription>{error}</AlertDescription>
                     </Alert>
                 )}
-                <AlertDialogTrigger asChild disabled={disabled || loading}>
-                    <Button
-                        name="Remove access"
-                        accessibilityLabel={"Remove access for " + email}
-                        type="brand-destructive"
-                        style={styles.removeButton}
-                        loading={loading}
-                        disabled={disabled}
-                        onPress={() => {
-                            setError("");
-                            setShowRemoveDialog(true);
-                        }}
-                    />
-                </AlertDialogTrigger>
             </View>
         </AlertDialog>
     );
@@ -155,11 +175,25 @@ const HomeSharingListItem: FC<HomeSharingListItemProps> = ({
 export default HomeSharingListItem;
 
 const styles = StyleSheet.create({
-    container: { borderBottomWidth: 1, paddingBottom: 16, gap: 12 },
-    identity: { gap: 4 },
-    email: { fontSize: 16, lineHeight: 24, fontWeight: "600" },
+    container: { borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: 12, gap: 8 },
+    row: {
+        minHeight: 64,
+        paddingVertical: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+    },
+    identity: { flexGrow: 1, flexBasis: 0, minWidth: 0, gap: 4 },
+    email: { fontSize: 16, lineHeight: 24, fontWeight: "600", flexShrink: 1 },
     role: { fontSize: 14, lineHeight: 20 },
-    removeButton: { width: "auto", alignSelf: "flex-start", maxWidth: "100%" },
+    removeAction: {
+        width: 48,
+        height: 48,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 8,
+    },
+    pressed: { opacity: 0.72 },
     dialogContent: { maxHeight: "90%" },
     dialogBody: { flexShrink: 1 },
 });
