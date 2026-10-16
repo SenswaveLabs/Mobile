@@ -216,12 +216,7 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
             ) : (
                 <View style={styles.list}>
                     {subscriptions.map((item) => (
-                        <View
-                            key={item.id}
-                            style={[
-                                styles.subscription,
-                                { borderBottomColor: theme.current.colors.authBorder },
-                            ]}>
+                        <View key={item.id} style={styles.subscription}>
                             <NativeText
                                 style={[
                                     styles.topic,
@@ -278,7 +273,7 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
 export default BrokerSubscriptions;
 
 const styles = StyleSheet.create({
-    section: { gap: 14 },
+    section: { gap: 12 },
     header: { gap: 4 },
     headingRow: {
         flexDirection: "row",
@@ -302,14 +297,13 @@ const styles = StyleSheet.create({
     pressed: { opacity: 0.72 },
     loadState: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 10 },
     empty: { paddingVertical: 10 },
-    list: { gap: 0 },
+    list: { gap: 4 },
     subscription: {
-        minHeight: 64,
-        paddingVertical: 8,
+        minHeight: 56,
+        paddingVertical: 4,
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth,
     },
     topic: { flexGrow: 1, flexBasis: 0, minWidth: 0, fontSize: 16, lineHeight: 22, flexShrink: 1 },
     removeAction: {

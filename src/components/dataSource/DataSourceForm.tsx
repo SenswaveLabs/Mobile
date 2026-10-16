@@ -446,15 +446,7 @@ export const DataSourceForm = forwardRef<DataSourceFormHandle, DataSourceFormPro
                             />
                         </View>
                     )}
-                    {edit && children && (
-                        <View
-                            style={[
-                                styles.destructiveSection,
-                                { borderTopColor: colors.authBorder },
-                            ]}>
-                            {children}
-                        </View>
-                    )}
+                    {edit && children && <View style={styles.destructiveSection}>{children}</View>}
                     {!edit && children}
                 </KeyboardAwareScrollView>
             </View>
@@ -467,9 +459,9 @@ const styles = StyleSheet.create({
     displayContainer: { paddingHorizontal: 15, paddingTop: 5 },
     scrollContainer: { paddingHorizontal: 15, margin: 0 },
     settingsScroll: { flex: 1, paddingHorizontal: 0 },
-    settingsContent: { gap: 20, paddingHorizontal: 24, paddingTop: 20, paddingBottom: 24 },
+    settingsContent: { gap: 20, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 },
     createContent: { gap: 14, paddingBottom: 16 },
-    intro: { gap: 6 },
+    intro: { gap: 4 },
     heading: { fontSize: 20, lineHeight: 26, fontWeight: "600" },
     description: { fontSize: 14, lineHeight: 20 },
     inlineContainer: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
@@ -477,5 +469,5 @@ const styles = StyleSheet.create({
     portField: { maxWidth: 260, width: "100%" },
     authSection: { gap: 16, paddingTop: 8 },
     actions: { gap: 12, paddingTop: 12 },
-    destructiveSection: { gap: 12, paddingTop: 20, borderTopWidth: 1 },
+    destructiveSection: { gap: 12, paddingTop: 16 },
 });

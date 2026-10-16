@@ -81,7 +81,7 @@ const HomeSharingListItem: FC<HomeSharingListItemProps> = ({
 
     return (
         <AlertDialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog} asChild>
-            <View style={[styles.container, { borderColor: colors.authBorder }]}>
+            <View style={styles.container}>
                 <NativeModal
                     visible={showRemoveDialog}
                     transparent
@@ -175,7 +175,7 @@ const HomeSharingListItem: FC<HomeSharingListItemProps> = ({
 export default HomeSharingListItem;
 
 const styles = StyleSheet.create({
-    container: { borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: 12, gap: 8 },
+    container: { gap: 8 },
     row: {
         minHeight: 64,
         paddingVertical: 8,

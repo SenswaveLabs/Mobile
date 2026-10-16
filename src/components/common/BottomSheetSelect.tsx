@@ -15,6 +15,15 @@ import {
 } from "react-native";
 import { Check, ChevronDown, X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, {
+    cancelAnimation,
+    Easing,
+    ReduceMotion,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
+} from "react-native-reanimated";
 import { useTheme } from "@/contexts/ThemeProvider";
 
 interface BottomSheetSelectOption {
@@ -46,10 +55,19 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
     const { height } = useWindowDimensions();
     const [visible, setVisible] = useState(false);
     const [focused, setFocused] = useState(false);
+    const progress = useSharedValue(0);
+    const sheetHeight = useSharedValue(height);
+    const dismissing = useRef(false);
     const wasVisible = useRef(false);
     const triggerRef = useRef<View>(null);
     const titleRef = useRef<Text>(null);
     const selectedOptionRef = useRef<View>(null);
+    const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
+    const sheetStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: (1 - progress.value) * sheetHeight.value }],
+    }));
+
+    useEffect(() => () => cancelAnimation(progress), [progress]);
 
     useEffect(() => {
         if (!visible && wasVisible.current && Platform.OS === "android") {
@@ -61,9 +79,33 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
     const open = () => {
         if (disabled) return;
         Keyboard.dismiss();
+        dismissing.current = false;
+        progress.value = 0;
         setVisible(true);
     };
-    const close = () => setVisible(false);
+    const finishClose = () => setVisible(false);
+    const focusSelection = () => focusNativeElement(selectedOptionRef.current ?? titleRef.current);
+    const show = () => {
+        if (dismissing.current) return;
+        progress.value = withTiming(
+            1,
+            { duration: 280, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System },
+            (finished) => {
+                if (finished) runOnJS(focusSelection)();
+            },
+        );
+    };
+    const close = () => {
+        if (dismissing.current) return;
+        dismissing.current = true;
+        progress.value = withTiming(
+            0,
+            { duration: 180, easing: Easing.in(Easing.quad), reduceMotion: ReduceMotion.System },
+            (finished) => {
+                if (finished) runOnJS(finishClose)();
+            },
+        );
+    };
 
     return (
         <View style={styles.container}>
@@ -95,31 +137,36 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
             <NativeModal
                 visible={visible}
                 transparent
-                animationType="slide"
+                animationType="none"
                 statusBarTranslucent
                 navigationBarTranslucent
                 accessibilityViewIsModal
                 onRequestClose={close}
-                onShow={() => focusNativeElement(selectedOptionRef.current ?? titleRef.current)}
+                onShow={show}
                 onDismiss={
                     Platform.OS === "ios" ? () => focusNativeElement(triggerRef.current) : undefined
                 }>
                 <View style={styles.overlay}>
-                    <Pressable
-                        cssInterop={false}
-                        accessible={false}
-                        onPress={close}
-                        style={styles.scrim}
-                    />
-                    <View
+                    <Animated.View style={[styles.scrim, scrimStyle]}>
+                        <Pressable
+                            cssInterop={false}
+                            accessible={false}
+                            onPress={close}
+                            style={StyleSheet.absoluteFill}
+                        />
+                    </Animated.View>
+                    <Animated.View
+                        onLayout={({ nativeEvent }) => {
+                            sheetHeight.value = nativeEvent.layout.height;
+                        }}
                         style={[
                             styles.sheet,
                             {
                                 backgroundColor: colors.authFieldBackground,
-                                borderColor: colors.authBorder,
                                 maxHeight: Math.min(height * 0.9, height - insets.top),
-                                paddingBottom: insets.bottom,
+                                paddingBottom: insets.bottom + 24,
                             },
+                            sheetStyle,
                         ]}>
                         <View style={styles.header}>
                             <Text
@@ -142,6 +189,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                         </View>
                         <ScrollView
                             style={[styles.options, { maxHeight: height * 0.68 }]}
+                            contentContainerStyle={styles.optionsContent}
                             keyboardShouldPersistTaps="handled">
                             {options.map((option) => (
                                 <Pressable
@@ -150,7 +198,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                                     cssInterop={false}
                                     disabled={disabled}
                                     onPress={() => {
-                                        if (disabled) return;
+                                        if (disabled || dismissing.current) return;
                                         close();
                                         if (option.label !== value) option.onPress();
                                     }}
@@ -189,7 +237,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                                 </Pressable>
                             ))}
                         </ScrollView>
-                    </View>
+                    </Animated.View>
                 </View>
             </NativeModal>
         </View>
@@ -224,9 +272,8 @@ const styles = StyleSheet.create({
     sheet: {
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        borderTopWidth: 1,
-        paddingTop: 8,
-        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingHorizontal: 24,
     },
     header: {
         minHeight: 56,
@@ -234,6 +281,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: 12,
         paddingLeft: 4,
+        marginBottom: 8,
     },
     heading: { flex: 1, fontSize: 20, fontWeight: "600" },
     closeButton: {
@@ -243,10 +291,11 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     options: { flexGrow: 0, flexShrink: 1 },
+    optionsContent: { gap: 8 },
     option: {
-        minHeight: 48,
+        minHeight: 56,
         paddingHorizontal: 12,
-        paddingVertical: 12,
+        paddingVertical: 16,
         borderRadius: 8,
         flexDirection: "row",
         alignItems: "center",

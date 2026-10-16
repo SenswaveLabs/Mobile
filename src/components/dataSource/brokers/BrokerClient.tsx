@@ -336,10 +336,10 @@ const BrokerClient: FC<BrokerClientProps> = ({ id }) => {
 export default BrokerClient;
 
 const styles = StyleSheet.create({
-    section: { gap: 14 },
-    heading: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 },
+    section: { gap: 12 },
+    heading: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
     title: { fontSize: 20, lineHeight: 26, fontWeight: "600", flexShrink: 1 },
     status: { fontSize: 14, lineHeight: 20, flexShrink: 1 },
-    actions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    actions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
     actionButton: { width: "auto", flexGrow: 1, flexBasis: 104 },
 });

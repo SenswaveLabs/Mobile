@@ -40,10 +40,8 @@ const HomeListItem: FC<HomeListItemProps> = ({
             style={[
                 styles.row,
                 {
-                    borderColor: selected ? colors.authFocus : colors.authBorder + "55",
                     backgroundColor: selected ? colors.authFieldBackground : colors.authBackground,
                 },
-                !selected && styles.alternative,
                 disabled && !loading && styles.dimmed,
             ]}>
             <Icon icon={home.icon} resource="homes" size={24} color="brand" />
@@ -85,7 +83,6 @@ const styles = StyleSheet.create({
     row: {
         width: "100%",
         minHeight: 80,
-        borderWidth: 1,
         borderRadius: 8,
         padding: 16,
         flexDirection: "row",
@@ -93,7 +90,6 @@ const styles = StyleSheet.create({
         rowGap: 16,
         columnGap: 16,
     },
-    alternative: { borderWidth: 0, borderBottomWidth: 1, borderRadius: 0 },
     description: { flex: 1, minWidth: 0, gap: 4 },
     name: { fontSize: 16, lineHeight: 20, fontWeight: "600" },
     ownership: { fontSize: 14, lineHeight: 20, fontWeight: "400" },
