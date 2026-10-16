@@ -128,7 +128,7 @@ const DetailsPage: FC = () => {
                     style={styles.tabsRoot}>
                     <TabsList
                         className="h-auto min-h-12 w-full flex-row items-stretch justify-start rounded-none bg-transparent p-0"
-                        style={[styles.tabsList, { borderBottomColor: colors.authBorder }]}>
+                        style={styles.tabsList}>
                         {(["Overview", "Settings"] as const).map((item) => (
                             <TabsTrigger
                                 key={item}
@@ -218,10 +218,9 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "stretch",
         justifyContent: "flex-start",
-        minHeight: 49,
+        minHeight: 48,
         gap: 24,
         paddingHorizontal: 24,
-        borderBottomWidth: 1,
     },
     tabTrigger: {
         flex: 1,
@@ -239,8 +238,8 @@ const styles = StyleSheet.create({
     visible: { display: "flex" },
     hidden: { display: "none" },
     overviewScroll: { flex: 1 },
-    overviewContent: { gap: 22, paddingHorizontal: 24, paddingTop: 14, paddingBottom: 28 },
-    sourceHeading: { gap: 6 },
+    overviewContent: { gap: 24, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 },
+    sourceHeading: { gap: 4 },
     name: { fontSize: 28, lineHeight: 36, fontWeight: "600", flexShrink: 1 },
     endpoint: { fontSize: 15, lineHeight: 22, flexShrink: 1 },
     stateContainer: {

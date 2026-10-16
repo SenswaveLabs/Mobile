@@ -20,12 +20,18 @@ const theme = {
     },
 };
 
-function mountSelect({ disabled = false, choices, platform = "android" } = {}) {
+function mountSelect({
+    disabled = false,
+    choices,
+    platform = "android",
+    deferAnimations = false,
+} = {}) {
+    const animations = [];
     const options = choices ?? [
         { label: "Required", selected: true, onPress: () => {} },
         { label: "Optional", selected: false, onPress: () => {} },
     ];
-    return mountNativeComponent("src/components/common/BottomSheetSelect.tsx", {
+    const form = mountNativeComponent("src/components/common/BottomSheetSelect.tsx", {
         props: {
             title: "Transport security",
             value: "Required",
@@ -52,7 +58,22 @@ function mountSelect({ disabled = false, choices, platform = "android" } = {}) {
                 useWindowDimensions: () => ({ width: 390, height: 844 }),
             },
             "react-native-safe-area-context": {
-                useSafeAreaInsets: () => ({ bottom: 24 }),
+                useSafeAreaInsets: () => ({ top: 24, bottom: 24 }),
+            },
+            "react-native-reanimated": {
+                __esModule: true,
+                default: { View: "Animated.View" },
+                Easing: { out: (value) => value, in: (value) => value },
+                ReduceMotion: { System: "system" },
+                useSharedValue: (value) => ({ value }),
+                useAnimatedStyle: (callback) => callback(),
+                withTiming: (value, config, callback) => {
+                    if (deferAnimations) animations.push({ config, callback });
+                    else callback(true);
+                    return value;
+                },
+                runOnJS: (callback) => callback,
+                cancelAnimation: () => {},
             },
             "lucide-react-native": {
                 Check: "Check",
@@ -62,6 +83,7 @@ function mountSelect({ disabled = false, choices, platform = "android" } = {}) {
             "@/contexts/ThemeProvider": { useTheme: () => theme },
         },
     });
+    return { ...form, animations };
 }
 
 function elements(form, root) {
@@ -140,6 +162,7 @@ test("Close, scrim, and hardware Back cancel without choosing an option", async 
         await t.test(name, () => {
             let choices = 0;
             const form = mountSelect({
+                deferAnimations: true,
                 choices: [
                     { label: "Required", selected: true, onPress: () => choices++ },
                     { label: "Optional", selected: false, onPress: () => choices++ },
@@ -150,15 +173,19 @@ test("Close, scrim, and hardware Back cancel without choosing an option", async 
             cancel(sheet, form);
             form.render();
 
+            assert.equal(modal(form).props.visible, true, "exit must finish before hiding modal");
+            form.animations.pop().callback(true);
+            form.render();
             assert.equal(modal(form).props.visible, false);
             assert.equal(choices, 0);
         });
     }
 });
 
-test("choosing another option invokes its callback once and closes", () => {
+test("choosing another option runs once while the sheet finishes closing", () => {
     let choices = 0;
     const form = mountSelect({
+        deferAnimations: true,
         choices: [
             { label: "Required", selected: true, onPress: () => choices++ },
             { label: "Optional", selected: false, onPress: () => choices++ },
@@ -166,10 +193,21 @@ test("choosing another option invokes its callback once and closes", () => {
     });
 
     open(form);
+    assert.equal(modal(form).props.animationType, "none", "native slide would also move the scrim");
+    modal(form).props.onShow();
+    form.animations.pop().callback(true);
     radios(form)[1].props.onPress();
+    radios(form)[1].props.onPress();
+    modal(form).props.onRequestClose();
     form.render();
 
     assert.equal(choices, 1);
+    assert.equal(modal(form).props.visible, true);
+    assert.equal(form.animations.length, 1, "repeated dismissal must not restart the exit");
+    const exit = form.animations.pop();
+    assert.equal(exit.config.reduceMotion, "system");
+    exit.callback(true);
+    form.render();
     assert.equal(modal(form).props.visible, false);
 });
 

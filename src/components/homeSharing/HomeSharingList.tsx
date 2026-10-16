@@ -158,7 +158,7 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
 export default HomeSharingList;
 
 const styles = StyleSheet.create({
-    section: { gap: 14 },
+    section: { gap: 12 },
     header: { gap: 4 },
     headingRow: {
         flexDirection: "row",
@@ -182,5 +182,5 @@ const styles = StyleSheet.create({
     pressed: { opacity: 0.72 },
     loading: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 16 },
     loadingText: { flex: 1 },
-    list: { gap: 0 },
+    list: { gap: 4 },
 });

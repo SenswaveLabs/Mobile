@@ -240,5 +240,5 @@ const styles = StyleSheet.create({
     description: { fontSize: 16, lineHeight: 24 },
     actions: { paddingTop: 32, gap: 12 },
     createActions: { marginTop: "auto" },
-    settings: { paddingTop: 32, gap: 32 },
+    settings: { paddingTop: 24, gap: 24 },
 });

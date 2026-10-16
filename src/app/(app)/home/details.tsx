@@ -249,7 +249,7 @@ const DetailsPage: FC = () => {
                     initLongitude={home.location?.longitude}>
                     {home.isOwner && (
                         <>
-                            <View style={[styles.section, { borderColor: colors.authBorder }]}>
+                            <View style={styles.section}>
                                 <View style={styles.sectionIntro}>
                                     <Text
                                         accessibilityRole="header"
@@ -262,14 +262,7 @@ const DetailsPage: FC = () => {
                                 </View>
                                 {!!sourceId && !unlinked ? (
                                     <>
-                                        <View
-                                            style={[
-                                                styles.source,
-                                                {
-                                                    borderColor: colors.authBorder,
-                                                    backgroundColor: colors.authFieldBackground,
-                                                },
-                                            ]}>
+                                        <View style={styles.source}>
                                             <View style={styles.sourceHeader}>
                                                 <Text
                                                     style={[
@@ -386,12 +379,12 @@ const DetailsPage: FC = () => {
                                     />
                                 )}
                             </View>
-                            <View style={[styles.section, { borderColor: colors.authBorder }]}>
+                            <View style={styles.section}>
                                 <HomeSharingList disabled={!!busy} />
                             </View>
                         </>
                     )}
-                    <View style={[styles.section, { borderColor: colors.authBorder }]}>
+                    <View style={styles.section}>
                         <View style={styles.sectionIntro}>
                             <Text
                                 accessibilityRole="header"
@@ -439,11 +432,11 @@ const styles = StyleSheet.create({
     screen: { flex: 1 },
     dialogContent: { maxHeight: "90%" },
     dialogBody: { flexShrink: 1 },
-    section: { borderTopWidth: 1, paddingTop: 24, gap: 16 },
+    section: { gap: 12 },
     sectionIntro: { gap: 4 },
     heading: { fontSize: 20, lineHeight: 28, fontWeight: "600" },
     description: { fontSize: 14, lineHeight: 20 },
-    source: { borderWidth: 1, borderRadius: 8, padding: 16, gap: 12 },
+    source: { gap: 8 },
     sourceHeader: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
     sourceName: { fontSize: 16, lineHeight: 24, fontWeight: "600", flexShrink: 1, flexGrow: 1 },
     sourceLoading: { flexDirection: "row", alignItems: "center", gap: 12 },
