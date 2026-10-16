@@ -646,8 +646,20 @@ function mountSharings({ get, remove, row = false } = {}) {
                 "@/contexts/ToastProvider": {
                     useToast: () => ({ httpError: () => {}, error: () => {}, success: () => {} }),
                 },
-                "@/components/common/ConfirmDialog": "ConfirmDialog",
-                "@/components/common/ImageButton": "ImageButton",
+                "@rn-primitives/portal": { PortalHost: "PortalHost" },
+                "@/components/ui/alert-dialog": Object.fromEntries(
+                    [
+                        "AlertDialog",
+                        "AlertDialogAction",
+                        "AlertDialogCancel",
+                        "AlertDialogContent",
+                        "AlertDialogDescription",
+                        "AlertDialogFooter",
+                        "AlertDialogHeader",
+                        "AlertDialogTitle",
+                        "AlertDialogTrigger",
+                    ].map((name) => [name, name]),
+                ),
                 "expo-router": {
                     useFocusEffect: (callback) => (focus = callback),
                     useRouter: () => ({ push: () => {} }),
@@ -685,18 +697,13 @@ test("removing access locks synchronously, preserves failures and refreshes only
                 ? { isSuccess: true, statusCode: 204, response: null }
                 : new Promise((resolve) => (finish = resolve)),
     });
-    const remove = () =>
-        row
-            .elements()
-            .find((node) => /remove/i.test(node.props?.name) || node.type === "ImageButton");
+    const remove = () => row.elements().find((node) => node.props?.name === "Remove access");
+    const confirm = () => row.elements().find((node) => node.props?.name === "Remove");
     remove().props.onPress();
     row.render();
-    const confirm = row
-        .elements()
-        .find((node) => node.type === "ConfirmDialog" && node.props.visible);
-    confirm.props.onConfirm();
-    confirm.props.onConfirm();
-    assert.equal(row.requests.length, 1);
+    confirm().props.onPress();
+    confirm().props.onPress();
+    assert.deepEqual(row.requests, ["/v1/homes/sharings/sharing-1"]);
     finish({ isSuccess: false, statusCode: 500, response: null });
     await settle();
     row.render();
@@ -705,11 +712,36 @@ test("removing access locks synchronously, preserves failures and refreshes only
     succeeds = true;
     remove().props.onPress();
     row.render();
-    row.elements()
-        .find((node) => node.type === "ConfirmDialog" && node.props.visible)
-        .props.onConfirm();
+    confirm().props.onPress();
     await settle();
     assert.equal(row.removed(), 1);
+});
+
+test("Cancel and Android Back close access removal without changing membership", () => {
+    const row = mountSharings({ row: true });
+    const open = () => {
+        row.elements()
+            .find((node) => node.props?.name === "Remove access")
+            .props.onPress();
+        row.render();
+        assert.equal(row.elements().find((node) => node.type === "AlertDialog").props.open, true);
+    };
+    const assertCancelled = () => {
+        row.render();
+        assert.equal(row.elements().find((node) => node.type === "AlertDialog").props.open, false);
+        assert.deepEqual(row.requests, []);
+        assert.equal(row.removed(), 0);
+    };
+    open();
+    row.elements()
+        .find((node) => node.props?.name === "Cancel")
+        .props.onPress();
+    assertCancelled();
+    open();
+    row.elements()
+        .find((node) => node.type === "Modal")
+        .props.onRequestClose();
+    assertCancelled();
 });
 
 function mountLocation({ permission = "granted", latitude = 0, longitude = 15 } = {}) {

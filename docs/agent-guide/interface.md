@@ -4,6 +4,11 @@ Read this before designing or changing any application interface. These are prod
 rules for Senswave mobile; apply Material Design 3 guidance through our existing
 components and brand.
 
+Durable users, goals and platform scope live in [PRODUCT.md](../../PRODUCT.md).
+Impeccable's new-screen workflow default lives in
+[config.json](../../.impeccable/config.json); explicit task instructions override
+that default.
+
 ## Responsibilities and decision order
 
 Material Design 3 defines interaction, hierarchy, navigation, adaptive layout,
@@ -219,8 +224,8 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
   height between the introduction and attribution/actions, with 16 dp below the
   confirm button. A 220 dp minimum map height keeps short windows and large text
   scrollable without shrinking the map away.
-- Home deletion/leaving uses the local React Native Reusables `AlertDialog` with
-  an explicit Cancel and Delete/Leave action. Keep its trigger, title, description
+- Home deletion/leaving and access removal use the local React Native Reusables
+  `AlertDialog` with an explicit Cancel and Delete/Leave/Remove action. Keep its trigger, title, description
   and actions within the same controlled root. A named portal inside a native
   Modal isolates the covered screen for assistive technology and handles hardware
   Back as cancellation. `common/Button` forwards the native ref so the primitive
@@ -247,6 +252,10 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
 - Native `/home/add` and `/home/details` use `HomeForm`: one keyboard-aware scroll page, a brand header, 448 dp maximum width, 24 dp side padding and named Create/Save actions. Back leaves settings without saving. Validate the trimmed name at 3–64 characters. Keep field errors below Name and action alerts above Save/Create; changing the icon or location must not clear a name error. Maintain the mounted draft while saving, block duplicate submissions synchronously and release pending state after a request even if the retained screen lost focus. Successful saves update the saved baseline even while the screen is unfocused; subsequent edits send only fields changed since that save. Creation initializes the first home silently and recovers to `/home/list` after an accepted create with failed initialization. Returning to a retained screen after an accepted create also opens the picker; do not repeat POST.
 - Home icon selection opts into the existing `IconSelector` and `SenswaveModal` brand variants. Expose labeled 48 dp targets and selected state; size the brand grid from the available modal width. Both icon lists keep taps actionable while the keyboard is open. Existing icon-selector callers keep the legacy appearance. `LocalizationSelector` shows an address or “Selected location”, never raw coordinates. Choose on map opens `home/LocationMapPicker`: a native MapLibre map with a fixed center pin, pan/zoom and explicit confirmation. Cancellation preserves the draft; opening the map requests no location permission. Current-location lookup remains optional, with an inline permission/timeout error and a 10-second request bound. Zero coordinates are valid; restored coordinates update the display. An open picker or pending location request keeps Create/Save unavailable until it finishes. Keep the form's loading callback stable so its rerenders do not close the picker.
 - Home settings group the data source, access list and destructive action after the form. Only owners see source/access/delete actions; other members retain their existing edit permissions enforced by the API and can leave. Keep source/access loading local, provide Retry and empty states, and retain confirmations for deleting a home, leaving or removing access. `Button` `brand-destructive` uses a destructive outline and label; individual access-removal labels identify the affected email. After persisted deletion/leaving, discard only the removed current home, initialize the next selection silently and recover to the picker if initialization fails. Never retain a removed home or repeat a completed destructive request to retry selection.
+- The sharing list uses separated rows with grouped email/role text and compact,
+  labeled Remove access actions. Invite someone remains full width. Loading has
+  a visible label and an accessible busy state; errors stay beside the affected
+  action with retry available.
 - Local UI / form state: `useState`.
 - Data-source states share the native `DataSourceState` badge. Home settings place
   it beside the source name in a wrapping row. Match web labels and semantic tones:
