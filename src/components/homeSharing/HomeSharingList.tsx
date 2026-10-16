@@ -63,10 +63,22 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
     return (
         <View style={styles.container}>
             {loading && (
-                <ActivityIndicator
+                <View
+                    accessible
+                    accessibilityRole="progressbar"
                     accessibilityLabel="Loading home access"
-                    color={colors.authMuted}
-                />
+                    accessibilityState={{ busy: true }}
+                    style={styles.loading}>
+                    <ActivityIndicator accessible={false} color={colors.authMuted} />
+                    <Text
+                        style={[
+                            styles.description,
+                            styles.loadingText,
+                            { color: colors.authMuted },
+                        ]}>
+                        Loading home access…
+                    </Text>
+                </View>
             )}
             {!!error && (
                 <>
@@ -115,6 +127,8 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
 export default HomeSharingList;
 
 const styles = StyleSheet.create({
-    container: { gap: 12 },
+    container: { gap: 16 },
+    loading: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 16 },
+    loadingText: { flex: 1 },
     description: { fontSize: 14, lineHeight: 20 },
 });
