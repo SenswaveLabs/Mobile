@@ -18,6 +18,7 @@ import Button from "./Button";
 import { IconCatalog } from "@/hooks/useIconCatalog";
 import { getEnglishIconLabel } from "@/utils/iconLabels";
 import { IconResource } from "@/utils/resourceIcons";
+import { Text as ReusableText } from "@/components/ui/text";
 
 const ICON_SIZE = 24;
 
@@ -131,22 +132,19 @@ const IconSelector: React.FC<IconProps> = ({
         : availableIcons;
 
     return (
-        <View style={styles.mainContainer}>
-            <Text
+        <View style={[styles.mainContainer, brand && styles.brandContainer]}>
+            <ReusableText
                 style={[
-                    { marginBottom: 5 },
+                    styles.label,
                     brand && styles.brandLabel,
-                    brand && { color: colors.authForeground },
-                ]}
-                bold={!brand}
-                size="medium"
-                color="onBackground">
+                    { color: brand ? colors.authForeground : colors.textOnBackground },
+                ]}>
                 Icon
-            </Text>
+            </ReusableText>
 
             <View style={styles.iconRow}>
                 {/* Selected icon preview with animation */}
-                <View style={styles.selectedWrapper}>
+                <View style={[styles.selectedWrapper, brand && styles.brandSelectedWrapper]}>
                     <Animated.View
                         accessible
                         accessibilityRole="image"
@@ -176,7 +174,8 @@ const IconSelector: React.FC<IconProps> = ({
                 <View
                     style={[
                         styles.separator,
-                        { backgroundColor: theme.current.colors.textOnBackground },
+                        brand && styles.brandSeparator,
+                        { backgroundColor: brand ? colors.authBorder : colors.textOnBackground },
                     ]}
                 />
 
@@ -217,7 +216,10 @@ const IconSelector: React.FC<IconProps> = ({
                     horizontal
                     keyboardShouldPersistTaps="handled"
                     showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.iconListContainer}
+                    contentContainerStyle={[
+                        styles.iconListContainer,
+                        brand && styles.brandIconListContainer,
+                    ]}
                     style={styles.iconList}
                 />
 
@@ -230,7 +232,8 @@ const IconSelector: React.FC<IconProps> = ({
                     style={[
                         styles.browseButton,
                         brand && styles.brandIcon,
-                        { borderColor: theme.current.colors.textOnBackground },
+                        brand && styles.brandBrowse,
+                        { borderColor: brand ? colors.authBorder : colors.textOnBackground },
                     ]}
                     onPress={() => {
                         if (!unavailable) setModalVisible(true);
@@ -375,8 +378,20 @@ export default IconSelector;
 
 const styles = StyleSheet.create({
     catalogFeedback: { gap: 8, paddingVertical: 8 },
-    brandLabel: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
-    brandIcon: { minWidth: 48, minHeight: 48, borderWidth: 1, borderRadius: 8 },
+    label: { marginBottom: 5, fontSize: 16, fontWeight: "bold" },
+    brandContainer: { marginTop: 0 },
+    brandLabel: { marginBottom: 8, fontSize: 14, lineHeight: 20, fontWeight: "500" },
+    brandIcon: {
+        minWidth: 48,
+        minHeight: 48,
+        borderWidth: 1,
+        borderRadius: 8,
+        marginHorizontal: 0,
+    },
+    brandSelectedWrapper: { padding: 0 },
+    brandSeparator: { width: 1, height: 24 },
+    brandIconListContainer: { gap: 8, paddingVertical: 0, paddingHorizontal: 8 },
+    brandBrowse: { borderStyle: "solid", marginLeft: 8 },
     brandSearch: { minHeight: 52, borderWidth: 1, borderRadius: 8 },
     mainContainer: {
         marginTop: 6,

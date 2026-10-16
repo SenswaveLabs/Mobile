@@ -2,7 +2,7 @@ import React, { FC, useCallback, useEffect, useRef, useState } from "react";
 import { Keyboard, StyleSheet, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import * as Location from "expo-location";
-import { CircleAlert } from "lucide-react-native";
+import { CircleAlert, MapPin } from "lucide-react-native";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Text } from "@/components/ui/text";
 import { useTheme } from "@/contexts/ThemeProvider";
@@ -119,18 +119,24 @@ const LocalizationSelector: FC<LocalizationSelectorProps> = ({
 
     return (
         <View style={styles.container}>
-            <Text style={[styles.label, { color: colors.authForeground }]}>
-                Location (optional)
-            </Text>
-            <Text style={[styles.description, { color: colors.authMuted }]}>
-                Helps select the nearest home. You can add it later.
-            </Text>
-            <Text style={[styles.description, { color: colors.authForeground }]}>
-                {address ||
-                    (latitude !== undefined && longitude !== undefined
-                        ? "Selected location"
-                        : "No location selected")}
-            </Text>
+            <View style={styles.intro}>
+                <Text style={[styles.label, { color: colors.authForeground }]}>
+                    Location (optional)
+                </Text>
+                <Text style={[styles.description, { color: colors.authMuted }]}>
+                    Helps select the nearest home. You can add it later.
+                </Text>
+            </View>
+            <View style={styles.location}>
+                <MapPin accessible={false} size={20} color={colors.authMuted} />
+                <Text
+                    style={[styles.description, styles.address, { color: colors.authForeground }]}>
+                    {address ||
+                        (latitude !== undefined && longitude !== undefined
+                            ? "Selected location"
+                            : "No location selected")}
+                </Text>
+            </View>
             {!!error && (
                 <Alert
                     icon={CircleAlert}
@@ -140,31 +146,35 @@ const LocalizationSelector: FC<LocalizationSelectorProps> = ({
                     <AlertDescription>{error}</AlertDescription>
                 </Alert>
             )}
-            <Button
-                name="Choose on map"
-                type="brand-outline"
-                loading={false}
-                disabled={disabled || loading || mapOpen}
-                onPress={() => {
-                    if (pending.current || disabled || !active.current) return;
-                    Keyboard.dismiss();
-                    pending.current = "map";
-                    setError("");
-                    setMapOpen(true);
-                    onLoadingChange?.(true);
-                }}
-            />
-            <Button
-                name={
-                    latitude !== undefined && longitude !== undefined
-                        ? "Update location"
-                        : "Use current location"
-                }
-                type="brand-outline"
-                loading={loading}
-                disabled={disabled || mapOpen}
-                onPress={loadLocation}
-            />
+            <View style={styles.actions}>
+                <Button
+                    name="Choose on map"
+                    type="brand-outline"
+                    style={styles.action}
+                    loading={false}
+                    disabled={disabled || loading || mapOpen}
+                    onPress={() => {
+                        if (pending.current || disabled || !active.current) return;
+                        Keyboard.dismiss();
+                        pending.current = "map";
+                        setError("");
+                        setMapOpen(true);
+                        onLoadingChange?.(true);
+                    }}
+                />
+                <Button
+                    name={
+                        latitude !== undefined && longitude !== undefined
+                            ? "Update location"
+                            : "Use current location"
+                    }
+                    type="brand-ghost"
+                    style={styles.action}
+                    loading={loading}
+                    disabled={disabled || mapOpen}
+                    onPress={loadLocation}
+                />
+            </View>
             {mapOpen && (
                 <LocationMapPicker
                     initialLocation={{ latitude, longitude }}
@@ -183,6 +193,11 @@ export default LocalizationSelector;
 
 const styles = StyleSheet.create({
     container: { gap: 12 },
+    intro: { gap: 4 },
+    location: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+    address: { flex: 1 },
+    actions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+    action: { flexGrow: 1, flexBasis: 160, width: "auto" },
     label: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
     description: { fontSize: 14, lineHeight: 20 },
 });

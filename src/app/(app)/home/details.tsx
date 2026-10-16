@@ -250,14 +250,16 @@ const DetailsPage: FC = () => {
                     {home.isOwner && (
                         <>
                             <View style={[styles.section, { borderColor: colors.authBorder }]}>
-                                <Text
-                                    accessibilityRole="header"
-                                    style={[styles.heading, { color: colors.authForeground }]}>
-                                    Data source
-                                </Text>
-                                <Text style={[styles.description, { color: colors.authMuted }]}>
-                                    Connect an MQTT broker to receive data from your devices.
-                                </Text>
+                                <View style={styles.sectionIntro}>
+                                    <Text
+                                        accessibilityRole="header"
+                                        style={[styles.heading, { color: colors.authForeground }]}>
+                                        Data source
+                                    </Text>
+                                    <Text style={[styles.description, { color: colors.authMuted }]}>
+                                        Connect an MQTT broker to receive data from your devices.
+                                    </Text>
+                                </View>
                                 {!!sourceId && !unlinked ? (
                                     <>
                                         <View
@@ -290,10 +292,25 @@ const DetailsPage: FC = () => {
                                                 </Text>
                                             )}
                                             {sourceLoading && (
-                                                <ActivityIndicator
+                                                <View
+                                                    accessible
+                                                    accessibilityRole="progressbar"
                                                     accessibilityLabel="Loading data source"
-                                                    color={colors.authMuted}
-                                                />
+                                                    accessibilityState={{ busy: true }}
+                                                    style={styles.sourceLoading}>
+                                                    <ActivityIndicator
+                                                        accessible={false}
+                                                        color={colors.authMuted}
+                                                    />
+                                                    <Text
+                                                        style={[
+                                                            styles.description,
+                                                            styles.loadingText,
+                                                            { color: colors.authMuted },
+                                                        ]}>
+                                                        Loading data source…
+                                                    </Text>
+                                                </View>
                                             )}
                                         </View>
                                         {!!sourceError && (
@@ -318,18 +335,6 @@ const DetailsPage: FC = () => {
                                                 />
                                             </>
                                         )}
-                                        <Button
-                                            name="Open data source"
-                                            type="brand-outline"
-                                            loading={false}
-                                            disabled={!!busy}
-                                            onPress={() =>
-                                                router.push({
-                                                    pathname: "dataSource/details",
-                                                    params: { id: sourceId },
-                                                })
-                                            }
-                                        />
                                     </>
                                 ) : (
                                     <Text style={[styles.description, { color: colors.authMuted }]}>
@@ -346,13 +351,29 @@ const DetailsPage: FC = () => {
                                     </Alert>
                                 )}
                                 {!!sourceId && !unlinked ? (
-                                    <Button
-                                        name="Unlink data source"
-                                        type="brand-destructive"
-                                        loading={busy === "unlink"}
-                                        disabled={!!busy}
-                                        onPress={unlinkDataSource}
-                                    />
+                                    <View style={styles.sourceActions}>
+                                        <Button
+                                            name="Open data source"
+                                            type="brand-outline"
+                                            style={styles.sourceAction}
+                                            loading={false}
+                                            disabled={!!busy}
+                                            onPress={() =>
+                                                router.push({
+                                                    pathname: "dataSource/details",
+                                                    params: { id: sourceId },
+                                                })
+                                            }
+                                        />
+                                        <Button
+                                            name="Unlink data source"
+                                            type="brand-destructive"
+                                            style={styles.sourceAction}
+                                            loading={busy === "unlink"}
+                                            disabled={!!busy}
+                                            onPress={unlinkDataSource}
+                                        />
+                                    </View>
                                 ) : (
                                     <Button
                                         name="Assign data source"
@@ -366,29 +387,33 @@ const DetailsPage: FC = () => {
                                 )}
                             </View>
                             <View style={[styles.section, { borderColor: colors.authBorder }]}>
-                                <Text
-                                    accessibilityRole="header"
-                                    style={[styles.heading, { color: colors.authForeground }]}>
-                                    Sharing
-                                </Text>
-                                <Text style={[styles.description, { color: colors.authMuted }]}>
-                                    Invite someone and manage their access to this home.
-                                </Text>
+                                <View style={styles.sectionIntro}>
+                                    <Text
+                                        accessibilityRole="header"
+                                        style={[styles.heading, { color: colors.authForeground }]}>
+                                        Sharing
+                                    </Text>
+                                    <Text style={[styles.description, { color: colors.authMuted }]}>
+                                        Invite someone and manage their access to this home.
+                                    </Text>
+                                </View>
                                 <HomeSharingList disabled={!!busy} />
                             </View>
                         </>
                     )}
                     <View style={[styles.section, { borderColor: colors.authBorder }]}>
-                        <Text
-                            accessibilityRole="header"
-                            style={[styles.heading, { color: colors.authForeground }]}>
-                            {home.isOwner ? "Delete home" : "Leave home"}
-                        </Text>
-                        <Text style={[styles.description, { color: colors.authMuted }]}>
-                            {home.isOwner
-                                ? "Permanently remove this home and everything in it."
-                                : "Remove your access to this home's devices and automations."}
-                        </Text>
+                        <View style={styles.sectionIntro}>
+                            <Text
+                                accessibilityRole="header"
+                                style={[styles.heading, { color: colors.authForeground }]}>
+                                {home.isOwner ? "Delete home" : "Leave home"}
+                            </Text>
+                            <Text style={[styles.description, { color: colors.authMuted }]}>
+                                {home.isOwner
+                                    ? "Permanently remove this home and everything in it."
+                                    : "Remove your access to this home's devices and automations."}
+                            </Text>
+                        </View>
                         {!!removeError && (
                             <Alert
                                 icon={CircleAlert}
@@ -402,6 +427,7 @@ const DetailsPage: FC = () => {
                             <Button
                                 name={home.isOwner ? "Delete home" : "Leave home"}
                                 type="brand-destructive"
+                                style={styles.removeAction}
                                 loading={busy === "remove"}
                                 disabled={!!busy}
                                 onPress={() => {
@@ -423,10 +449,16 @@ const styles = StyleSheet.create({
     screen: { flex: 1 },
     dialogContent: { maxHeight: "90%" },
     dialogBody: { flexShrink: 1 },
-    section: { borderTopWidth: 1, paddingTop: 24, gap: 12 },
+    section: { borderTopWidth: 1, paddingTop: 24, gap: 16 },
+    sectionIntro: { gap: 4 },
     heading: { fontSize: 20, lineHeight: 28, fontWeight: "600" },
     description: { fontSize: 14, lineHeight: 20 },
-    source: { borderWidth: 1, borderRadius: 8, padding: 16, gap: 8 },
+    source: { borderWidth: 1, borderRadius: 8, padding: 16, gap: 12 },
     sourceHeader: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
-    sourceName: { fontSize: 16, lineHeight: 24, fontWeight: "600", flexShrink: 1 },
+    sourceName: { fontSize: 16, lineHeight: 24, fontWeight: "600", flexShrink: 1, flexGrow: 1 },
+    sourceLoading: { flexDirection: "row", alignItems: "center", gap: 12 },
+    loadingText: { flex: 1 },
+    sourceActions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+    sourceAction: { flexGrow: 1, flexBasis: 160, width: "auto" },
+    removeAction: { width: "auto", maxWidth: "100%", alignSelf: "flex-start" },
 });
