@@ -24,6 +24,7 @@ Read the relevant guide before acting; do not load the whole guide for a small, 
 
 | When the task involves… | Read |
 | --- | --- |
+| Product users, goals, priorities or platform scope | [Product context](PRODUCT.md) |
 | Structure, imports, types, components, naming or dependencies | [Repository and conventions](docs/agent-guide/repository.md) |
 | UI, MD3, React Native Reusables, navigation, forms, theming or accessibility | [Mobile UI design policy](docs/agent-guide/interface.md) |
 | Domain entities, API contracts, authentication, contexts or SignalR | [Domain and API contracts](docs/agent-guide/api-and-data.md) |
