@@ -1,13 +1,13 @@
 import Button from "@/components/common/Button";
-import Text from "@/components/common/Text";
 import DataSourceState from "@/components/dataSource/state/DataSourceState";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
+import { useTheme } from "@/contexts/ThemeProvider";
 import { useFocusEffect, useRouter } from "expo-router";
 import { CircleAlert, Info } from "lucide-react-native";
 import React, { FC, useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, Text as NativeText, View } from "react-native";
 
 interface BrokerClientProps {
     id: string;
@@ -61,6 +61,7 @@ const canRestart = (status: ConnectionStatus) =>
 
 const BrokerClient: FC<BrokerClientProps> = ({ id }) => {
     const httpClient = useHttpClient();
+    const { colors } = useTheme().current;
     const homes = useHomes();
     const router = useRouter();
     const [client, setClient] = useState<ClientDto | null>(null);
@@ -259,15 +260,21 @@ const BrokerClient: FC<BrokerClientProps> = ({ id }) => {
     return (
         <View style={styles.section}>
             <View style={styles.heading}>
-                <Text color="onBackground" size="large" bold>
+                <NativeText
+                    accessibilityRole="header"
+                    style={[styles.title, { color: colors.authForeground }]}>
                     Broker client
-                </Text>
+                </NativeText>
                 {loading ? (
-                    <Text color="onBackground">Loading status…</Text>
+                    <NativeText style={[styles.status, { color: colors.authMuted }]}>
+                        Loading status…
+                    </NativeText>
                 ) : client ? (
                     <DataSourceState connectionStatus={client.connectionStatus} />
                 ) : (
-                    <Text color="error">Status unavailable</Text>
+                    <NativeText style={[styles.status, { color: colors.error }]}>
+                        Status unavailable
+                    </NativeText>
                 )}
             </View>
 
@@ -303,6 +310,7 @@ const BrokerClient: FC<BrokerClientProps> = ({ id }) => {
                     loading={false}
                     disabled={!startAllowed || loading || !!busy}
                     onPress={start}
+                    style={styles.actionButton}
                 />
                 <Button
                     name="Stop"
@@ -310,6 +318,7 @@ const BrokerClient: FC<BrokerClientProps> = ({ id }) => {
                     loading={busy === "stop"}
                     disabled={!stopAllowed || loading || !!busy}
                     onPress={() => runAction("stop")}
+                    style={styles.actionButton}
                 />
                 <Button
                     name="Restart"
@@ -317,6 +326,7 @@ const BrokerClient: FC<BrokerClientProps> = ({ id }) => {
                     loading={busy === "restart"}
                     disabled={!restartAllowed || loading || !!busy}
                     onPress={() => runAction("restart")}
+                    style={styles.actionButton}
                 />
             </View>
         </View>
@@ -327,6 +337,9 @@ export default BrokerClient;
 
 const styles = StyleSheet.create({
     section: { gap: 14 },
-    heading: { gap: 10, alignItems: "flex-start" },
+    heading: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 },
+    title: { fontSize: 20, lineHeight: 26, fontWeight: "600", flexShrink: 1 },
+    status: { fontSize: 14, lineHeight: 20, flexShrink: 1 },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    actionButton: { width: "auto", flexGrow: 1, flexBasis: 104 },
 });

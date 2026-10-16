@@ -387,16 +387,6 @@ const DetailsPage: FC = () => {
                                 )}
                             </View>
                             <View style={[styles.section, { borderColor: colors.authBorder }]}>
-                                <View style={styles.sectionIntro}>
-                                    <Text
-                                        accessibilityRole="header"
-                                        style={[styles.heading, { color: colors.authForeground }]}>
-                                        Sharing
-                                    </Text>
-                                    <Text style={[styles.description, { color: colors.authMuted }]}>
-                                        Invite someone and manage their access to this home.
-                                    </Text>
-                                </View>
                                 <HomeSharingList disabled={!!busy} />
                             </View>
                         </>

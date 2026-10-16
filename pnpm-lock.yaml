@@ -205,6 +205,9 @@ importers:
       '@rn-primitives/slot':
         specifier: 1.5.2
         version: 1.5.2(react-native-web@0.21.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
+      '@rn-primitives/tabs':
+        specifier: 1.5.2
+        version: 1.5.2(@types/react@19.1.17)(react-dom@19.1.0(react@19.1.0))(react-native-web@0.21.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
       babel-plugin-module-resolver:
         specifier: 5.0.2
         version: 5.0.2
@@ -2050,6 +2053,18 @@ packages:
 
   '@rn-primitives/slot@1.5.2':
     resolution: {integrity: sha512-TGSMB8hMALrcI6d5logiS8/0YzPRUQvsHghaF7FAuia+MF84WZS96Jvm959W4sDEP26AiDJtuQfCkTHOv0oxbw==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+      react-native-web: '*'
+    peerDependenciesMeta:
+      react-native:
+        optional: true
+      react-native-web:
+        optional: true
+
+  '@rn-primitives/tabs@1.5.2':
+    resolution: {integrity: sha512-YrI028uvrjMJw0rXRnwcAlQedzIueT20ZHV20diHm18OP6vEgjwMvtwoe5EwH13u8fH+6NZqkr4M7tBpWIkwuQ==}
     peerDependencies:
       react: '*'
       react-native: '*'
@@ -6979,6 +6994,20 @@ snapshots:
     optionalDependencies:
       react-native: 0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1)
       react-native-web: 0.21.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+
+  '@rn-primitives/tabs@1.5.2(@types/react@19.1.17)(react-dom@19.1.0(react@19.1.0))(react-native-web@0.21.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)':
+    dependencies:
+      '@radix-ui/react-tabs': 1.1.13(@types/react@19.1.17)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@rn-primitives/slot': 1.5.2(react-native-web@0.21.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
+      '@rn-primitives/types': 1.5.2(react-native-web@0.21.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
+      react: 19.1.0
+    optionalDependencies:
+      react-native: 0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1)
+      react-native-web: 0.21.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - '@types/react-dom'
+      - react-dom
 
   '@rn-primitives/types@1.5.2(react-native-web@0.21.3(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)':
     dependencies:

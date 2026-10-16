@@ -4,6 +4,7 @@ import BrokerClient from "@/components/dataSource/brokers/BrokerClient";
 import DataSourceDetailsSection from "@/components/dataSource/sections/DataSourceDetailsSection";
 import BrokerSubscriptions from "@/components/dataSource/subscriptions/BrokerSubscriptions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Text } from "@/components/ui/text";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
@@ -11,7 +12,7 @@ import { DataSourceDto } from "@/types/DataSourcesTypes";
 import { CircleAlert } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { FC, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 
 type DetailsTab = "Overview" | "Settings";
 
@@ -121,65 +122,87 @@ const DetailsPage: FC = () => {
     return (
         <View style={[styles.screen, { backgroundColor: colors.background }]}>
             <View style={styles.measure}>
-                <View style={styles.tabs} accessibilityRole="tablist">
-                    {(["Overview", "Settings"] as const).map((item) => (
-                        <Pressable
-                            key={item}
-                            accessibilityRole="tab"
-                            accessibilityLabel={item}
-                            accessibilityState={{ selected: tab === item }}
-                            onPress={() => setTab(item)}
-                            style={[
-                                styles.tabButton,
-                                {
-                                    backgroundColor:
-                                        tab === item ? colors.authPrimary : colors.authBackground,
-                                    borderColor: colors.authBorder,
-                                },
-                            ]}>
-                            <Text
+                <Tabs
+                    value={tab}
+                    onValueChange={(value) => setTab(value as DetailsTab)}
+                    style={styles.tabsRoot}>
+                    <TabsList
+                        className="h-auto min-h-12 w-full flex-row items-stretch justify-start rounded-none bg-transparent p-0"
+                        style={[styles.tabsList, { borderBottomColor: colors.authBorder }]}>
+                        {(["Overview", "Settings"] as const).map((item) => (
+                            <TabsTrigger
+                                key={item}
+                                value={item}
+                                accessibilityLabel={item}
+                                className="h-12 min-h-12 flex-1 rounded-none border-0 bg-transparent px-0 py-0 shadow-none active:opacity-70"
+                                android_ripple={{ color: colors.authBorder }}
                                 style={[
-                                    styles.tabLabel,
-                                    {
-                                        color:
-                                            tab === item
-                                                ? colors.authOnPrimary
-                                                : colors.authForeground,
+                                    styles.tabTrigger,
+                                    tab === item && {
+                                        borderBottomWidth: 2,
+                                        borderBottomColor: colors.authForeground,
                                     },
                                 ]}>
-                                {item}
-                            </Text>
-                        </Pressable>
-                    ))}
-                </View>
+                                <Text
+                                    style={[
+                                        styles.tabLabel,
+                                        {
+                                            color:
+                                                tab === item
+                                                    ? colors.authForeground
+                                                    : colors.authMuted,
+                                        },
+                                    ]}>
+                                    {item}
+                                </Text>
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
 
-                <View style={[styles.panel, tab === "Overview" ? styles.visible : styles.hidden]}>
-                    <ScrollView
-                        style={styles.overviewScroll}
-                        contentContainerStyle={styles.overviewContent}
-                        keyboardShouldPersistTaps="handled">
-                        <View style={styles.sourceHeading}>
-                            <Text
-                                accessibilityRole="header"
-                                style={[styles.name, { color: colors.authForeground }]}>
-                                {dataSource.name}
-                            </Text>
-                            <Text selectable style={[styles.endpoint, { color: colors.authMuted }]}>
-                                {dataSource.url}:{dataSource.port}
-                            </Text>
-                        </View>
-                        <BrokerClient id={dataSource.id} />
-                        <BrokerSubscriptions id={dataSource.id} />
-                    </ScrollView>
-                </View>
+                    <TabsContent
+                        value="Overview"
+                        forceMount
+                        style={[styles.panel, tab === "Overview" ? styles.visible : styles.hidden]}
+                        accessibilityElementsHidden={tab !== "Overview"}
+                        importantForAccessibility={
+                            tab === "Overview" ? "auto" : "no-hide-descendants"
+                        }>
+                        <ScrollView
+                            style={styles.overviewScroll}
+                            contentContainerStyle={styles.overviewContent}
+                            keyboardShouldPersistTaps="handled">
+                            <View style={styles.sourceHeading}>
+                                <Text
+                                    accessibilityRole="header"
+                                    style={[styles.name, { color: colors.authForeground }]}>
+                                    {dataSource.name}
+                                </Text>
+                                <Text
+                                    selectable
+                                    style={[styles.endpoint, { color: colors.authMuted }]}>
+                                    {dataSource.url}:{dataSource.port}
+                                </Text>
+                            </View>
+                            <BrokerClient id={dataSource.id} />
+                            <BrokerSubscriptions id={dataSource.id} />
+                        </ScrollView>
+                    </TabsContent>
 
-                <View style={[styles.panel, tab === "Settings" ? styles.visible : styles.hidden]}>
-                    <DataSourceDetailsSection
-                        dataSource={dataSource}
-                        onSaved={saved}
-                        onDeleted={() => router.back()}
-                    />
-                </View>
+                    <TabsContent
+                        value="Settings"
+                        forceMount
+                        style={[styles.panel, tab === "Settings" ? styles.visible : styles.hidden]}
+                        accessibilityElementsHidden={tab !== "Settings"}
+                        importantForAccessibility={
+                            tab === "Settings" ? "auto" : "no-hide-descendants"
+                        }>
+                        <DataSourceDetailsSection
+                            dataSource={dataSource}
+                            onSaved={saved}
+                            onDeleted={() => router.back()}
+                        />
+                    </TabsContent>
+                </Tabs>
             </View>
         </View>
     );
@@ -189,30 +212,34 @@ export default DetailsPage;
 
 const styles = StyleSheet.create({
     screen: { flex: 1 },
-    measure: { flex: 1, width: "100%", maxWidth: 760, alignSelf: "center" },
-    tabs: {
+    measure: { flex: 1, width: "100%", maxWidth: 448, alignSelf: "center" },
+    tabsRoot: { flex: 1 },
+    tabsList: {
         flexDirection: "row",
-        gap: 10,
-        paddingHorizontal: 20,
-        paddingTop: 12,
-        paddingBottom: 8,
+        alignItems: "stretch",
+        justifyContent: "flex-start",
+        minHeight: 49,
+        gap: 24,
+        paddingHorizontal: 24,
+        borderBottomWidth: 1,
     },
-    tabButton: {
+    tabTrigger: {
         flex: 1,
         minHeight: 48,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
         alignItems: "center",
         justifyContent: "center",
-        borderWidth: 1,
-        borderRadius: 8,
+        paddingHorizontal: 0,
+        paddingVertical: 0,
+        borderWidth: 0,
+        borderRadius: 0,
+        backgroundColor: "transparent",
     },
-    tabLabel: { fontSize: 16, lineHeight: 24, fontWeight: "500", textAlign: "center" },
+    tabLabel: { fontSize: 14, lineHeight: 20, fontWeight: "600", textAlign: "center" },
     panel: { flex: 1, minHeight: 0 },
     visible: { display: "flex" },
     hidden: { display: "none" },
     overviewScroll: { flex: 1 },
-    overviewContent: { gap: 22, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 28 },
+    overviewContent: { gap: 22, paddingHorizontal: 24, paddingTop: 14, paddingBottom: 28 },
     sourceHeading: { gap: 6 },
     name: { fontSize: 28, lineHeight: 36, fontWeight: "600", flexShrink: 1 },
     endpoint: { fontSize: 15, lineHeight: 22, flexShrink: 1 },

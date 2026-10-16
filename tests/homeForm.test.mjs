@@ -610,8 +610,9 @@ test("initialization discards a removed home but preserves a different current s
     assert.equal(context().current.id, "home-3");
 });
 
-function mountSharings({ get, remove, row = false } = {}) {
+function mountSharings({ get, remove, row = false, current = home, disabled = false } = {}) {
     const requests = [];
+    const navigation = [];
     let focus;
     let removed = 0;
     const component = mountNativeComponent(
@@ -620,13 +621,14 @@ function mountSharings({ get, remove, row = false } = {}) {
             : "src/components/homeSharing/HomeSharingList.tsx",
         {
             props: {
+                disabled,
                 id: "sharing-1",
                 email: "friend@example.com",
                 type: "Manage",
                 onRemove: () => removed++,
             },
             modules: {
-                "@/contexts/domain/HomeProvider": { useHomes: () => ({ current: home }) },
+                "@/contexts/domain/HomeProvider": { useHomes: () => ({ current }) },
                 "@/contexts/HttpClientProvider": {
                     useHttpClient: () => ({
                         get: async (path) => {
@@ -662,14 +664,14 @@ function mountSharings({ get, remove, row = false } = {}) {
                 ),
                 "expo-router": {
                     useFocusEffect: (callback) => (focus = callback),
-                    useRouter: () => ({ push: () => {} }),
+                    useRouter: () => ({ push: (route) => navigation.push(route) }),
                 },
             },
         },
     );
     component.flushEffects();
     const blur = focus?.();
-    return { ...component, requests, blur, removed: () => removed };
+    return { ...component, requests, navigation, blur, removed: () => removed };
 }
 
 test("sharing failures keep recovery visible and 404 renders an empty sharing state", async () => {
@@ -684,7 +686,49 @@ test("sharing failures keep recovery visible and 404 renders an empty sharing st
     await settle();
     empty.render();
     assert.match(empty.text(), /no one|not shared|no.*access/i);
-    assert.ok(empty.elements().some((node) => /invite/i.test(node.props?.name)));
+    assert.ok(empty.elements().some((node) => node.props?.accessibilityLabel === "Invite someone"));
+});
+
+test("sharing section puts owner-gated Invite beside heading and routes to sharing", async () => {
+    const get = async () => ({
+        isSuccess: true,
+        statusCode: 200,
+        response: { json: async () => ({ items: [] }) },
+    });
+    const invite = (list) =>
+        list.elements().find((node) => node.props?.accessibilityLabel === "Invite someone");
+    const state = (node) => JSON.parse(JSON.stringify(node.props.accessibilityState));
+
+    const owner = mountSharings({ get });
+    await settle();
+    owner.render();
+    const ownerInvite = invite(owner);
+    assert.match(owner.text(), /Sharing/);
+    assert.ok(owner.text().includes('"Invite"'), "Invite remains visible beside the heading");
+    assert.equal(ownerInvite.props.accessibilityRole, "button");
+    assert.deepEqual(state(ownerInvite), { disabled: false, busy: false });
+    const pressedStyles = ownerInvite.props.style({ pressed: true });
+    assert.ok(pressedStyles.some((style) => style?.minHeight >= 48));
+    assert.ok(pressedStyles.some((style) => style?.opacity < 1));
+    ownerInvite.props.onPress();
+    assert.deepEqual(JSON.parse(JSON.stringify(owner.navigation)), [
+        { pathname: "home/share", params: { id: "home-1" } },
+    ]);
+
+    const busy = mountSharings({ get, disabled: true });
+    await settle();
+    busy.render();
+    assert.deepEqual(state(invite(busy)), { disabled: true, busy: true });
+    invite(busy).props.onPress();
+    assert.deepEqual(busy.navigation, []);
+
+    const member = mountSharings({ get, current: { ...home, isOwner: false } });
+    await settle();
+    member.render();
+    assert.deepEqual(member.requests, [], "Members must not load owner-only sharing data");
+    assert.deepEqual(state(invite(member)), { disabled: true, busy: false });
+    invite(member).props.onPress();
+    assert.deepEqual(member.navigation, []);
 });
 
 test("removing access locks synchronously, preserves failures and refreshes only after success", async () => {
@@ -697,11 +741,21 @@ test("removing access locks synchronously, preserves failures and refreshes only
                 ? { isSuccess: true, statusCode: 204, response: null }
                 : new Promise((resolve) => (finish = resolve)),
     });
-    const remove = () => row.elements().find((node) => node.props?.name === "Remove access");
+    const remove = () =>
+        row
+            .elements()
+            .find(
+                (node) => node.props?.accessibilityLabel === "Remove access for friend@example.com",
+            );
     const confirm = () => row.elements().find((node) => node.props?.name === "Remove");
     remove().props.onPress();
     row.render();
     confirm().props.onPress();
+    row.render();
+    assert.deepEqual(JSON.parse(JSON.stringify(remove().props.accessibilityState)), {
+        disabled: true,
+        busy: true,
+    });
     confirm().props.onPress();
     assert.deepEqual(row.requests, ["/v1/homes/sharings/sharing-1"]);
     finish({ isSuccess: false, statusCode: 500, response: null });
@@ -721,7 +775,9 @@ test("Cancel and Android Back close access removal without changing membership",
     const row = mountSharings({ row: true });
     const open = () => {
         row.elements()
-            .find((node) => node.props?.name === "Remove access")
+            .find(
+                (node) => node.props?.accessibilityLabel === "Remove access for friend@example.com",
+            )
             .props.onPress();
         row.render();
         assert.equal(row.elements().find((node) => node.type === "AlertDialog").props.open, true);

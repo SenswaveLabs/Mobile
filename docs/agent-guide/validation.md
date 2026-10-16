@@ -40,9 +40,9 @@ or rerun an expensive build for an unrelated documentation edit.
   These checks do not establish native rendering, keyboard or assistive-technology behavior.
 - Data-source details and broker/subscription actions: run `pnpm test:data-sources`.
   It executes the real settings form, details route and overview panel handlers,
-  covering failed-save draft retention, successful save/reset baseline, duplicate
+  covering failed-save draft retention, successful saved baseline without a Reset action, duplicate
   save/client-action locks, detail and client retries, mounted tab state, client
-  status updates, and subscription removal cancellation/failure/recovery. These
+  status updates, exact TLS/MQTT selector values, bottom-sheet choice/cancellation/disabled state/focus callbacks, and subscription removal cancellation/failure/recovery. These
   checks do not establish native layout, keyboard, system Back or screen-reader behavior.
 - Before committing: run `pnpm typecheck`, `pnpm lint` and `pnpm test:poc`, plus
   the affected flow checks above.
