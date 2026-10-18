@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Text } from "@/components/ui/text";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { CircleAlert, Info } from "lucide-react-native";
+import ContentSection from "@/components/common/ContentSection";
 
 const mqttVersionOptions: { label: string; value: MqttVersion }[] = [
     { label: "5.0.0", value: "MqttV5" },
@@ -252,6 +253,137 @@ export const DataSourceForm = forwardRef<DataSourceFormHandle, DataSourceFormPro
             // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [values, username, password, isAuthVisible]);
 
+        const nameField = (
+            <Input
+                error={errors.name}
+                value={values.name}
+                setValue={(name) => setValues((current) => ({ ...current, name }))}
+                title="Name"
+                placeholder="My Cloud Broker"
+                variant={edit ? "auth" : "default"}
+                editable={!loading}
+            />
+        );
+        const serverField = (
+            <Input
+                error={errors.server}
+                value={values.server}
+                setValue={(server) => setValues((current) => ({ ...current, server }))}
+                title="Server"
+                placeholder="example.com"
+                trim={true}
+                variant={edit ? "auth" : "default"}
+                editable={!loading}
+                autoCapitalize="none"
+                autoCorrect={false}
+            />
+        );
+        const clientNameField = (
+            <Input
+                error={errors.clientName}
+                value={values.clientName}
+                setValue={(clientName) => setValues((current) => ({ ...current, clientName }))}
+                title="Client name"
+                placeholder="Mobile App Client"
+                variant={edit ? "auth" : "default"}
+                editable={!loading}
+            />
+        );
+        const portInput = (
+            <Input
+                title="Port"
+                placeholder="1883"
+                value={values.port.toString()}
+                setValue={(value) => setValues((current) => ({ ...current, port: Number(value) }))}
+                error={errors.port}
+                keyboardType="numeric"
+                variant={edit ? "auth" : "default"}
+                editable={!loading}
+            />
+        );
+        const selectors = (
+            <View style={[styles.inlineContainer, edit && styles.editInlineContainer]}>
+                <View style={styles.inlineField}>
+                    <BottomSheetSelect
+                        title="TLS"
+                        value={values.tls ? "Enabled" : "Disabled"}
+                        disabled={loading}
+                        options={[
+                            {
+                                label: "Enabled",
+                                selected: values.tls,
+                                onPress: () => setValues((current) => ({ ...current, tls: true })),
+                            },
+                            {
+                                label: "Disabled",
+                                selected: !values.tls,
+                                onPress: () => setValues((current) => ({ ...current, tls: false })),
+                            },
+                        ]}
+                    />
+                </View>
+                <View style={styles.inlineField}>
+                    <BottomSheetSelect
+                        title="MQTT version"
+                        value={
+                            mqttVersionOptions.find((option) => option.value === values.mqttVersion)
+                                ?.label ?? mqttVersionOptions[0].label
+                        }
+                        disabled={loading}
+                        options={mqttVersionOptions.map((option) => ({
+                            label: option.label,
+                            selected: values.mqttVersion === option.value,
+                            onPress: () =>
+                                setValues((current) => ({
+                                    ...current,
+                                    mqttVersion: option.value,
+                                })),
+                        }))}
+                    />
+                </View>
+            </View>
+        );
+        const verificationFields = isAuthVisible && (
+            <View style={[styles.authSection, !edit && styles.createAuthSection]}>
+                {edit ? (
+                    <View style={styles.intro}>
+                        <Text
+                            accessibilityRole="header"
+                            style={[styles.heading, { color: colors.authForeground }]}>
+                            Connection verification
+                        </Text>
+                        <Text style={[styles.description, { color: colors.authMuted }]}>
+                            Enter broker credentials to verify changed connection settings.
+                        </Text>
+                    </View>
+                ) : (
+                    <UserNote
+                        text="Credentials are used only for verification purposes."
+                        style={{ paddingHorizontal: 0, paddingVertical: 10 }}
+                    />
+                )}
+                <Input
+                    error={errors.username}
+                    value={username}
+                    setValue={setUsername}
+                    title="Username"
+                    placeholder="Username"
+                    variant={edit ? "auth" : "default"}
+                    editable={!loading}
+                    autoCapitalize="none"
+                />
+                <PasswordInput
+                    error={errors.password}
+                    value={password}
+                    setValue={setPassword}
+                    title="Password"
+                    placeholder="Password"
+                    variant={edit ? "auth" : "default"}
+                    editable={!loading}
+                />
+            </View>
+        );
+
         return (
             <View style={styles.container}>
                 {!edit && (
@@ -277,177 +409,68 @@ export const DataSourceForm = forwardRef<DataSourceFormHandle, DataSourceFormPro
                     style={[styles.scrollContainer, edit && styles.settingsScroll]}
                     bottomOffset={keyboardOffset}
                     keyboardShouldPersistTaps="handled"
-                    contentContainerStyle={edit ? styles.settingsContent : styles.createContent}>
-                    {edit && (
-                        <View style={styles.intro}>
-                            <Text
-                                accessibilityRole="header"
-                                style={[styles.heading, { color: colors.authForeground }]}>
-                                Connection
-                            </Text>
-                            <Text style={[styles.description, { color: colors.authMuted }]}>
-                                Update broker details. Credentials verify the connection and are not
-                                saved.
-                            </Text>
-                        </View>
-                    )}
-                    <Input
-                        error={errors.name}
-                        value={values.name}
-                        setValue={(name) => setValues((current) => ({ ...current, name }))}
-                        title="Name"
-                        placeholder="My Cloud Broker"
-                        variant={edit ? "auth" : "default"}
-                        editable={!loading}
-                    />
-                    <Input
-                        error={errors.server}
-                        value={values.server}
-                        setValue={(server) => setValues((current) => ({ ...current, server }))}
-                        title="Server"
-                        placeholder="example.com"
-                        trim={true}
-                        variant={edit ? "auth" : "default"}
-                        editable={!loading}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                    />
-                    <Input
-                        error={errors.clientName}
-                        value={values.clientName}
-                        setValue={(clientName) =>
-                            setValues((current) => ({ ...current, clientName }))
-                        }
-                        title="Client name"
-                        placeholder="Mobile App Client"
-                        variant={edit ? "auth" : "default"}
-                        editable={!loading}
-                    />
-
-                    <View style={styles.inlineContainer}>
-                        <View style={styles.inlineField}>
-                            <BottomSheetSelect
-                                title="TLS"
-                                value={values.tls ? "Enabled" : "Disabled"}
-                                disabled={loading}
-                                options={[
-                                    {
-                                        label: "Enabled",
-                                        selected: values.tls,
-                                        onPress: () =>
-                                            setValues((current) => ({ ...current, tls: true })),
-                                    },
-                                    {
-                                        label: "Disabled",
-                                        selected: !values.tls,
-                                        onPress: () =>
-                                            setValues((current) => ({ ...current, tls: false })),
-                                    },
-                                ]}
-                            />
-                        </View>
-                        <View style={styles.inlineField}>
-                            <BottomSheetSelect
-                                title="MQTT version"
-                                value={
-                                    mqttVersionOptions.find(
-                                        (option) => option.value === values.mqttVersion,
-                                    )?.label ?? mqttVersionOptions[0].label
-                                }
-                                disabled={loading}
-                                options={mqttVersionOptions.map((option) => ({
-                                    label: option.label,
-                                    selected: values.mqttVersion === option.value,
-                                    onPress: () =>
-                                        setValues((current) => ({
-                                            ...current,
-                                            mqttVersion: option.value,
-                                        })),
-                                }))}
-                            />
-                        </View>
-                    </View>
-
-                    <View style={styles.portField}>
-                        <Input
-                            title="Port"
-                            placeholder="1883"
-                            value={values.port.toString()}
-                            setValue={(value) =>
-                                setValues((current) => ({ ...current, port: Number(value) }))
-                            }
-                            error={errors.port}
-                            keyboardType="numeric"
-                            variant={edit ? "auth" : "default"}
-                            editable={!loading}
-                        />
-                    </View>
-
-                    {isAuthVisible && (
-                        <View style={styles.authSection}>
-                            {edit && (
-                                <View style={styles.intro}>
-                                    <Text
-                                        accessibilityRole="header"
-                                        style={[styles.heading, { color: colors.authForeground }]}>
-                                        Connection verification
-                                    </Text>
-                                    <Text style={[styles.description, { color: colors.authMuted }]}>
-                                        Enter broker credentials to verify changed connection
-                                        settings.
-                                    </Text>
+                    contentContainerStyle={
+                        edit ? styles.settingsContentContainer : styles.createContent
+                    }>
+                    {edit ? (
+                        <View style={styles.settingsContent}>
+                            <ContentSection
+                                title="Connection"
+                                helper="Update broker details. Credentials verify the connection and are not saved."
+                                actions={
+                                    <View style={styles.actions}>
+                                        {(!!submitError || !!success) && (
+                                            <Alert
+                                                accessibilityRole={
+                                                    submitError ? "alert" : undefined
+                                                }
+                                                accessibilityLiveRegion="polite"
+                                                variant={submitError ? "destructive" : "default"}
+                                                icon={submitError ? CircleAlert : Info}>
+                                                <AlertDescription>
+                                                    {submitError || success}
+                                                </AlertDescription>
+                                            </Alert>
+                                        )}
+                                        <Button
+                                            name="Save changes"
+                                            type="auth"
+                                            loading={loading}
+                                            disabled={!isDirty}
+                                            onPress={triggerSave}
+                                        />
+                                    </View>
+                                }>
+                                <View style={styles.connectionGroup}>
+                                    {nameField}
+                                    {serverField}
+                                    <View
+                                        style={[
+                                            styles.inlineContainer,
+                                            styles.editInlineContainer,
+                                        ]}>
+                                        <View style={styles.clientNameField}>
+                                            {clientNameField}
+                                        </View>
+                                        <View style={styles.editPortField}>{portInput}</View>
+                                    </View>
+                                    {selectors}
+                                    {verificationFields}
                                 </View>
-                            )}
-                            {!edit && (
-                                <UserNote
-                                    text="Credentials are used only for verification purposes."
-                                    style={{ paddingHorizontal: 0, paddingVertical: 10 }}
-                                />
-                            )}
-                            <Input
-                                error={errors.username}
-                                value={username}
-                                setValue={setUsername}
-                                title="Username"
-                                placeholder="Username"
-                                variant={edit ? "auth" : "default"}
-                                editable={!loading}
-                                autoCapitalize="none"
-                            />
-                            <PasswordInput
-                                error={errors.password}
-                                value={password}
-                                setValue={setPassword}
-                                title="Password"
-                                placeholder="Password"
-                                variant={edit ? "auth" : "default"}
-                                editable={!loading}
-                            />
+                            </ContentSection>
+                            {children && <View style={styles.destructiveSection}>{children}</View>}
                         </View>
+                    ) : (
+                        <>
+                            {nameField}
+                            {serverField}
+                            {clientNameField}
+                            {selectors}
+                            <View style={styles.portField}>{portInput}</View>
+                            {verificationFields}
+                            {children}
+                        </>
                     )}
-
-                    {edit && (
-                        <View style={styles.actions}>
-                            {(!!submitError || !!success) && (
-                                <Alert
-                                    accessibilityRole={submitError ? "alert" : undefined}
-                                    accessibilityLiveRegion="polite"
-                                    variant={submitError ? "destructive" : "default"}
-                                    icon={submitError ? CircleAlert : Info}>
-                                    <AlertDescription>{submitError || success}</AlertDescription>
-                                </Alert>
-                            )}
-                            <Button
-                                name="Save changes"
-                                type="auth"
-                                loading={loading}
-                                disabled={!isDirty}
-                                onPress={triggerSave}
-                            />
-                        </View>
-                    )}
-                    {edit && children && <View style={styles.destructiveSection}>{children}</View>}
-                    {!edit && children}
                 </KeyboardAwareScrollView>
             </View>
         );
@@ -459,15 +482,21 @@ const styles = StyleSheet.create({
     displayContainer: { paddingHorizontal: 15, paddingTop: 5 },
     scrollContainer: { paddingHorizontal: 15, margin: 0 },
     settingsScroll: { flex: 1, paddingHorizontal: 0 },
-    settingsContent: { gap: 20, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 },
+    settingsContentContainer: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 },
+    settingsContent: { width: "100%" },
+    connectionGroup: { gap: 16 },
     createContent: { gap: 14, paddingBottom: 16 },
     intro: { gap: 4 },
-    heading: { fontSize: 20, lineHeight: 26, fontWeight: "600" },
+    heading: { fontSize: 20, lineHeight: 28, fontWeight: "600" },
     description: { fontSize: 14, lineHeight: 20 },
     inlineContainer: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+    editInlineContainer: { rowGap: 16 },
     inlineField: { flexGrow: 1, flexBasis: 150 },
+    clientNameField: { flexGrow: 2, flexBasis: 200 },
+    editPortField: { flexGrow: 1, flexBasis: 96 },
     portField: { maxWidth: 260, width: "100%" },
-    authSection: { gap: 16, paddingTop: 8 },
-    actions: { gap: 12, paddingTop: 12 },
-    destructiveSection: { gap: 12, paddingTop: 16 },
+    authSection: { gap: 16 },
+    createAuthSection: { paddingTop: 8 },
+    actions: { gap: 12 },
+    destructiveSection: { marginTop: 24 },
 });

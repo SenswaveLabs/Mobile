@@ -58,6 +58,10 @@ const LocationMapPicker: FC<LocationMapPickerProps> = ({
     const [attempt, setAttempt] = useState(0);
     const { latitude, longitude } = initialLocation;
     const located = latitude !== undefined && longitude !== undefined;
+    const [center, setCenter] = useState<[number, number]>([
+        located ? longitude : 21.0122,
+        located ? latitude : 52.2297,
+    ]);
 
     useEffect(() => {
         active.current = true;
@@ -125,9 +129,21 @@ const LocationMapPicker: FC<LocationMapPickerProps> = ({
                         ref={map}
                         style={styles.fill}
                         mapStyle={mapStyle}
+                        accessible
+                        accessibilityRole="image"
+                        accessibilityLabel={
+                            "Home location map. Pan and zoom to move the center pin. Latitude " +
+                            center[1].toFixed(5) +
+                            ", longitude " +
+                            center[0].toFixed(5)
+                        }
                         attribution={false}
                         touchRotate={false}
                         touchPitch={false}
+                        onRegionDidChange={({ nativeEvent }) => {
+                            const [lng, lat] = nativeEvent.center;
+                            if (Number.isFinite(lat) && Number.isFinite(lng)) setCenter([lng, lat]);
+                        }}
                         onDidFinishRenderingMapFully={() => {
                             if (!ready && !loadFailed.current) {
                                 setReady(true);
@@ -147,7 +163,17 @@ const LocationMapPicker: FC<LocationMapPickerProps> = ({
                             maxZoom={19}
                         />
                     </Map>
-                    <View pointerEvents="none" style={styles.pin} accessible={false}>
+                    <View
+                        pointerEvents="none"
+                        style={styles.pin}
+                        accessible
+                        accessibilityRole="image"
+                        accessibilityLabel={
+                            "Selected home location pin. Latitude " +
+                            center[1].toFixed(5) +
+                            ", longitude " +
+                            center[0].toFixed(5)
+                        }>
                         <MapPin
                             size={32}
                             color={colors.authForeground}
@@ -167,6 +193,17 @@ const LocationMapPicker: FC<LocationMapPickerProps> = ({
                         </View>
                     )}
                 </View>
+                <Text
+                    accessibilityLiveRegion="polite"
+                    accessibilityLabel={
+                        "Pinned location: latitude " +
+                        center[1].toFixed(5) +
+                        ", longitude " +
+                        center[0].toFixed(5)
+                    }
+                    style={[styles.description, { color: colors.authForeground }]}>
+                    Pinned location: {center[1].toFixed(5)}, {center[0].toFixed(5)}
+                </Text>
                 <Pressable
                     accessibilityRole="link"
                     accessibilityLabel="OpenStreetMap contributors, map copyright"

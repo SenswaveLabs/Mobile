@@ -129,7 +129,7 @@ export default Input;
 const styles = StyleSheet.create({
     container: { width: "100%" },
     label: { fontSize: 16, fontWeight: "bold", marginBottom: 5 },
-    authLabel: { fontSize: 14, fontWeight: "500", marginBottom: 12 },
+    authLabel: { fontSize: 14, lineHeight: 20, fontWeight: "500", marginBottom: 8 },
     field: {
         minHeight: 48,
         borderRadius: 12,

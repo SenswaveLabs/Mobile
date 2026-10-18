@@ -34,8 +34,12 @@ interface BottomSheetSelectOption {
 
 export interface BottomSheetSelectProps {
     title: string;
+    sheetTitle?: string;
     value: string;
     options: BottomSheetSelectOption[];
+    leading?: React.ReactNode;
+    renderOptions?: (close: () => boolean) => React.ReactNode;
+    initialFocusRef?: React.RefObject<View | null>;
     disabled?: boolean;
 }
 
@@ -46,8 +50,12 @@ const focusNativeElement = (element: View | Text | null) => {
 
 const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
     title,
+    sheetTitle,
     value,
     options,
+    leading,
+    renderOptions,
+    initialFocusRef,
     disabled = false,
 }) => {
     const { colors } = useTheme().current;
@@ -84,7 +92,10 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
         setVisible(true);
     };
     const finishClose = () => setVisible(false);
-    const focusSelection = () => focusNativeElement(selectedOptionRef.current ?? titleRef.current);
+    const focusSelection = () =>
+        focusNativeElement(
+            initialFocusRef?.current ?? selectedOptionRef.current ?? titleRef.current,
+        );
     const show = () => {
         if (dismissing.current) return;
         progress.value = withTiming(
@@ -96,7 +107,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
         );
     };
     const close = () => {
-        if (dismissing.current) return;
+        if (dismissing.current) return false;
         dismissing.current = true;
         progress.value = withTiming(
             0,
@@ -105,6 +116,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                 if (finished) runOnJS(finishClose)();
             },
         );
+        return true;
     };
 
     return (
@@ -123,6 +135,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                 accessibilityState={{ disabled }}
                 style={({ pressed }) => [
                     styles.trigger,
+                    leading ? styles.triggerLeading : undefined,
                     {
                         backgroundColor: colors.authFieldBackground,
                         borderColor: focused ? colors.authFocus : colors.authBorder,
@@ -130,7 +143,10 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                     },
                     pressed && !disabled && styles.pressed,
                 ]}>
-                <Text style={[styles.value, { color: colors.authForeground }]}>{value}</Text>
+                {leading}
+                <Text numberOfLines={1} style={[styles.value, { color: colors.authForeground }]}>
+                    {value}
+                </Text>
                 <ChevronDown size={20} color={colors.authMuted} accessible={false} />
             </Pressable>
 
@@ -141,7 +157,9 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                 statusBarTranslucent
                 navigationBarTranslucent
                 accessibilityViewIsModal
-                onRequestClose={close}
+                onRequestClose={() => {
+                    close();
+                }}
                 onShow={show}
                 onDismiss={
                     Platform.OS === "ios" ? () => focusNativeElement(triggerRef.current) : undefined
@@ -151,7 +169,9 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                         <Pressable
                             cssInterop={false}
                             accessible={false}
-                            onPress={close}
+                            onPress={() => {
+                                close();
+                            }}
                             style={StyleSheet.absoluteFill}
                         />
                     </Animated.View>
@@ -173,11 +193,13 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                                 ref={titleRef}
                                 accessibilityRole="header"
                                 style={[styles.heading, { color: colors.authForeground }]}>
-                                {title}
+                                {sheetTitle ?? title}
                             </Text>
                             <Pressable
                                 cssInterop={false}
-                                onPress={close}
+                                onPress={() => {
+                                    close();
+                                }}
                                 accessibilityRole="button"
                                 accessibilityLabel="Close selector"
                                 style={({ pressed }) => [
@@ -191,51 +213,52 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                             style={[styles.options, { maxHeight: height * 0.68 }]}
                             contentContainerStyle={styles.optionsContent}
                             keyboardShouldPersistTaps="handled">
-                            {options.map((option) => (
-                                <Pressable
-                                    key={option.label}
-                                    ref={option.selected ? selectedOptionRef : undefined}
-                                    cssInterop={false}
-                                    disabled={disabled}
-                                    onPress={() => {
-                                        if (disabled || dismissing.current) return;
-                                        close();
-                                        if (option.label !== value) option.onPress();
-                                    }}
-                                    accessibilityRole="radio"
-                                    accessibilityLabel={option.label}
-                                    accessibilityState={{
-                                        disabled,
-                                        selected: option.selected,
-                                        checked: option.selected,
-                                    }}
-                                    style={({ pressed }) => [
-                                        styles.option,
-                                        option.selected && {
-                                            backgroundColor: colors.authPrimary,
-                                        },
-                                        pressed && !disabled && styles.pressed,
-                                    ]}>
-                                    <Text
-                                        style={[
-                                            styles.optionLabel,
-                                            {
-                                                color: option.selected
-                                                    ? colors.authOnPrimary
-                                                    : colors.authForeground,
-                                            },
-                                        ]}>
-                                        {option.label}
-                                    </Text>
-                                    {option.selected && (
-                                        <Check
-                                            size={20}
-                                            color={colors.authOnPrimary}
-                                            accessible={false}
-                                        />
-                                    )}
-                                </Pressable>
-                            ))}
+                            {renderOptions
+                                ? renderOptions(close)
+                                : options.map((option) => (
+                                      <Pressable
+                                          key={option.label}
+                                          ref={option.selected ? selectedOptionRef : undefined}
+                                          cssInterop={false}
+                                          disabled={disabled}
+                                          onPress={() => {
+                                              if (disabled || !close()) return;
+                                              if (option.label !== value) option.onPress();
+                                          }}
+                                          accessibilityRole="radio"
+                                          accessibilityLabel={option.label}
+                                          accessibilityState={{
+                                              disabled,
+                                              selected: option.selected,
+                                              checked: option.selected,
+                                          }}
+                                          style={({ pressed }) => [
+                                              styles.option,
+                                              option.selected && {
+                                                  backgroundColor: colors.authPrimary,
+                                              },
+                                              pressed && !disabled && styles.pressed,
+                                          ]}>
+                                          <Text
+                                              style={[
+                                                  styles.optionLabel,
+                                                  {
+                                                      color: option.selected
+                                                          ? colors.authOnPrimary
+                                                          : colors.authForeground,
+                                                  },
+                                              ]}>
+                                              {option.label}
+                                          </Text>
+                                          {option.selected && (
+                                              <Check
+                                                  size={20}
+                                                  color={colors.authOnPrimary}
+                                                  accessible={false}
+                                              />
+                                          )}
+                                      </Pressable>
+                                  ))}
                         </ScrollView>
                     </Animated.View>
                 </View>
@@ -248,7 +271,7 @@ export default BottomSheetSelect;
 
 const styles = StyleSheet.create({
     container: { width: "100%" },
-    label: { fontSize: 14, fontWeight: "500", marginBottom: 8 },
+    label: { fontSize: 14, lineHeight: 20, fontWeight: "500", marginBottom: 8 },
     trigger: {
         minHeight: 52,
         borderWidth: 1,
@@ -259,6 +282,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: 12,
     },
+    triggerLeading: { paddingVertical: 8 },
     value: { flex: 1, fontSize: 16 },
     overlay: { flex: 1, justifyContent: "flex-end" },
     scrim: {

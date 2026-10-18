@@ -1,3 +1,5 @@
 allowBuilds:
   unrs-resolver: true
+patchedDependencies:
+  expo-dev-launcher@6.0.21: patches/expo-dev-launcher@6.0.21.patch
 saveExact: true

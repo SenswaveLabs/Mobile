@@ -4,6 +4,7 @@ import { useTheme } from "@/contexts/ThemeProvider";
 import { shadowStyles } from "@/styles/shadowStyles";
 import { useRouter } from "expo-router";
 import Text from "@/components/common/Text";
+import ListRow from "@/components/common/ListRow";
 import DataSourceStateGet from "../state/DataSourceStateGet";
 
 export interface DataSourceTileProps {
@@ -12,6 +13,8 @@ export interface DataSourceTileProps {
     server: string;
     onClicked?: (id: string) => void;
     onClickDisabled?: boolean;
+    variant?: "preview" | "list";
+    separator?: boolean;
     style?: StyleProp<ViewStyle>;
 }
 
@@ -21,6 +24,8 @@ const DataSourceTile: FC<DataSourceTileProps> = ({
     name,
     onClicked,
     onClickDisabled = false,
+    variant = "preview",
+    separator = false,
     style = null,
 }: DataSourceTileProps) => {
     const theme = useTheme();
@@ -39,6 +44,25 @@ const DataSourceTile: FC<DataSourceTileProps> = ({
 
         router.push({ pathname: "dataSource/details", params: { id: id } });
     };
+
+    if (variant === "list") {
+        return (
+            <View style={[{ width: "100%" }, style]}>
+                <ListRow
+                    title={name}
+                    separator={separator}
+                    description={`Server: ${server || "?"}`}
+                    trailing={
+                        <View style={{ maxWidth: 120 }}>
+                            <DataSourceStateGet id={id} />
+                        </View>
+                    }
+                    onPress={dataSourceClicked}
+                    disabled={onClickDisabled}
+                />
+            </View>
+        );
+    }
 
     return (
         <View

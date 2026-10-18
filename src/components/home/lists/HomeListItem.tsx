@@ -1,9 +1,8 @@
 import React, { FC } from "react";
-import { ActivityIndicator, View, StyleSheet } from "react-native";
-import { Button } from "@/components/ui/button";
-import { Text } from "@/components/ui/text";
+import { ActivityIndicator, Pressable, StyleSheet, Text as NativeText, View } from "react-native";
 import { useTheme } from "@/contexts/ThemeProvider";
 import Icon from "@/components/common/Icon";
+import ListRow from "@/components/common/ListRow";
 import { Home } from "@/types/HomeTypes";
 
 interface HomeListItemProps {
@@ -13,6 +12,8 @@ interface HomeListItemProps {
     disabled?: boolean;
     loading?: boolean;
     error?: string;
+    onDetails?: () => void;
+    separator?: boolean;
 }
 
 const HomeListItem: FC<HomeListItemProps> = ({
@@ -22,77 +23,83 @@ const HomeListItem: FC<HomeListItemProps> = ({
     disabled = false,
     loading = false,
     error,
+    onDetails,
+    separator = false,
 }) => {
     const { colors } = useTheme().current;
     return (
-        <Button
-            variant="ghost"
-            className="h-auto justify-start rounded-none border-0 p-0 opacity-100 shadow-none active:opacity-60"
-            accessibilityRole="button"
+        <ListRow
+            title={home.name}
+            separator={separator}
+            description={home.isOwner ? "Owned by you" : "Shared with you"}
+            leading={<Icon icon={home.icon} resource="homes" size={24} color="brand" />}
+            trailing={
+                <View style={styles.trailing}>
+                    {onDetails && (
+                        <Pressable
+                            cssInterop={false}
+                            accessibilityRole="button"
+                            accessibilityLabel="Home details"
+                            accessibilityState={{ disabled }}
+                            disabled={disabled}
+                            onPress={onDetails}
+                            android_ripple={{ color: colors.authBorder }}
+                            style={({ pressed }) => [styles.details, pressed && styles.pressed]}>
+                            <NativeText
+                                style={[styles.detailsText, { color: colors.authForeground }]}>
+                                Details
+                            </NativeText>
+                        </Pressable>
+                    )}
+                    {loading ? (
+                        <ActivityIndicator accessible={false} color={colors.authForeground} />
+                    ) : (
+                        <Icon
+                            icon={selected ? "checkmark-outline" : "chevron-forward-outline"}
+                            size={20}
+                            color="brand"
+                        />
+                    )}
+                </View>
+            }
             accessibilityLabel={`${home.name}, ${home.isOwner ? "owned by you" : "shared with you"}${selected ? ", current home" : ""}`}
             accessibilityHint={
                 error ||
                 (selected ? "Return to this home's dashboard" : "Switch to this home's dashboard")
             }
-            accessibilityState={{ selected, disabled, busy: loading }}
-            disabled={disabled}
             onPress={onPress}
-            style={[
-                styles.row,
-                {
-                    backgroundColor: selected ? colors.authFieldBackground : colors.authBackground,
-                },
-                disabled && !loading && styles.dimmed,
-            ]}>
-            <Icon icon={home.icon} resource="homes" size={24} color="brand" />
-            <View style={styles.description}>
-                <Text style={[styles.name, { color: colors.authForeground }]}>{home.name}</Text>
-                <Text style={[styles.ownership, { color: colors.authMuted }]}>
-                    {home.isOwner ? "Owned by you" : "Shared with you"}
-                </Text>
-                {!!error && (
-                    <Text
-                        accessibilityRole="alert"
-                        accessibilityLiveRegion="polite"
-                        style={[styles.ownership, { color: colors.error }]}>
-                        {error}
-                    </Text>
-                )}
-                {selected && (
-                    <Text style={[styles.current, { color: colors.authForeground }]}>
-                        Current home
-                    </Text>
-                )}
-            </View>
-            {loading ? (
-                <ActivityIndicator accessible={false} color={colors.authForeground} />
-            ) : (
-                <Icon
-                    icon={selected ? "checkmark-outline" : "chevron-forward-outline"}
-                    size={20}
-                    color="brand"
-                />
+            disabled={disabled}
+            selected={selected}
+            loading={loading}>
+            {!!error && (
+                <NativeText
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite"
+                    style={[styles.error, { color: colors.error }]}>
+                    {error}
+                </NativeText>
             )}
-        </Button>
+        </ListRow>
     );
 };
 
 export default HomeListItem;
 
 const styles = StyleSheet.create({
-    row: {
-        width: "100%",
-        minHeight: 80,
-        borderRadius: 8,
-        padding: 16,
+    trailing: {
         flexDirection: "row",
         alignItems: "center",
-        rowGap: 16,
-        columnGap: 16,
+        gap: 4,
     },
-    description: { flex: 1, minWidth: 0, gap: 4 },
-    name: { fontSize: 16, lineHeight: 20, fontWeight: "600" },
-    ownership: { fontSize: 14, lineHeight: 20, fontWeight: "400" },
-    current: { fontSize: 14, lineHeight: 20, fontWeight: "500", marginTop: 4 },
-    dimmed: { opacity: 0.6 },
+    details: {
+        minWidth: 48,
+        minHeight: 48,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 8,
+        borderRadius: 8,
+    },
+    detailsText: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
+    error: { fontSize: 14, lineHeight: 20 },
+    pressed: { opacity: 0.72 },
 });

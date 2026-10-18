@@ -1,19 +1,29 @@
-import { View, Pressable } from "react-native";
-import React from "react";
+import { View, Pressable, StyleSheet } from "react-native";
+import React, { FC } from "react";
 import Text from "@/components/common/Text";
 import { useRouter } from "expo-router";
 import { OperationType } from "@/contexts/custom/DeviceListProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { shadowStyles } from "@/styles/shadowStyles";
+import ListRow from "@/components/common/ListRow";
 
 interface OperationTileProps {
     id: string;
     name: string;
     type: OperationType;
     disablePress?: boolean;
+    variant?: "preview" | "list";
+    separator?: boolean;
 }
 
-function OperationTile({ id, name, type, disablePress = false }: OperationTileProps) {
+const OperationTile: FC<OperationTileProps> = ({
+    id,
+    name,
+    type,
+    disablePress = false,
+    variant = "preview",
+    separator = false,
+}: OperationTileProps) => {
     const router = useRouter();
     const theme = useTheme();
 
@@ -45,6 +55,25 @@ function OperationTile({ id, name, type, disablePress = false }: OperationTilePr
             },
         });
     };
+
+    if (variant === "list") {
+        return (
+            <ListRow
+                title={name}
+                separator={separator}
+                description={type}
+                leading={
+                    <View style={[styles.typeIcon, { backgroundColor: icon.colour }]}>
+                        <Text size="small" color="onPrimary">
+                            {icon.letter}
+                        </Text>
+                    </View>
+                }
+                onPress={onOperationClicked}
+                disabled={disablePress}
+            />
+        );
+    }
 
     return (
         <Pressable
@@ -89,6 +118,16 @@ function OperationTile({ id, name, type, disablePress = false }: OperationTilePr
             </View>
         </Pressable>
     );
-}
+};
+
+const styles = StyleSheet.create({
+    typeIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 8,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+});
 
 export default OperationTile;

@@ -15,7 +15,11 @@ const currentHome = {
 const otherHome = { ...currentHome, id: "other", name: "Shared home", isOwner: false };
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-async function mountList({ setCurrent = async () => true, get } = {}) {
+async function mountList({
+    setCurrent = async () => true,
+    getCurrent = () => currentHome,
+    get,
+} = {}) {
     let focus;
     let backs = 0;
     const paths = [];
@@ -33,7 +37,7 @@ async function mountList({ setCurrent = async () => true, get } = {}) {
     const form = mountNativeComponent("src/components/home/lists/HomeList.tsx", {
         modules: {
             "@/contexts/domain/HomeProvider": {
-                useHomes: () => ({ current: currentHome, setCurrent }),
+                useHomes: () => ({ current: getCurrent(), setCurrent }),
             },
             "@/contexts/HttpClientProvider": {
                 useHttpClient: () => httpClient,
@@ -59,12 +63,22 @@ async function mountList({ setCurrent = async () => true, get } = {}) {
     await flush();
     form.render();
     const list = () => form.elements().find((node) => node.type === "FlatList");
+    const renderHomeRow = (element) => {
+        const row = element.type(element.props);
+        return row.type(row.props);
+    };
     const rowTree = () => {
         const element = list().props.renderItem({ item: otherHome });
-        return element.type(element.props);
+        return renderHomeRow(element);
+    };
+    const currentRowTree = () => {
+        const row = form
+            .elements(list().props.ListHeaderComponent)
+            .find((node) => node.type?.name === "HomeListItem");
+        return renderHomeRow(row);
     };
     const row = () => form.elements(rowTree()).find((node) => node.type === "Pressable");
-    return { ...form, list, row, rowTree, blur, paths, backs: () => backs };
+    return { ...form, list, row, rowTree, currentRowTree, blur, paths, backs: () => backs };
 }
 
 test("home picker loads once on focus and keeps the current home out of the alternatives", async () => {
@@ -74,6 +88,18 @@ test("home picker loads once on focus and keeps the current home out of the alte
         Array.from(form.list().props.data, (home) => home.id),
         ["other"],
     );
+});
+
+test("current home is distinct, accessible, and has a separate details action", async () => {
+    const form = await mountList();
+    const row = form.currentRowTree();
+    const presses = form.elements(row).filter((node) => node.type === "Pressable");
+    const main = presses.find((node) => node.props.accessibilityLabel?.includes("current home"));
+    const details = presses.find((node) => node.props.accessibilityLabel === "Home details");
+    assert.ok(main, "The selected home must retain its current-home accessibility label");
+    assert.ok(details, "Details must remain a separate action beside the home selection");
+    assert.match(JSON.stringify(row), /checkmark-outline/);
+    assert.doesNotMatch(JSON.stringify(row), /Current home/);
 });
 
 test("home picker waits for a successful switch and prevents repeated selection", async () => {
@@ -97,6 +123,29 @@ test("home picker waits for a successful switch and prevents repeated selection"
     assert.equal(form.row().props.disabled, true);
     finish(true);
     await flush();
+    assert.equal(form.backs(), 1);
+});
+
+test("home picker keeps its rows stable while switching away", async () => {
+    let current = currentHome;
+    const form = await mountList({
+        getCurrent: () => current,
+        setCurrent: async (id) => {
+            assert.equal(id, otherHome.id);
+            current = otherHome;
+            return true;
+        },
+    });
+
+    form.row().props.onPress();
+    await flush();
+    form.render();
+
+    assert.deepEqual(
+        Array.from(form.list().props.data, (home) => home.id),
+        [otherHome.id],
+    );
+    assert.match(JSON.stringify(form.currentRowTree()), /My home/);
     assert.equal(form.backs(), 1);
 });
 

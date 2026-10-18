@@ -1,4 +1,5 @@
 import Button from "@/components/common/Button";
+import ContentSection from "@/components/common/ContentSection";
 import DataSourceState from "@/components/dataSource/state/DataSourceState";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useHomes } from "@/contexts/domain/HomeProvider";
@@ -258,14 +259,11 @@ const BrokerClient: FC<BrokerClientProps> = ({ id }) => {
     const restartAllowed = known && canRestart(status!);
 
     return (
-        <View style={styles.section}>
-            <View style={styles.heading}>
-                <NativeText
-                    accessibilityRole="header"
-                    style={[styles.title, { color: colors.authForeground }]}>
-                    Broker client
-                </NativeText>
-                {loading ? (
+        <ContentSection
+            title="Broker client"
+            separated
+            headerAction={
+                loading ? (
                     <NativeText style={[styles.status, { color: colors.authMuted }]}>
                         Loading status…
                     </NativeText>
@@ -275,71 +273,71 @@ const BrokerClient: FC<BrokerClientProps> = ({ id }) => {
                     <NativeText style={[styles.status, { color: colors.error }]}>
                         Status unavailable
                     </NativeText>
+                )
+            }>
+            <View style={styles.body}>
+                {!!loadError && (
+                    <View style={styles.feedback}>
+                        <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
+                            <AlertDescription>{loadError}</AlertDescription>
+                        </Alert>
+                        <Button
+                            name="Retry"
+                            type="brand-outline"
+                            loading={loading}
+                            disabled={request.current}
+                            onPress={retryLoad}
+                        />
+                    </View>
                 )}
-            </View>
-
-            {!!loadError && (
-                <>
+                {!!actionError && (
                     <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
-                        <AlertDescription>{loadError}</AlertDescription>
+                        <AlertDescription>{actionError}</AlertDescription>
                     </Alert>
-                    <Button
-                        name="Retry"
-                        type="brand-outline"
-                        loading={loading}
-                        disabled={request.current}
-                        onPress={retryLoad}
-                    />
-                </>
-            )}
-            {!!actionError && (
-                <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
-                    <AlertDescription>{actionError}</AlertDescription>
-                </Alert>
-            )}
-            {!!actionNotice && (
-                <Alert accessibilityLiveRegion="polite" icon={Info}>
-                    <AlertDescription>{actionNotice}</AlertDescription>
-                </Alert>
-            )}
+                )}
+                {!!actionNotice && (
+                    <Alert accessibilityLiveRegion="polite" icon={Info}>
+                        <AlertDescription>{actionNotice}</AlertDescription>
+                    </Alert>
+                )}
 
-            <View style={styles.actions}>
-                <Button
-                    name="Start"
-                    type="auth"
-                    loading={false}
-                    disabled={!startAllowed || loading || !!busy}
-                    onPress={start}
-                    style={styles.actionButton}
-                />
-                <Button
-                    name="Stop"
-                    type="brand-destructive"
-                    loading={busy === "stop"}
-                    disabled={!stopAllowed || loading || !!busy}
-                    onPress={() => runAction("stop")}
-                    style={styles.actionButton}
-                />
-                <Button
-                    name="Restart"
-                    type="brand-outline"
-                    loading={busy === "restart"}
-                    disabled={!restartAllowed || loading || !!busy}
-                    onPress={() => runAction("restart")}
-                    style={styles.actionButton}
-                />
+                <View style={styles.actions}>
+                    <Button
+                        name="Start"
+                        type="auth"
+                        loading={false}
+                        disabled={!startAllowed || loading || !!busy}
+                        onPress={start}
+                        style={styles.actionButton}
+                    />
+                    <Button
+                        name="Stop"
+                        type="brand-destructive"
+                        loading={busy === "stop"}
+                        disabled={!stopAllowed || loading || !!busy}
+                        onPress={() => runAction("stop")}
+                        style={styles.actionButton}
+                    />
+                    <Button
+                        name="Restart"
+                        type="brand-outline"
+                        loading={busy === "restart"}
+                        disabled={!restartAllowed || loading || !!busy}
+                        onPress={() => runAction("restart")}
+                        style={styles.actionButton}
+                    />
+                </View>
             </View>
-        </View>
+        </ContentSection>
     );
 };
 
 export default BrokerClient;
 
 const styles = StyleSheet.create({
-    section: { gap: 12 },
-    heading: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
-    title: { fontSize: 20, lineHeight: 26, fontWeight: "600", flexShrink: 1 },
     status: { fontSize: 14, lineHeight: 20, flexShrink: 1 },
+    body: { gap: 16 },
+    feedback: { gap: 16 },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
     actionButton: { width: "auto", flexGrow: 1, flexBasis: 104 },
 });

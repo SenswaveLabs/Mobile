@@ -1,6 +1,6 @@
 import ConfirmDialog from "@/components/common/ConfirmDialog";
-import React, { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import React, { FC, useState } from "react";
+import { Pressable, StyleSheet, Text as NativeText, View } from "react-native";
 import { useTheme } from "@/contexts/ThemeProvider";
 import Icon from "@/components/common/Icon";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
@@ -9,6 +9,7 @@ import { useAutomationList } from "@/contexts/custom/AutomationListProvider";
 import { useRouter } from "expo-router";
 import { shadowStyles } from "@/styles/shadowStyles";
 import Text from "@/components/common/Text";
+import ListRow from "@/components/common/ListRow";
 
 const borderRadius = 12;
 const automationDeleteUrl = "v1/automations/";
@@ -20,15 +21,19 @@ interface AutomationTileProps {
     automationIsEnabled?: boolean;
 
     isPressDisabled: boolean;
+    variant?: "preview" | "list";
+    separator?: boolean;
 }
 
-export default function AutomationTile({
+const AutomationTile: FC<AutomationTileProps> = ({
     automationId,
     automationIcon,
     automationName,
     automationIsEnabled,
     isPressDisabled,
-}: AutomationTileProps) {
+    variant = "preview",
+    separator = false,
+}: AutomationTileProps) => {
     const theme = useTheme();
     const httpClient = useHttpClient();
     const toast = useToast();
@@ -84,33 +89,69 @@ export default function AutomationTile({
                 }}
                 onCancel={() => setShowDeleteDialog(false)}
             />
-            <View
-                style={[
-                    styles.wrapper,
-                    { backgroundColor: theme.current.colors.primary },
-                    shadowStyles.default,
-                ]}>
-                <Pressable onPress={onPress} onLongPress={longPress} style={styles.presable}>
-                    <View style={styles.iconContainer}>
-                        <Icon icon={automationIcon} size={40} color={"onPrimary"} />
-                    </View>
-                    <View style={styles.textContainer}>
-                        <Text style={styles.textStyle} color={"onPrimary"} size={"large"}>
-                            {automationName}
-                        </Text>
-                    </View>
-                    <View
-                        style={{
-                            ...styles.enabledContainer,
-                            backgroundColor: automationIsEnabled
-                                ? theme.current.colors.success
-                                : theme.current.colors.error,
-                        }}></View>
-                </Pressable>
-            </View>
+            {variant === "list" ? (
+                <ListRow
+                    title={automationName}
+                    separator={separator}
+                    description={
+                        <View style={styles.statusDescription}>
+                            <View
+                                style={[
+                                    styles.statusDot,
+                                    {
+                                        backgroundColor: automationIsEnabled
+                                            ? theme.current.colors.success
+                                            : theme.current.colors.error,
+                                    },
+                                ]}
+                            />
+                            <NativeText
+                                style={{
+                                    fontSize: 14,
+                                    lineHeight: 20,
+                                    color: theme.current.colors.authMuted,
+                                }}>
+                                {automationIsEnabled ? "Enabled" : "Disabled"}
+                            </NativeText>
+                        </View>
+                    }
+                    leading={<Icon icon={automationIcon} size={24} color="brand" />}
+                    onPress={onPress}
+                    onLongPress={longPress}
+                    disabled={isPressDisabled}
+                    accessibilityLabel={automationName}
+                />
+            ) : (
+                <View
+                    style={[
+                        styles.wrapper,
+                        { backgroundColor: theme.current.colors.primary },
+                        shadowStyles.default,
+                    ]}>
+                    <Pressable onPress={onPress} onLongPress={longPress} style={styles.presable}>
+                        <View style={styles.iconContainer}>
+                            <Icon icon={automationIcon} size={40} color={"onPrimary"} />
+                        </View>
+                        <View style={styles.textContainer}>
+                            <Text style={styles.textStyle} color={"onPrimary"} size={"large"}>
+                                {automationName}
+                            </Text>
+                        </View>
+                        <View
+                            style={{
+                                ...styles.enabledContainer,
+                                backgroundColor: automationIsEnabled
+                                    ? theme.current.colors.success
+                                    : theme.current.colors.error,
+                            }}></View>
+                    </Pressable>
+                </View>
+            )}
         </>
     );
-}
+};
+
+export default AutomationTile;
 
 const styles = StyleSheet.create({
     wrapper: {
@@ -146,4 +187,6 @@ const styles = StyleSheet.create({
         borderTopRightRadius: borderRadius,
         borderBottomRightRadius: borderRadius,
     },
+    statusDescription: { flexDirection: "row", alignItems: "center", gap: 8 },
+    statusDot: { width: 8, height: 8, borderRadius: 4 },
 });

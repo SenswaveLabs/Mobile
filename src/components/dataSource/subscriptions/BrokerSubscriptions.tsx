@@ -1,6 +1,7 @@
 import Button from "@/components/common/Button";
+import ContentSection from "@/components/common/ContentSection";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
-import Text from "@/components/common/Text";
+import ListRow from "@/components/common/ListRow";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
@@ -151,14 +152,12 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
     };
 
     return (
-        <View style={styles.section}>
-            <View style={styles.header}>
-                <View style={styles.headingRow}>
-                    <NativeText
-                        accessibilityRole="header"
-                        style={[styles.title, { color: theme.current.colors.authForeground }]}>
-                        Subscriptions
-                    </NativeText>
+        <>
+            <ContentSection
+                title="Subscriptions"
+                helper="Topics this broker client listens to."
+                separated
+                headerAction={
                     <Pressable
                         cssInterop={false}
                         accessibilityRole="button"
@@ -179,85 +178,98 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
                             Add
                         </NativeText>
                     </Pressable>
-                </View>
-                <NativeText style={[styles.description, { color: theme.current.colors.authMuted }]}>
-                    Topics this broker client listens to.
-                </NativeText>
-            </View>
+                }>
+                <View style={styles.body}>
+                    {!!loadError && (
+                        <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
+                            <AlertDescription>{loadError}</AlertDescription>
+                        </Alert>
+                    )}
+                    {!!removeError && (
+                        <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
+                            <AlertDescription>{removeError}</AlertDescription>
+                        </Alert>
+                    )}
 
-            {!!loadError && (
-                <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
-                    <AlertDescription>{loadError}</AlertDescription>
-                </Alert>
-            )}
-            {!!removeError && (
-                <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
-                    <AlertDescription>{removeError}</AlertDescription>
-                </Alert>
-            )}
-
-            {loadState === "loading" ? (
-                <View style={styles.loadState}>
-                    <ActivityIndicator color={theme.current.colors.authForeground} />
-                    <Text color="onBackground">Loading subscriptions…</Text>
-                </View>
-            ) : loadState === "error" ? (
-                <Button
-                    name="Retry"
-                    type="brand-outline"
-                    loading={false}
-                    disabled={requestPending.current}
-                    onPress={retryLoad}
-                />
-            ) : subscriptions.length === 0 ? (
-                <Text color="onBackground" style={styles.empty}>
-                    No subscriptions yet.
-                </Text>
-            ) : (
-                <View style={styles.list}>
-                    {subscriptions.map((item) => (
-                        <View key={item.id} style={styles.subscription}>
+                    {loadState === "loading" ? (
+                        <View style={styles.loadState}>
+                            <ActivityIndicator color={theme.current.colors.authForeground} />
                             <NativeText
-                                style={[
-                                    styles.topic,
-                                    { color: theme.current.colors.authForeground },
-                                ]}
-                                selectable>
-                                {item.topic}
+                                style={{
+                                    color: theme.current.colors.authMuted,
+                                    fontSize: 14,
+                                    lineHeight: 20,
+                                }}>
+                                Loading subscriptions…
                             </NativeText>
-                            <Pressable
-                                cssInterop={false}
-                                accessibilityRole="button"
-                                accessibilityLabel={`Remove subscription ${item.topic}`}
-                                accessibilityState={{
-                                    disabled: removing,
-                                    busy: removingId === item.id,
-                                }}
-                                disabled={removing}
-                                onPress={() => setPendingDeleteId(item.id)}
-                                android_ripple={{ color: theme.current.colors.authBorder }}
-                                style={({ pressed }) => [
-                                    styles.removeAction,
-                                    pressed && styles.pressed,
-                                ]}>
-                                {removingId === item.id ? (
-                                    <ActivityIndicator
-                                        size="small"
-                                        color={theme.current.colors.error}
-                                    />
-                                ) : (
-                                    <Trash2
-                                        size={20}
-                                        color={theme.current.colors.error}
-                                        accessible={false}
-                                    />
-                                )}
-                            </Pressable>
                         </View>
-                    ))}
+                    ) : loadState === "error" ? (
+                        <Button
+                            name="Retry"
+                            type="brand-outline"
+                            loading={false}
+                            disabled={requestPending.current}
+                            onPress={retryLoad}
+                        />
+                    ) : subscriptions.length === 0 ? (
+                        <NativeText
+                            style={[styles.empty, { color: theme.current.colors.authMuted }]}>
+                            No subscriptions yet.
+                        </NativeText>
+                    ) : (
+                        <View style={styles.list}>
+                            {subscriptions.map((item, index) => (
+                                <ListRow
+                                    key={item.id}
+                                    title={
+                                        <NativeText
+                                            style={[
+                                                styles.topic,
+                                                { color: theme.current.colors.authForeground },
+                                            ]}
+                                            selectable>
+                                            {item.topic}
+                                        </NativeText>
+                                    }
+                                    separator={index < subscriptions.length - 1}
+                                    trailing={
+                                        <Pressable
+                                            cssInterop={false}
+                                            accessibilityRole="button"
+                                            accessibilityLabel={`Remove subscription ${item.topic}`}
+                                            accessibilityState={{
+                                                disabled: removing,
+                                                busy: removingId === item.id,
+                                            }}
+                                            disabled={removing}
+                                            onPress={() => setPendingDeleteId(item.id)}
+                                            android_ripple={{
+                                                color: theme.current.colors.authBorder,
+                                            }}
+                                            style={({ pressed }) => [
+                                                styles.removeAction,
+                                                pressed && styles.pressed,
+                                            ]}>
+                                            {removingId === item.id ? (
+                                                <ActivityIndicator
+                                                    size="small"
+                                                    color={theme.current.colors.error}
+                                                />
+                                            ) : (
+                                                <Trash2
+                                                    size={20}
+                                                    color={theme.current.colors.error}
+                                                    accessible={false}
+                                                />
+                                            )}
+                                        </Pressable>
+                                    }
+                                />
+                            ))}
+                        </View>
+                    )}
                 </View>
-            )}
-
+            </ContentSection>
             <ConfirmDialog
                 visible={pendingDeleteId !== null}
                 title="Remove subscription"
@@ -266,25 +278,16 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
                 onConfirm={confirmRemove}
                 onCancel={cancelRemove}
             />
-        </View>
+        </>
     );
 };
 
 export default BrokerSubscriptions;
 
 const styles = StyleSheet.create({
-    section: { gap: 12 },
-    header: { gap: 4 },
-    headingRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 8,
-    },
-    title: { fontSize: 20, lineHeight: 26, fontWeight: "600", flexShrink: 1 },
-    description: { fontSize: 14, lineHeight: 20 },
+    body: { gap: 16 },
     addAction: {
-        minWidth: 72,
+        minWidth: 48,
         minHeight: 48,
         flexDirection: "row",
         alignItems: "center",
@@ -295,17 +298,10 @@ const styles = StyleSheet.create({
     },
     addLabel: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
     pressed: { opacity: 0.72 },
-    loadState: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 10 },
+    loadState: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 10 },
     empty: { paddingVertical: 10 },
-    list: { gap: 4 },
-    subscription: {
-        minHeight: 56,
-        paddingVertical: 4,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-    },
-    topic: { flexGrow: 1, flexBasis: 0, minWidth: 0, fontSize: 16, lineHeight: 22, flexShrink: 1 },
+    list: { gap: 0 },
+    topic: { fontSize: 16, lineHeight: 24, fontWeight: "600", flexShrink: 1 },
     removeAction: {
         width: 48,
         height: 48,

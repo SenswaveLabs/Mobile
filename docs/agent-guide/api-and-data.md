@@ -65,7 +65,8 @@ Topic payloads parsed via per-Operation JSON path selectors to extract values.
 
 **Home**
 ```ts
-interface Home { id, name, icon, isOwner, dataSource: HomeDataSource, location: Location, rooms: Room[] }
+interface Home { id, name, icon, isOwner, canManage?, dataSource: HomeDataSource, location: Location, rooms: Room[] }
+// canManage is returned by GET v1/homes/{id} and v2 home lists; v1 list entries omit it.
 interface HomeDataSource { id, name, state }  // state updated via SignalR
 ```
 

@@ -7,8 +7,11 @@ const readyCatalog = {
     entries: [
         { key: "building", labelKey: "icons.homes.building" },
         { key: "home-outline", labelKey: "icons.homes.home-outline" },
+        { key: "building-2", labelKey: "icons.homes.building" },
+        { key: "factory", labelKey: "icons.homes.factory" },
+        { key: "store", labelKey: "icons.homes.store" },
     ],
-    keys: ["building", "home-outline"],
+    keys: ["building", "home-outline", "building-2", "factory", "store"],
     loading: false,
     error: "",
     retry() {},
@@ -24,7 +27,7 @@ function mountSelector(props = {}) {
     });
 }
 
-test("resource catalog constrains the quick strip and the full searchable browser", () => {
+test("resource catalog exposes every choice in the quick strip and full browser", () => {
     const selected = [];
     const form = mountSelector({
         resource: "homes",
@@ -32,14 +35,27 @@ test("resource catalog constrains the quick strip and the full searchable browse
         onIconSelected: (key) => selected.push(key),
     });
     const lists = () => form.elements().filter((node) => node.type === "FlatList");
-    assert.deepEqual(Array.from(lists()[0].props.data), ["building", "home-outline"]);
-    assert.deepEqual(Array.from(lists()[1].props.data), ["building", "home-outline"]);
+    assert.deepEqual(Array.from(lists()[0].props.data), [
+        "building",
+        "building-2",
+        "factory",
+        "store",
+    ]);
+    assert.deepEqual(Array.from(lists()[1].props.data), [
+        "building",
+        "home-outline",
+        "building-2",
+        "factory",
+        "store",
+    ]);
+    assert.equal(lists()[0].props.horizontal, true, "Every quick choice remains scrollable");
     const search = form.elements().find((node) => node.type === "TextInput");
     search.props.onChangeText("airplane");
     form.render();
     assert.deepEqual(Array.from(lists()[1].props.data), []);
     search.props.onChangeText("BUILDING");
     form.render();
+    assert.deepEqual(Array.from(lists()[1].props.data), ["building", "building-2"]);
     const grid = lists()[1];
     const cell = grid.props.renderItem({ item: "building" });
     cell.props.onPress();
@@ -54,6 +70,7 @@ test("resource catalog constrains the quick strip and the full searchable browse
 
 test("resource picker search and accessibility labels use server labelKey values", () => {
     const form = mountSelector({
+        defaultIcon: "historical-key",
         resource: "homes",
         catalog: {
             entries: [{ key: "home-outline", labelKey: "icons.homes.factory" }],
