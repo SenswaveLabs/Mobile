@@ -248,7 +248,7 @@ export default BottomSheetSelect;
 
 const styles = StyleSheet.create({
     container: { width: "100%" },
-    label: { fontSize: 14, fontWeight: "500", marginBottom: 8 },
+    label: { fontSize: 14, lineHeight: 20, fontWeight: "500", marginBottom: 8 },
     trigger: {
         minHeight: 52,
         borderWidth: 1,

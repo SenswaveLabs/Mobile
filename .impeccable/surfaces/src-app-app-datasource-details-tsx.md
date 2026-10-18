@@ -8,6 +8,9 @@ related_targets:
         "src/components/dataSource/brokers/BrokerClient.tsx",
         "src/components/dataSource/subscriptions/BrokerSubscriptions.tsx",
         "src/components/dataSource/DataSourceForm.tsx",
+        "src/app/(app)/home/details.tsx",
+        "src/components/home/HomeForm.tsx",
+        "src/components/homeSharing/HomeSharingList.tsx",
     ]
 ---
 
@@ -19,11 +22,11 @@ Mode: Operate. Scope: the native Android Data Source details route and its Overv
 
 THESIS: Understand broker health and take the next action immediately. Overview groups operation and topics; Settings gives configuration a focused, keyboard-aware page.
 
-OWN-WORLD: Preserve Senswave's warm themed canvas, amber primary actions, native system type, existing status badge and local Reusables controls. Use flat sections, quiet separators, 8 dp controls and the shared 48 dp touch floor.
+OWN-WORLD: Preserve Senswave's warm themed canvas, amber primary actions, native system type, existing status badge and local Reusables controls. Keep related content open on the themed canvas; use headings and spacing instead of filled or rounded containers. Keep subscription and sharing rows flat, with quiet separators and the shared 48 dp touch floor.
 
 STORY: Identify the broker, read its actual connection state, start/stop/restart when permitted, then inspect or change subscriptions. Switch to Settings to edit connection parameters; Save is the sole primary action and Delete remains separate and confirmed. Recover from errors without losing the draft.
 
-FIRST VIEWPORT: Native Back header above the broker name and endpoint; real React Native Reusables underline tabs for Overview and Settings. Overview leads with a compact connection section and visible labeled client controls, followed by plain subscription rows and a compact Add action beside the heading. Settings shows grouped connection fields with Save in the same scroll content. Delete is a separate confirmed action.
+FIRST VIEWPORT: Native Back header above the broker name and endpoint; real React Native Reusables underline tabs for Overview and Settings. Overview leads with broker identity and visible labeled client controls, followed by plain subscription rows on the same gutter and a compact Add action beside the heading. Settings shows an open Connection section with Save 16 dp below it in the same scroll content. Delete is a separate confirmed action 24 dp farther down.
 
 FORM: Settings uses standard selected-value fields for TLS and MQTT version. Each opens a bottom-attached sliding selector with a named dismiss action and selected option. TLS stays boolean and MQTT stays its opaque `MqttVersion` through submission. Topics remain selectable and wrap; each remove icon keeps a named 48 dp target. Native pressed states; no decorative motion. Narrow screens and large text wrap controls and data; constrain the content measure on wider screens. Both themes follow app settings.
 
@@ -54,3 +57,33 @@ Overview and Settings now use the local React Native Reusables Tabs primitive wi
 Fresh checks on Node 26.10.0 passed: `pnpm typecheck`, `pnpm lint`, `pnpm test:poc` (30/30), `pnpm test:data-sources` (24/24: 15 data-source behavior and 9 selector interaction tests), and `git diff --check`. Sol 6.1 accepted the final source and supplied light/default, dark/1.3, and 320 dp/200% native captures with no defects.
 
 On Pixel 9 Pro XL (Android 17), light/default and dark/1.3 checks confirmed 48 dp tab, Add and remove targets, plus 52 dp selector fields. Selector choices worked; hardware Back cancelled without changing values. Switching tabs preserved the mounted draft, Save and Delete stayed reachable with the keyboard open, and cold launch restored saved server values. At 320 dp/200%, tabs and Add fit, subscription rows wrapped, Save/Delete remained reachable by scrolling, and both sheets fit their labels and options. Native XML confirmed 48 dp tab/Close targets, 61+ dp option rows and the current option checked. No server settings, broker lifecycle actions or subscriptions were mutated. TalkBack, tablet/orientation and live MQTT lifecycle remain unverified. Device was restored to 1344x2992, font scale 1.0 and night mode off.
+
+### Follow-up — 2026-10-18
+
+This record describes the preceding implementation and its bounded verification. The user-directed correction below supersedes its spacing, current-home label and list presentation claims; its native checks do not verify the corrected UI.
+
+Home selection uses 16 dp gutters, a 24/32 dp title, 14/20 dp description and a wrapping Create/Join footer. Home details remains a separate 48 dp link aligned with the selected home identity. Home Details and Data Source keep open content on the themed canvas with 16 dp outer gutters and 24 dp between major sections. Source names wrap before connection status; Open remains outlined and Unlink keeps a quieter red label. Sharing and subscription rows use quiet hairline separators, with 48 dp removal targets and wrapping content. Data Source Overview separates broker identity from client controls by 16 dp and Subscriptions by 24 dp. Section headings use 20/28 dp; Connection is 24/32 dp, with Client name and Port sized 2:1 when they fit. Settings fields use 16 dp gaps, Save sits 16 dp after the group and Delete sits separately 24 dp later. The keyboard-aware scroll content has no section gap; spacing lives in its product content so the generated keyboard spacer stays clear. Shared Input and selector labels use 20 dp line height with the existing 8 dp Input label gap. API values, routes, request guards and form state behavior remain unchanged.
+
+Fresh checks on Node 26.10.0 passed: `pnpm typecheck`, `pnpm lint`, `pnpm test:poc` (30/30), `pnpm test:homes` (57/57), `pnpm test:data-sources` (24/24), and `git diff --check`. Sol 6.1 reviewed the source and five light/default native captures from the Android 16/API 36 emulator at 1080×2400. The review found one 8 dp Home details link offset, corrected in source while retaining its 48 dp target; typecheck, lint and diff checks passed after that correction.
+
+Applying Android theme/font settings reset the development client's temporary login before variant or interaction checks completed. The welcome-screen capture is excluded from visual evidence. Original display size, font scale 1.0 and light mode were restored. Final native confirmation of the link alignment, keyboard reachability, selector cancellation and draft retention await sign-in. Responsive checks remain stopped following the user's earlier direction. TalkBack and live mutations were not checked; no broker, subscription, home or access settings were changed.
+
+### User-directed correction — 2026-10-18
+
+All vertical entity lists now share the native `ListRow` geometry: flexible 16/24 dp titles, 14/20 dp supporting text, minimum 72 dp rows and quiet hairline boundaries between sibling rows. Selected Home has an amber outline and checkmark; its “current home” identification stays accessible, while Details is a separate 48 dp sibling action. Create/Join stays in scroll content and grows to the bottom for short lists. Home settings, Sharing, Broker client, Subscriptions and Connection use `ContentSection` with a 48 dp title row, 16 dp content/action spacing and 40 dp of open major-section whitespace. Existing status, errors, dialogs, guards, permissions, routes and API values remain with their original handlers. Form previews, grids and live controls keep their existing presentation.
+
+Fresh checks on Node 26.10.0 passed: `pnpm typecheck`, `pnpm lint`, `pnpm test:poc` (30/30), `pnpm test:homes` (58/58), `pnpm test:data-sources` (24/24), and `git diff --check`. Sol 6.1 reviewed the shared components and the final core native captures and accepted the correction with no remaining material findings. The native review used the Android 16/API 36 emulator at its existing 1080×2400 resolution, density 420, font scale 1.0 and light theme. The updated client was reconnected to Metro in the existing worktree, and the user signed in again before the final captures.
+
+### User-directed section treatment — 2026-10-18
+
+Major sections keep 40 dp of open whitespace between them and have no horizontal divider. Hairline rules remain part of the list styling; the last Sharing row and the single Home data-source row omit the bottom rule before the next section. This refines the section treatment above while keeping the shared title-row and content spacing. Typecheck, lint and the diff check passed again after this presentation-only adjustment.
+
+Final native captures confirmed the Home selection frame and checkmark without a visible Current home label, its separate Details action, the bottom-aligned Create/Join footer, and the Home Details and Data Source sections without divider lines. Native XML confirmed selected-home semantics and 48 dp action targets. Data Sources and App Info also rendered the shared list rows. The Widgets route opened, but the selected device had no operations, so populated widget and operation rows were not visually exercised. AutomationList remains unreachable through the existing, commented-out route and was reviewed in source only.
+
+Current evidence is saved outside the repository in `/tmp/senswave-polish-20261018/final-*.png` and matching XML captures. Responsive checks remain stopped at the user's direction; no display or theme settings were changed during this correction. Keyboard, selector cancellation, draft retention, TalkBack and live mutations were not rechecked for this correction. No broker, subscription, home or access settings were changed.
+
+### User-directed list boundaries — 2026-10-18
+
+The shared row previously drew a bottom separator by default, including after the final Other homes item. `ListRow` and its tile wrappers now default to no separator. Each owning list enables the rule only when another sibling follows; widget lists calculate this within each group. Single-item lists and operation group headers have no rule. The selected Home's amber outline remains independent of list separators.
+
+Sol 6.1 reviewed every shared-row owner and found no boundary misses. Fresh `pnpm typecheck`, `pnpm lint` and `git diff --check` passed on Node 26.10.0. The unchanged Android emulator confirmed one line between the two Other homes rows and none after the final row, with the selected Home outline retained. Current evidence is `separator-homes-confirmed.png` and matching XML in `/tmp/senswave-polish-20261018`; earlier Homes captures retain the superseded closing rule. Other lists received source review only, and test suites were not rerun for this presentation-only adjustment. No display settings or server data changed.

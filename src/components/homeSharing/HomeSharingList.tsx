@@ -8,8 +8,8 @@ import { useHomes } from "@/contexts/domain/HomeProvider";
 import { HomeSharingDto } from "@/types/HomeTypes";
 import { ListResponse } from "@/utils/httpClient";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Text } from "@/components/ui/text";
 import Button from "@/components/common/Button";
+import ContentSection from "@/components/common/ContentSection";
 import HomeSharingListItem from "./HomeSharingListItem";
 
 interface HomeSharingListProps {
@@ -63,39 +63,29 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
     );
 
     return (
-        <View style={styles.section}>
-            <View style={styles.header}>
-                <View style={styles.headingRow}>
-                    <NativeText
-                        accessibilityRole="header"
-                        style={[styles.title, { color: colors.authForeground }]}>
-                        Sharing
+        <ContentSection
+            title="Sharing"
+            helper="People with access to this home."
+            separated
+            headerAction={
+                <Pressable
+                    cssInterop={false}
+                    accessibilityRole="button"
+                    accessibilityLabel="Invite someone"
+                    accessibilityState={{ disabled: inviteDisabled, busy: disabled && isOwner }}
+                    disabled={inviteDisabled}
+                    onPress={() => {
+                        if (!inviteDisabled && homeId)
+                            router.push({ pathname: "home/share", params: { id: homeId } });
+                    }}
+                    android_ripple={{ color: colors.authBorder }}
+                    style={({ pressed }) => [styles.inviteAction, pressed && styles.pressed]}>
+                    <Plus size={18} color={colors.authForeground} accessible={false} />
+                    <NativeText style={[styles.inviteLabel, { color: colors.authForeground }]}>
+                        Invite
                     </NativeText>
-                    <Pressable
-                        cssInterop={false}
-                        accessibilityRole="button"
-                        accessibilityLabel="Invite someone"
-                        accessibilityState={{
-                            disabled: inviteDisabled,
-                            busy: disabled && isOwner,
-                        }}
-                        disabled={inviteDisabled}
-                        onPress={() => {
-                            if (!inviteDisabled && homeId)
-                                router.push({ pathname: "home/share", params: { id: homeId } });
-                        }}
-                        android_ripple={{ color: colors.authBorder }}
-                        style={({ pressed }) => [styles.inviteAction, pressed && styles.pressed]}>
-                        <Plus size={18} color={colors.authForeground} accessible={false} />
-                        <NativeText style={[styles.inviteLabel, { color: colors.authForeground }]}>
-                            Invite
-                        </NativeText>
-                    </Pressable>
-                </View>
-                <NativeText style={[styles.description, { color: colors.authMuted }]}>
-                    Invite someone and manage their access to this home.
-                </NativeText>
-            </View>
+                </Pressable>
+            }>
             {loading && (
                 <View
                     accessible
@@ -104,18 +94,13 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
                     accessibilityState={{ busy: true }}
                     style={styles.loading}>
                     <ActivityIndicator accessible={false} color={colors.authMuted} />
-                    <Text
-                        style={[
-                            styles.description,
-                            styles.loadingText,
-                            { color: colors.authMuted },
-                        ]}>
+                    <NativeText style={[styles.loadingText, { color: colors.authMuted }]}>
                         Loading home access…
-                    </Text>
+                    </NativeText>
                 </View>
             )}
             {!!error && (
-                <>
+                <View style={styles.error}>
                     <Alert
                         icon={CircleAlert}
                         variant="destructive"
@@ -130,44 +115,36 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
                         disabled={disabled}
                         onPress={() => setReload((value) => value + 1)}
                     />
-                </>
+                </View>
             )}
             {!loading && !error && sharings.length === 0 && (
-                <Text style={[styles.description, { color: colors.authMuted }]}>
+                <NativeText style={{ color: colors.authMuted, fontSize: 14, lineHeight: 20 }}>
                     No one has access yet.
-                </Text>
+                </NativeText>
             )}
             {!loading && !error && sharings.length > 0 && (
                 <View style={styles.list}>
-                    {sharings.map((sharing) => (
+                    {sharings.map((sharing, index) => (
                         <HomeSharingListItem
                             key={sharing.sharingId}
                             id={sharing.sharingId}
                             email={sharing.friendEmail}
                             type={sharing.sharingType}
+                            separator={index < sharings.length - 1}
                             disabled={disabled || !isOwner}
                             onRemove={() => setReload((value) => value + 1)}
                         />
                     ))}
                 </View>
             )}
-        </View>
+        </ContentSection>
     );
 };
 
 export default HomeSharingList;
 
 const styles = StyleSheet.create({
-    section: { gap: 12 },
-    header: { gap: 4 },
-    headingRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 8,
-    },
-    title: { fontSize: 20, lineHeight: 26, fontWeight: "600", flexShrink: 1 },
-    description: { fontSize: 14, lineHeight: 20 },
+    error: { gap: 16 },
     inviteAction: {
         minWidth: 72,
         minHeight: 48,
@@ -180,7 +157,7 @@ const styles = StyleSheet.create({
     },
     inviteLabel: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
     pressed: { opacity: 0.72 },
-    loading: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 16 },
-    loadingText: { flex: 1 },
-    list: { gap: 4 },
+    loading: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 12 },
+    loadingText: { flex: 1, fontSize: 14, lineHeight: 20 },
+    list: { gap: 0 },
 });

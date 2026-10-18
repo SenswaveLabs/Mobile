@@ -157,6 +157,7 @@ const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
                     <Button
                         name="Delete data source"
                         type="brand-destructive"
+                        style={styles.deleteAction}
                         loading={deleting}
                         disabled={deleting}
                         onPress={() => setShowDeleteDialog(true)}
@@ -172,4 +173,5 @@ export default DataSourceDetailsSection;
 const styles = StyleSheet.create({
     container: { flex: 1 },
     dialogContent: { width: "100%", maxWidth: 560 },
+    deleteAction: { width: "auto", maxWidth: "100%", alignSelf: "flex-start" },
 });

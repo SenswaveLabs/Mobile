@@ -1,5 +1,4 @@
 import Button from "@/components/common/Button";
-import { Button as ReusableButton } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
@@ -113,9 +112,7 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
                             Choose a home
                         </Text>
                         <Text style={[styles.description, { color: colors.authMuted }]}>
-                            {homes.current
-                                ? "Switch homes to control their rooms, devices and automations."
-                                : "Select a home to control its rooms, devices and automations."}
+                            Choose which home to control.
                         </Text>
                     </View>
                     {homes.current && (
@@ -124,26 +121,22 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
                                 home={homes.current}
                                 selected
                                 disabled={disabled}
+                                separator={false}
                                 onPress={() => void selectHome(homes.current!)}
+                                onDetails={() => router.navigate("home/details")}
                             />
-                            <ReusableButton
-                                variant="link"
-                                className="h-auto justify-start p-0 opacity-100 active:opacity-60"
-                                accessibilityRole="button"
-                                accessibilityLabel="Home details"
-                                disabled={disabled}
-                                accessibilityState={{ disabled }}
-                                onPress={() => router.navigate("home/details")}
-                                style={[styles.details, disabled && styles.dimmed]}>
-                                <Text style={[styles.link, { color: colors.authForeground }]}>
-                                    Home details
-                                </Text>
-                            </ReusableButton>
                         </View>
                     )}
                     <Text
                         accessibilityRole="header"
-                        style={[styles.sectionTitle, { color: colors.authForeground }]}>
+                        style={[
+                            styles.sectionTitle,
+                            {
+                                marginTop: homes.current ? 16 : 24,
+                                marginBottom: 16,
+                                color: colors.authForeground,
+                            },
+                        ]}>
                         {homes.current ? "Other homes" : "Homes"}
                     </Text>
                     {!!loadError && (
@@ -171,9 +164,10 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
                     )}
                 </View>
             }
-            renderItem={({ item }) => (
+            renderItem={({ item, index }) => (
                 <HomeListItem
                     home={item}
+                    separator={index < availableHomes.length - 1}
                     disabled={disabled}
                     loading={switchingId === item.id}
                     error={switchError?.homeId === item.id ? switchError.message : undefined}
@@ -210,6 +204,7 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
                     <Button
                         name="Create home"
                         type="brand-outline"
+                        style={styles.footerAction}
                         loading={false}
                         disabled={disabled}
                         onPress={onCreateHome}
@@ -217,6 +212,7 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
                     <Button
                         name="Join home"
                         type="brand-outline"
+                        style={styles.footerAction}
                         loading={false}
                         disabled={disabled}
                         onPress={onJoinHome}
@@ -236,28 +232,20 @@ const styles = StyleSheet.create({
         width: "100%",
         maxWidth: 640,
         alignSelf: "center",
-        paddingHorizontal: 24,
+        paddingHorizontal: 16,
         paddingTop: 16,
         paddingBottom: 16,
     },
-    header: { gap: 16, paddingBottom: 8 },
-    intro: { gap: 4 },
-    title: { fontSize: 30, lineHeight: 36, fontWeight: "600" },
-    description: { fontSize: 16, lineHeight: 24 },
-    currentSection: { gap: 0 },
-    details: {
-        minHeight: 48,
-        minWidth: 48,
-        alignSelf: "flex-start",
-        justifyContent: "center",
-        paddingHorizontal: 8,
-    },
-    link: { fontSize: 16, lineHeight: 24, fontWeight: "500", textDecorationLine: "underline" },
-    sectionTitle: { fontSize: 18, lineHeight: 24, fontWeight: "600" },
+    header: {},
+    intro: { gap: 8 },
+    title: { fontSize: 24, lineHeight: 32, fontWeight: "600" },
+    description: { fontSize: 14, lineHeight: 20 },
+    currentSection: { marginTop: 24 },
+    sectionTitle: { fontSize: 20, lineHeight: 28, fontWeight: "600" },
     message: { fontSize: 14, lineHeight: 20 },
     error: { gap: 12 },
     empty: { paddingVertical: 24 },
-    footer: { paddingTop: 24 },
-    actions: { gap: 12 },
-    dimmed: { opacity: 0.6 },
+    footer: { flexGrow: 1, justifyContent: "flex-end", paddingTop: 24 },
+    actions: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
+    footerAction: { width: "auto", flexGrow: 1, flexBasis: 150 },
 });

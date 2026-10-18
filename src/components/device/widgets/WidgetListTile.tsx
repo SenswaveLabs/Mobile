@@ -1,5 +1,5 @@
 import React, { FC, useState } from "react";
-import { Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTheme } from "@/contexts/ThemeProvider";
 import Text from "../../common/Text";
@@ -7,6 +7,8 @@ import { shadowStyles } from "@/styles/shadowStyles";
 import ImageButton from "@/components/common/ImageButton";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useToast } from "@/contexts/ToastProvider";
+import ListRow from "@/components/common/ListRow";
+import Icon from "@/components/common/Icon";
 
 interface WidgetListTileProps {
     id: string;
@@ -16,6 +18,8 @@ interface WidgetListTileProps {
 
     overrideOnClick?: (operationId: string) => Promise<void>;
     disablePress?: boolean;
+    variant?: "preview" | "list";
+    separator?: boolean;
 }
 
 const WidgetListTile: FC<WidgetListTileProps> = ({
@@ -25,6 +29,8 @@ const WidgetListTile: FC<WidgetListTileProps> = ({
     enabled,
     overrideOnClick,
     disablePress = false,
+    variant = "preview",
+    separator = false,
 }) => {
     const router = useRouter();
     const theme = useTheme();
@@ -81,6 +87,49 @@ const WidgetListTile: FC<WidgetListTileProps> = ({
             setLoading(false);
         }
     };
+
+    if (variant === "list") {
+        return (
+            <ListRow
+                title={name}
+                separator={separator}
+                description={type}
+                onPress={handleTileClick}
+                disabled={disablePress}
+                trailing={
+                    <Pressable
+                        accessibilityRole="switch"
+                        accessibilityLabel={`${name} power`}
+                        accessibilityState={{
+                            checked: enabledState,
+                            disabled: disablePress || loading,
+                        }}
+                        disabled={disablePress || loading}
+                        onPress={onStateClicked}
+                        style={{
+                            width: 48,
+                            height: 48,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: 24,
+                            backgroundColor: enabledState
+                                ? theme.current.colors.success
+                                : theme.current.colors.error,
+                            opacity: disablePress ? 0.5 : 1,
+                        }}>
+                        {loading ? (
+                            <ActivityIndicator
+                                color={theme.current.colors.authForeground}
+                                size="small"
+                            />
+                        ) : (
+                            <Icon icon="power" size={20} color="onPrimary" />
+                        )}
+                    </Pressable>
+                }
+            />
+        );
+    }
 
     return (
         <Pressable onPress={handleTileClick} style={{ flexDirection: "row" }}>

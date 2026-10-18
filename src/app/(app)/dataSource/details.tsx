@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
         justifyContent: "flex-start",
         minHeight: 48,
         gap: 24,
-        paddingHorizontal: 24,
+        paddingHorizontal: 16,
     },
     tabTrigger: {
         flex: 1,
@@ -238,10 +238,10 @@ const styles = StyleSheet.create({
     visible: { display: "flex" },
     hidden: { display: "none" },
     overviewScroll: { flex: 1 },
-    overviewContent: { gap: 24, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 },
+    overviewContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 },
     sourceHeading: { gap: 4 },
-    name: { fontSize: 28, lineHeight: 36, fontWeight: "600", flexShrink: 1 },
-    endpoint: { fontSize: 15, lineHeight: 22, flexShrink: 1 },
+    name: { fontSize: 24, lineHeight: 32, fontWeight: "600", flexShrink: 1 },
+    endpoint: { fontSize: 14, lineHeight: 20, flexShrink: 1 },
     stateContainer: {
         flex: 1,
         justifyContent: "center",

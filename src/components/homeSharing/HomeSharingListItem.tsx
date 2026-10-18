@@ -11,6 +11,7 @@ import { useFocusEffect } from "expo-router";
 import { PortalHost } from "@rn-primitives/portal";
 import { CircleAlert, Trash2 } from "lucide-react-native";
 import Button from "@/components/common/Button";
+import ListRow from "@/components/common/ListRow";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -23,7 +24,6 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Text } from "@/components/ui/text";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { HomeRolesToName } from "@/types/HomeTypes";
@@ -34,6 +34,7 @@ interface HomeSharingListItemProps {
     type: string;
     onRemove: () => void;
     disabled?: boolean;
+    separator?: boolean;
 }
 
 const HomeSharingListItem: FC<HomeSharingListItemProps> = ({
@@ -42,6 +43,7 @@ const HomeSharingListItem: FC<HomeSharingListItemProps> = ({
     type,
     onRemove,
     disabled = false,
+    separator = false,
 }) => {
     const { colors } = useTheme().current;
     const httpClient = useHttpClient();
@@ -125,48 +127,50 @@ const HomeSharingListItem: FC<HomeSharingListItemProps> = ({
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
-                <View style={styles.row}>
-                    <View accessible style={styles.identity}>
-                        <Text style={[styles.email, { color: colors.authForeground }]}>
-                            {email}
-                        </Text>
-                        <Text style={[styles.role, { color: colors.authMuted }]}>
-                            {HomeRolesToName.get(type) || "Unknown role"}
-                        </Text>
-                    </View>
-                    <AlertDialogTrigger asChild disabled={disabled || loading}>
-                        <Pressable
-                            cssInterop={false}
-                            accessibilityRole="button"
-                            accessibilityLabel={"Remove access for " + email}
-                            accessibilityState={{ disabled: disabled || loading, busy: loading }}
-                            disabled={disabled || loading}
-                            onPress={() => {
-                                setError("");
-                                setShowRemoveDialog(true);
-                            }}
-                            android_ripple={{ color: colors.authBorder }}
-                            style={({ pressed }) => [
-                                styles.removeAction,
-                                pressed && styles.pressed,
-                            ]}>
-                            {loading ? (
-                                <ActivityIndicator size="small" color={colors.error} />
-                            ) : (
-                                <Trash2 size={20} color={colors.error} accessible={false} />
-                            )}
-                        </Pressable>
-                    </AlertDialogTrigger>
-                </View>
-                {!!error && (
-                    <Alert
-                        icon={CircleAlert}
-                        variant="destructive"
-                        accessibilityRole="alert"
-                        accessibilityLiveRegion="polite">
-                        <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                )}
+                <ListRow
+                    title={email}
+                    description={HomeRolesToName.get(type) || "Unknown role"}
+                    separator={separator}
+                    children={
+                        error ? (
+                            <Alert
+                                icon={CircleAlert}
+                                variant="destructive"
+                                accessibilityRole="alert"
+                                accessibilityLiveRegion="polite">
+                                <AlertDescription>{error}</AlertDescription>
+                            </Alert>
+                        ) : undefined
+                    }
+                    trailing={
+                        <AlertDialogTrigger asChild disabled={disabled || loading}>
+                            <Pressable
+                                cssInterop={false}
+                                accessibilityRole="button"
+                                accessibilityLabel={"Remove access for " + email}
+                                accessibilityState={{
+                                    disabled: disabled || loading,
+                                    busy: loading,
+                                }}
+                                disabled={disabled || loading}
+                                onPress={() => {
+                                    setError("");
+                                    setShowRemoveDialog(true);
+                                }}
+                                android_ripple={{ color: colors.authBorder }}
+                                style={({ pressed }) => [
+                                    styles.removeAction,
+                                    pressed && styles.pressed,
+                                ]}>
+                                {loading ? (
+                                    <ActivityIndicator size="small" color={colors.error} />
+                                ) : (
+                                    <Trash2 size={20} color={colors.error} accessible={false} />
+                                )}
+                            </Pressable>
+                        </AlertDialogTrigger>
+                    }
+                />
             </View>
         </AlertDialog>
     );
@@ -175,17 +179,7 @@ const HomeSharingListItem: FC<HomeSharingListItemProps> = ({
 export default HomeSharingListItem;
 
 const styles = StyleSheet.create({
-    container: { gap: 8 },
-    row: {
-        minHeight: 64,
-        paddingVertical: 8,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-    },
-    identity: { flexGrow: 1, flexBasis: 0, minWidth: 0, gap: 4 },
-    email: { fontSize: 16, lineHeight: 24, fontWeight: "600", flexShrink: 1 },
-    role: { fontSize: 14, lineHeight: 20 },
+    container: {},
     removeAction: {
         width: 48,
         height: 48,

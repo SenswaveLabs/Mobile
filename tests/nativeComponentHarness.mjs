@@ -42,7 +42,10 @@ export function mountNativeComponent(
             if (type === "TextInput" && props.ref && typeof props.ref === "object") {
                 props.ref.current = { focus: () => focused.push(props.accessibilityLabel) };
             }
-            return { type, props: { ...props, children } };
+            return {
+                type,
+                props: { ...props, children: children.length ? children : (props?.children ?? []) },
+            };
         },
         useState: (initial) => {
             const index = cursor++;
@@ -183,9 +186,15 @@ export function mountNativeComponent(
             : node && typeof node === "object"
               ? [
                     node,
-                    ...["children", "actions", "header", "intro"].flatMap((slot) =>
-                        elements(node.props?.[slot]),
-                    ),
+                    ...[
+                        "children",
+                        "actions",
+                        "header",
+                        "headerAction",
+                        "intro",
+                        "leading",
+                        "trailing",
+                    ].flatMap((slot) => elements(node.props?.[slot])),
                 ]
               : [];
     render();

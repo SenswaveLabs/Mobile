@@ -39,7 +39,7 @@ src/
     confirmEmail / resetPassword / consents / maintenance / privacy / terms
   components/
     ui/                     # copied React Native Reusables primitives
-    common/                 # shared UI (Button, Input, Text, Dropdown, Loading, ...)
+    common/                 # shared UI (Button, Input, Text, ListRow, ContentSection, ...)
     auth/ automations/ dataSource/ device/ headers/ home/ homeSharing/ room/ user/
   contexts/
     ConfigurationProvider   # API URL, SignalR URL, version check

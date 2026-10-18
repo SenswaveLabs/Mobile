@@ -1,13 +1,10 @@
-import React, { useCallback } from "react";
-import { FlatList, View, StyleSheet, RefreshControl } from "react-native";
+import React, { FC, useCallback } from "react";
+import { FlatList, RefreshControl } from "react-native";
 import { useAutomationList } from "@/contexts/custom/AutomationListProvider";
 import { useToast } from "@/contexts/ToastProvider";
 import AutomationTile from "./AutomationTile";
 
-const numColumns = 1;
-const topDownSpacing = 5;
-
-export default function AutomationList() {
+const AutomationList: FC = () => {
     const automations = useAutomationList();
     const toast = useToast();
 
@@ -28,30 +25,26 @@ export default function AutomationList() {
     return (
         <FlatList
             data={automations.automations}
-            renderItem={({ item }) => (
-                <View style={styles.itemWrapper}>
-                    <AutomationTile
-                        automationId={item.id}
-                        automationName={item.name}
-                        automationIcon={item.icon}
-                        automationIsEnabled={item.isEnabled}
-                        isPressDisabled={false}
-                    />
-                </View>
+            renderItem={({ item, index }) => (
+                <AutomationTile
+                    automationId={item.id}
+                    automationName={item.name}
+                    automationIcon={item.icon}
+                    automationIsEnabled={item.isEnabled}
+                    isPressDisabled={false}
+                    variant="list"
+                    separator={index < automations.automations.length - 1}
+                />
             )}
             keyExtractor={(item) => item.id}
-            numColumns={numColumns}
             refreshControl={
                 <RefreshControl refreshing={automations.loading} onRefresh={onRefresh} />
             }
             showsVerticalScrollIndicator={false}
             removeClippedSubviews={false}
+            contentContainerStyle={{ paddingHorizontal: 16 }}
         />
     );
-}
+};
 
-const styles = StyleSheet.create({
-    itemWrapper: {
-        marginBottom: topDownSpacing,
-    },
-});
+export default AutomationList;

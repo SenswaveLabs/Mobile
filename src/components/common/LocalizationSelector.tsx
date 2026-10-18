@@ -14,6 +14,7 @@ interface LocalizationSelectorProps {
     initLocation: { latitude?: number; longitude?: number };
     disabled?: boolean;
     onLoadingChange?: (loading: boolean) => void;
+    showDescription?: boolean;
 }
 
 const LocalizationSelector: FC<LocalizationSelectorProps> = ({
@@ -21,6 +22,7 @@ const LocalizationSelector: FC<LocalizationSelectorProps> = ({
     initLocation: { latitude, longitude },
     disabled = false,
     onLoadingChange,
+    showDescription = true,
 }) => {
     const { colors } = useTheme().current;
     const [address, setAddress] = useState("");
@@ -123,9 +125,11 @@ const LocalizationSelector: FC<LocalizationSelectorProps> = ({
                 <Text style={[styles.label, { color: colors.authForeground }]}>
                     Location (optional)
                 </Text>
-                <Text style={[styles.description, { color: colors.authMuted }]}>
-                    Helps select the nearest home. You can add it later.
-                </Text>
+                {showDescription && (
+                    <Text style={[styles.description, { color: colors.authMuted }]}>
+                        Helps select the nearest home. You can add it later.
+                    </Text>
+                )}
             </View>
             <View style={styles.location}>
                 <MapPin accessible={false} size={20} color={colors.authMuted} />

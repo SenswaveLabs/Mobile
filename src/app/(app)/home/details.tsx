@@ -11,6 +11,8 @@ import { PortalHost } from "@rn-primitives/portal";
 import { useFocusEffect, useRouter } from "expo-router";
 import { CircleAlert } from "lucide-react-native";
 import Button from "@/components/common/Button";
+import ContentSection from "@/components/common/ContentSection";
+import ListRow from "@/components/common/ListRow";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -188,6 +190,8 @@ const DetailsPage: FC = () => {
 
     if (!home) return <Loading activityColor="textOnBackground" />;
 
+    const sourceAssigned = !!sourceId && !unlinked;
+
     return (
         <AlertDialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog} asChild>
             <View style={styles.screen}>
@@ -249,41 +253,64 @@ const DetailsPage: FC = () => {
                     initLongitude={home.location?.longitude}>
                     {home.isOwner && (
                         <>
-                            <View style={styles.section}>
-                                <View style={styles.sectionIntro}>
-                                    <Text
-                                        accessibilityRole="header"
-                                        style={[styles.heading, { color: colors.authForeground }]}>
-                                        Data source
-                                    </Text>
-                                    <Text style={[styles.description, { color: colors.authMuted }]}>
-                                        Connect an MQTT broker to receive data from your devices.
-                                    </Text>
-                                </View>
-                                {!!sourceId && !unlinked ? (
-                                    <>
-                                        <View style={styles.source}>
-                                            <View style={styles.sourceHeader}>
-                                                <Text
-                                                    style={[
-                                                        styles.sourceName,
-                                                        { color: colors.authForeground },
-                                                    ]}>
-                                                    {dataSource?.name || home.dataSource.name}
-                                                </Text>
-                                                <DataSourceState
-                                                    connectionStatus={home.dataSource.state}
-                                                />
-                                            </View>
-                                            {!!dataSource?.url && (
-                                                <Text
-                                                    style={[
-                                                        styles.description,
-                                                        { color: colors.authMuted },
-                                                    ]}>
-                                                    {dataSource.url}
-                                                </Text>
-                                            )}
+                            <ContentSection
+                                title="Data source"
+                                helper="MQTT broker for this home."
+                                separated
+                                headerAction={
+                                    !sourceAssigned && (
+                                        <Button
+                                            name="Assign data source"
+                                            type="brand-outline"
+                                            style={styles.sourceAssignAction}
+                                            loading={false}
+                                            disabled={!!busy}
+                                            onPress={() =>
+                                                router.push({ pathname: "home/dataSource/select" })
+                                            }
+                                        />
+                                    )
+                                }
+                                actions={
+                                    sourceAssigned && (
+                                        <View style={styles.sourceActions}>
+                                            <Button
+                                                name="Open data source"
+                                                type="brand-outline"
+                                                style={styles.sourceAction}
+                                                loading={false}
+                                                disabled={!!busy}
+                                                onPress={() =>
+                                                    router.push({
+                                                        pathname: "dataSource/details",
+                                                        params: { id: sourceId },
+                                                    })
+                                                }
+                                            />
+                                            <Button
+                                                name="Unlink data source"
+                                                type="brand-destructive"
+                                                style={[styles.sourceAction, styles.unlinkAction]}
+                                                loading={busy === "unlink"}
+                                                disabled={!!busy}
+                                                onPress={unlinkDataSource}
+                                            />
+                                        </View>
+                                    )
+                                }>
+                                <View style={styles.sourceContent}>
+                                    {sourceAssigned ? (
+                                        <>
+                                            <ListRow
+                                                title={dataSource?.name || home.dataSource.name}
+                                                description={dataSource?.url}
+                                                separator={false}
+                                                trailing={
+                                                    <DataSourceState
+                                                        connectionStatus={home.dataSource.state}
+                                                    />
+                                                }
+                                            />
                                             {sourceLoading && (
                                                 <View
                                                     accessible
@@ -298,128 +325,89 @@ const DetailsPage: FC = () => {
                                                     <Text
                                                         style={[
                                                             styles.description,
-                                                            styles.loadingText,
                                                             { color: colors.authMuted },
                                                         ]}>
                                                         Loading data source…
                                                     </Text>
                                                 </View>
                                             )}
-                                        </View>
-                                        {!!sourceError && (
-                                            <>
-                                                <Alert
-                                                    icon={CircleAlert}
-                                                    variant="destructive"
-                                                    accessibilityRole="alert"
-                                                    accessibilityLiveRegion="polite">
-                                                    <AlertDescription>
-                                                        {sourceError}
-                                                    </AlertDescription>
-                                                </Alert>
-                                                <Button
-                                                    name="Retry loading"
-                                                    type="brand-outline"
-                                                    loading={sourceLoading}
-                                                    disabled={!!busy}
-                                                    onPress={() =>
-                                                        setSourceReload((value) => value + 1)
-                                                    }
-                                                />
-                                            </>
-                                        )}
-                                    </>
-                                ) : (
-                                    <Text style={[styles.description, { color: colors.authMuted }]}>
-                                        No data source assigned.
-                                    </Text>
-                                )}
-                                {!!sourceActionError && (
-                                    <Alert
-                                        icon={CircleAlert}
-                                        variant="destructive"
-                                        accessibilityRole="alert"
-                                        accessibilityLiveRegion="polite">
-                                        <AlertDescription>{sourceActionError}</AlertDescription>
-                                    </Alert>
-                                )}
-                                {!!sourceId && !unlinked ? (
-                                    <View style={styles.sourceActions}>
-                                        <Button
-                                            name="Open data source"
-                                            type="brand-outline"
-                                            style={styles.sourceAction}
-                                            loading={false}
-                                            disabled={!!busy}
-                                            onPress={() =>
-                                                router.push({
-                                                    pathname: "dataSource/details",
-                                                    params: { id: sourceId },
-                                                })
-                                            }
-                                        />
-                                        <Button
-                                            name="Unlink data source"
-                                            type="brand-destructive"
-                                            style={styles.sourceAction}
-                                            loading={busy === "unlink"}
-                                            disabled={!!busy}
-                                            onPress={unlinkDataSource}
-                                        />
-                                    </View>
-                                ) : (
-                                    <Button
-                                        name="Assign data source"
-                                        type="brand-outline"
-                                        loading={false}
-                                        disabled={!!busy}
-                                        onPress={() =>
-                                            router.push({ pathname: "home/dataSource/select" })
-                                        }
-                                    />
-                                )}
-                            </View>
-                            <View style={styles.section}>
-                                <HomeSharingList disabled={!!busy} />
-                            </View>
+                                            {!!sourceError && (
+                                                <>
+                                                    <Alert
+                                                        icon={CircleAlert}
+                                                        variant="destructive"
+                                                        accessibilityRole="alert"
+                                                        accessibilityLiveRegion="polite">
+                                                        <AlertDescription>
+                                                            {sourceError}
+                                                        </AlertDescription>
+                                                    </Alert>
+                                                    <Button
+                                                        name="Retry loading"
+                                                        type="brand-outline"
+                                                        loading={sourceLoading}
+                                                        disabled={!!busy}
+                                                        onPress={() =>
+                                                            setSourceReload((value) => value + 1)
+                                                        }
+                                                    />
+                                                </>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <Text style={{ color: colors.authMuted }}>
+                                            No data source assigned.
+                                        </Text>
+                                    )}
+                                    {!!sourceActionError && (
+                                        <Alert
+                                            icon={CircleAlert}
+                                            variant="destructive"
+                                            accessibilityRole="alert"
+                                            accessibilityLiveRegion="polite">
+                                            <AlertDescription>{sourceActionError}</AlertDescription>
+                                        </Alert>
+                                    )}
+                                </View>
+                            </ContentSection>
+                            <HomeSharingList disabled={!!busy} />
                         </>
                     )}
-                    <View style={styles.section}>
-                        <View style={styles.sectionIntro}>
-                            <Text
-                                accessibilityRole="header"
-                                style={[styles.heading, { color: colors.authForeground }]}>
-                                {home.isOwner ? "Delete home" : "Leave home"}
-                            </Text>
-                            <Text style={[styles.description, { color: colors.authMuted }]}>
-                                {home.isOwner
-                                    ? "Permanently remove this home and everything in it."
-                                    : "Remove your access to this home's devices and automations."}
-                            </Text>
-                        </View>
-                        {!!removeError && (
-                            <Alert
-                                icon={CircleAlert}
-                                variant="destructive"
-                                accessibilityRole="alert"
-                                accessibilityLiveRegion="polite">
-                                <AlertDescription>{removeError}</AlertDescription>
-                            </Alert>
-                        )}
-                        <AlertDialogTrigger asChild disabled={!!busy}>
-                            <Button
-                                name={home.isOwner ? "Delete home" : "Leave home"}
-                                type="brand-destructive"
-                                style={styles.removeAction}
-                                loading={busy === "remove"}
-                                disabled={!!busy}
-                                onPress={() => {
-                                    setRemoveError("");
-                                    setShowRemoveDialog(true);
-                                }}
-                            />
-                        </AlertDialogTrigger>
-                    </View>
+                    <ContentSection
+                        title={home.isOwner ? "Delete home" : "Leave home"}
+                        helper={
+                            home.isOwner
+                                ? "Permanently remove this home and everything in it."
+                                : "Remove your access to this home's devices and automations."
+                        }
+                        separated
+                        actions={
+                            <AlertDialogTrigger asChild disabled={!!busy}>
+                                <Button
+                                    name={home.isOwner ? "Delete home" : "Leave home"}
+                                    type="brand-destructive"
+                                    style={styles.removeAction}
+                                    loading={busy === "remove"}
+                                    disabled={!!busy}
+                                    onPress={() => {
+                                        setRemoveError("");
+                                        setShowRemoveDialog(true);
+                                    }}
+                                />
+                            </AlertDialogTrigger>
+                        }
+                        children={
+                            removeError ? (
+                                <Alert
+                                    icon={CircleAlert}
+                                    variant="destructive"
+                                    accessibilityRole="alert"
+                                    accessibilityLiveRegion="polite">
+                                    <AlertDescription>{removeError}</AlertDescription>
+                                </Alert>
+                            ) : undefined
+                        }
+                    />
                 </HomeForm>
             </View>
         </AlertDialog>
@@ -432,16 +420,12 @@ const styles = StyleSheet.create({
     screen: { flex: 1 },
     dialogContent: { maxHeight: "90%" },
     dialogBody: { flexShrink: 1 },
-    section: { gap: 12 },
-    sectionIntro: { gap: 4 },
-    heading: { fontSize: 20, lineHeight: 28, fontWeight: "600" },
     description: { fontSize: 14, lineHeight: 20 },
-    source: { gap: 8 },
-    sourceHeader: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
-    sourceName: { fontSize: 16, lineHeight: 24, fontWeight: "600", flexShrink: 1, flexGrow: 1 },
+    sourceAssignAction: { width: "auto", maxWidth: "100%", alignSelf: "flex-start" },
+    sourceContent: { gap: 16 },
     sourceLoading: { flexDirection: "row", alignItems: "center", gap: 12 },
-    loadingText: { flex: 1 },
     sourceActions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
     sourceAction: { flexGrow: 1, flexBasis: 160, width: "auto" },
+    unlinkAction: { borderColor: "transparent" },
     removeAction: { width: "auto", maxWidth: "100%", alignSelf: "flex-start" },
 });

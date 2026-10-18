@@ -2,7 +2,7 @@ import Loading from "@/components/common/Loading";
 import DataSourceTile from "@/components/dataSource/tile/DataSourceTile";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useToast } from "@/contexts/ToastProvider";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { FC, useCallback, useEffect, useState } from "react";
 import { FlatList, RefreshControl, View } from "react-native";
 import Text from "@/components/common/Text";
 import { ListResponse } from "@/utils/httpClient";
@@ -20,7 +20,7 @@ interface DataSourceListInterface {
     onListItemSelected?: (id: string) => void;
 }
 
-function DataSourceList({ onListItemSelected }: DataSourceListInterface) {
+const DataSourceList: FC<DataSourceListInterface> = ({ onListItemSelected }) => {
     const httpClient = useHttpClient();
     const toast = useToast();
     const [loading, setLoading] = useState(true);
@@ -75,17 +75,19 @@ function DataSourceList({ onListItemSelected }: DataSourceListInterface) {
     }
 
     return (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <View style={{ flex: 1, width: "100%" }}>
             <FlatList
                 data={dataSources}
                 keyExtractor={(item, index) => index.toString()}
-                style={{ paddingHorizontal: 15, flex: 1 }}
-                renderItem={({ item }) => (
+                style={{ flex: 1, width: "100%" }}
+                renderItem={({ item, index }) => (
                     <DataSourceTile
                         id={item.id}
                         name={item.name}
                         server={item.server}
                         onClicked={onListItemSelected}
+                        variant="list"
+                        separator={index < dataSources.length - 1}
                     />
                 )}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -94,12 +96,11 @@ function DataSourceList({ onListItemSelected }: DataSourceListInterface) {
                         No data sources found.
                     </Text>
                 }
-                ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-                contentContainerStyle={{ paddingVertical: 10, paddingBottom: 90 }}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 90 }}
                 removeClippedSubviews={false}
             />
         </View>
     );
-}
+};
 
 export default DataSourceList;

@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from "react";
-import { View, RefreshControl, SectionList } from "react-native";
+import React, { FC, useCallback, useState } from "react";
+import { View, Pressable, RefreshControl, SectionList } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useToast } from "@/contexts/ToastProvider";
 import Loading from "@/components/common/Loading";
@@ -8,7 +8,7 @@ import { useDevice } from "@/contexts/custom/DeviceProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import Text from "@/components/common/Text";
 import WidgetListTile from "@/components/device/widgets/WidgetListTile";
-import ImageButton from "@/components/common/ImageButton";
+import Icon from "@/components/common/Icon";
 import { useRouter } from "expo-router";
 import { WidgetListDto, OperationGroup, OperationGroupListDto } from "@/types/DeviceTypes";
 import OperationTile from "../operation/OperationTile";
@@ -26,7 +26,7 @@ interface WidgetListProps {
     hideAddButtons?: boolean;
 }
 
-export default function WidgetList({ overrideOnClick, hideAddButtons = false }: WidgetListProps) {
+const WidgetList: FC<WidgetListProps> = ({ overrideOnClick, hideAddButtons = false }) => {
     const httpClient = useHttpClient();
     const device = useDevice();
     const toast = useToast();
@@ -93,7 +93,7 @@ export default function WidgetList({ overrideOnClick, hideAddButtons = false }: 
         return <Loading />;
     }
 
-    const displayWidget = (item: any) => {
+    const displayWidget = (item: WidgetListDto, separator: boolean) => {
         if (item.empty) {
             return (
                 <View>
@@ -111,6 +111,8 @@ export default function WidgetList({ overrideOnClick, hideAddButtons = false }: 
                 type={item.type}
                 enabled={item.enabled}
                 overrideOnClick={overrideOnClick}
+                variant="list"
+                separator={separator}
             />
         );
     };
@@ -122,7 +124,9 @@ export default function WidgetList({ overrideOnClick, hideAddButtons = false }: 
                 data: x.widgets.length > 0 ? x.widgets : [EmptyWidget],
             }))}
             keyExtractor={(item, index) => item.id + index}
-            renderItem={({ item }) => <View>{displayWidget(item)}</View>}
+            renderItem={({ item, index, section }) =>
+                displayWidget(item, index < section.data.length - 1)
+            }
             renderSectionHeader={({ section }) => (
                 <View
                     style={{
@@ -130,31 +134,42 @@ export default function WidgetList({ overrideOnClick, hideAddButtons = false }: 
                         alignItems: "center",
                         justifyContent: "space-between",
                         alignContent: "center",
-                        marginVertical: 8,
+                        marginTop: 20,
+                        marginBottom: 8,
                     }}>
                     <View style={{ flex: 1, marginRight: 10 }}>
                         <OperationTile
                             id={(JSON.parse(section.title) as OperationGroupListDto).id}
                             name={(JSON.parse(section.title) as OperationGroupListDto).name}
                             type={(JSON.parse(section.title) as OperationGroupListDto).type}
+                            variant="list"
+                            separator={false}
                         />
                     </View>
 
                     {!hideAddButtons && (
-                        <ImageButton
-                            size={25}
-                            icon="add-outline"
+                        <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Add widget"
+                            style={{
+                                width: 48,
+                                height: 48,
+                                borderRadius: 24,
+                                alignItems: "center",
+                                justifyContent: "center",
+                            }}
                             onPress={() => {
                                 addWidgetClicked(
                                     (JSON.parse(section.title) as OperationGroupListDto).id,
                                 );
-                            }}
-                        />
+                            }}>
+                            <Icon icon="add-outline" size={24} color="brand" />
+                        </Pressable>
                     )}
                 </View>
             )}
             contentContainerStyle={{
-                paddingHorizontal: 15,
+                paddingHorizontal: 16,
                 paddingTop: 15,
                 paddingBottom: 120,
             }}
@@ -162,4 +177,6 @@ export default function WidgetList({ overrideOnClick, hideAddButtons = false }: 
             showsVerticalScrollIndicator={false}
         />
     );
-}
+};
+
+export default WidgetList;
