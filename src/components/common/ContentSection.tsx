@@ -61,7 +61,7 @@ export default ContentSection;
 
 const styles = StyleSheet.create({
     section: { width: "100%" },
-    header: { gap: 4 },
+    header: { gap: 2 },
     titleRow: {
         minHeight: 48,
         flexDirection: "row",
@@ -71,6 +71,6 @@ const styles = StyleSheet.create({
     },
     title: { flex: 1, minWidth: 0, fontSize: 20, lineHeight: 28, fontWeight: "600" },
     helper: { fontSize: 14, lineHeight: 20 },
-    content: { marginTop: 16 },
-    actions: { marginTop: 16, gap: 12 },
+    content: { marginTop: 8 },
+    actions: { marginTop: 8, gap: 12 },
 });
