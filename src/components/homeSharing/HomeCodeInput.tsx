@@ -26,7 +26,7 @@ const HomeCodeInput: FC<HomeCodeInputProps> = ({
     const inputs = useRef<(TextInput | null)[]>([]);
     const code = useRef({ prop: value, current: value });
     if (code.current.prop !== value) code.current = { prop: value, current: value };
-    const groupWidth = 4 * Math.max(48, 12 * fontScale + 12) + 18;
+    const groupWidth = 4 * Math.max(48, 20 * fontScale + 8) + 3;
     const focus = (index: number) => inputs.current[Math.max(0, Math.min(index, 7))]?.focus();
     const updateCode = (next: string) => {
         code.current.current = next;
@@ -53,7 +53,7 @@ const HomeCodeInput: FC<HomeCodeInputProps> = ({
             <Text style={[styles.label, { color: colors.authForeground }]}>Invite code</Text>
             <View style={styles.groups}>
                 {[0, 4].map((start) => (
-                    <View key={start} style={[styles.group, { minWidth: groupWidth }]}>
+                    <View key={start} style={[styles.group, { width: groupWidth }]}>
                         {[0, 1, 2, 3].map((offset) => {
                             const index = start + offset;
                             const focused = editable && focusedIndex === index;
@@ -157,8 +157,13 @@ export default HomeCodeInput;
 const styles = StyleSheet.create({
     field: { width: "100%", gap: 12 },
     label: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
-    groups: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-    group: { flexDirection: "row", flexGrow: 1, flexBasis: "45%", gap: 6 },
+    groups: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        gap: 8,
+    },
+    group: { flexDirection: "row", gap: 1 },
     slot: {
         flex: 1,
         minHeight: 56,

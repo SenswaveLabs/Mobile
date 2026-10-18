@@ -86,7 +86,7 @@ function InternalLayout() {
             <Stack.Screen
                 name="home/share"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Share" titleSuffix="Home" />,
+                    header: () => <DefaultHeader titlePrefix="Home" variant="brand" />,
                 }}
             />
 

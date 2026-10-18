@@ -28,6 +28,11 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
     const homeId = home?.id;
     const isOwner = !!home?.isOwner;
     const inviteDisabled = disabled || !isOwner;
+    const empty = !loading && !error && sharings.length === 0;
+    const invite = () => {
+        if (!inviteDisabled && homeId)
+            router.push({ pathname: "home/share", params: { id: homeId } });
+    };
 
     useFocusEffect(
         useCallback(() => {
@@ -68,23 +73,36 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
             helper="People with access to this home."
             separated
             headerAction={
-                <Pressable
-                    cssInterop={false}
-                    accessibilityRole="button"
-                    accessibilityLabel="Invite someone"
-                    accessibilityState={{ disabled: inviteDisabled, busy: disabled && isOwner }}
-                    disabled={inviteDisabled}
-                    onPress={() => {
-                        if (!inviteDisabled && homeId)
-                            router.push({ pathname: "home/share", params: { id: homeId } });
-                    }}
-                    android_ripple={{ color: colors.authBorder }}
-                    style={({ pressed }) => [styles.inviteAction, pressed && styles.pressed]}>
-                    <Plus size={18} color={colors.authForeground} accessible={false} />
-                    <NativeText style={[styles.inviteLabel, { color: colors.authForeground }]}>
-                        Invite
-                    </NativeText>
-                </Pressable>
+                sharings.length > 0 && (
+                    <Pressable
+                        cssInterop={false}
+                        accessibilityRole="button"
+                        accessibilityLabel="Invite someone"
+                        accessibilityState={{ disabled: inviteDisabled, busy: disabled && isOwner }}
+                        disabled={inviteDisabled}
+                        onPress={invite}
+                        android_ripple={{ color: colors.authBorder }}
+                        style={({ pressed }) => [styles.inviteAction, pressed && styles.pressed]}>
+                        <Plus size={18} color={colors.authForeground} accessible={false} />
+                        <NativeText style={[styles.inviteLabel, { color: colors.authForeground }]}>
+                            Invite
+                        </NativeText>
+                    </Pressable>
+                )
+            }
+            actions={
+                empty && (
+                    <View style={styles.actionSlot}>
+                        <Button
+                            name="Invite"
+                            accessibilityLabel="Invite someone"
+                            type="brand-outline"
+                            loading={false}
+                            disabled={inviteDisabled}
+                            onPress={invite}
+                        />
+                    </View>
+                )
             }>
             {loading && (
                 <View
@@ -117,11 +135,6 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
                     />
                 </View>
             )}
-            {!loading && !error && sharings.length === 0 && (
-                <NativeText style={{ color: colors.authMuted, fontSize: 14, lineHeight: 20 }}>
-                    No one has access yet.
-                </NativeText>
-            )}
             {!loading && !error && sharings.length > 0 && (
                 <View style={styles.list}>
                     {sharings.map((sharing, index) => (
@@ -145,6 +158,7 @@ export default HomeSharingList;
 
 const styles = StyleSheet.create({
     error: { gap: 16 },
+    actionSlot: { minHeight: 72, justifyContent: "center" },
     inviteAction: {
         minWidth: 72,
         minHeight: 48,

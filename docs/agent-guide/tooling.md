@@ -18,7 +18,7 @@ pnpm test:icons               # Home/Device catalogs, selectors, glyphs and subm
 ```
 
 - Run `pnpm typecheck`, `pnpm lint`, and `pnpm test:poc` before committing.
-- Use pnpm only; commit `pnpm-lock.yaml`. Keep all `dependencies` and `devDependencies` versions in `package.json` exact; `saveExact` applies this to future additions. Project pnpm settings live in `pnpm-workspace.yaml`; keep its existing build approvals.
+- Use pnpm only; commit `pnpm-lock.yaml`. Keep all `dependencies` and `devDependencies` versions in `package.json` exact; `saveExact` applies this to future additions. Project pnpm settings live in `pnpm-workspace.yaml`; keep its existing build approvals. The local `expo-dev-launcher@6.0.21` patch is tracked in `patches/` and initializes error-screen services before actions run.
 - Dev URL override: `ConfigurationProvider.overrideUrl(url)` — only when `EXPO_PUBLIC_ENVIRONMENT=Development`.
 - Prereqs: Node.js **26.10.0** (`.nvmrc`), **pnpm 12.8.1** (`packageManager`), Android Studio + Java 17. Expo CLI comes from project dependencies.
 

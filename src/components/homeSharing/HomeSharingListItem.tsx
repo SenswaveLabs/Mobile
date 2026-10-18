@@ -107,7 +107,7 @@ const HomeSharingListItem: FC<HomeSharingListItemProps> = ({
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                     </ScrollView>
-                    <AlertDialogFooter className="sm:flex-col-reverse">
+                    <AlertDialogFooter className="flex-col">
                         <AlertDialogCancel asChild>
                             <Button
                                 name="Cancel"

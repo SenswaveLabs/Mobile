@@ -30,6 +30,7 @@ interface HomeFormProps {
     onSubmit: (values: Partial<HomeFormValues>) => Promise<string | void>;
     edit?: boolean;
     disabled?: boolean;
+    readOnly?: boolean;
     children?: ReactNode;
 }
 
@@ -41,6 +42,7 @@ const HomeForm: FC<HomeFormProps> = ({
     onSubmit,
     edit = false,
     disabled = false,
+    readOnly = false,
     children,
 }) => {
     const catalog = useIconCatalog("homes");
@@ -62,7 +64,7 @@ const HomeForm: FC<HomeFormProps> = ({
     const locationPending = useRef(false);
     const active = useRef(true);
     const nameInput = useRef<TextInput>(null);
-    const unavailable = loading || disabled;
+    const unavailable = loading || disabled || readOnly;
     const isIconValid =
         (edit && values.icon === saved.icon) ||
         (!catalog.loading && !catalog.error && catalog.keys.includes(values.icon));
@@ -99,6 +101,7 @@ const HomeForm: FC<HomeFormProps> = ({
             pending.current ||
             locationPending.current ||
             disabled ||
+            readOnly ||
             !active.current ||
             (edit && !dirty)
         )
@@ -154,7 +157,7 @@ const HomeForm: FC<HomeFormProps> = ({
             style={styles.screen}
             contentContainerStyle={[styles.content, edit && styles.editContent]}>
             <View style={[styles.fields, edit && styles.editFields]}>
-                <View style={[styles.intro, edit && styles.editIntro]}>
+                <View style={styles.intro}>
                     <Text
                         accessibilityRole="header"
                         style={[
@@ -162,7 +165,7 @@ const HomeForm: FC<HomeFormProps> = ({
                             edit && styles.editTitle,
                             { color: colors.authForeground },
                         ]}>
-                        {edit ? "Home settings" : "Create a home"}
+                        {edit ? "Details" : "Create a home"}
                     </Text>
                     <Text
                         style={[
@@ -171,7 +174,9 @@ const HomeForm: FC<HomeFormProps> = ({
                             { color: colors.authMuted },
                         ]}>
                         {edit
-                            ? "Name, icon and location."
+                            ? readOnly
+                                ? "View this home's name, icon and location. A home manager can change them."
+                                : "Manage this home's name, icon and location."
                             : "Give your smart home a name. You can add rooms and devices next."}
                     </Text>
                 </View>
@@ -206,29 +211,34 @@ const HomeForm: FC<HomeFormProps> = ({
                         onSelectLocation={(latitude, longitude) => change({ latitude, longitude })}
                         disabled={unavailable}
                         onLoadingChange={updateLocationLoading}
-                        showDescription={!edit}
                     />
                 </View>
             </View>
-            <View
-                style={[styles.actions, !edit && styles.createActions, edit && styles.editActions]}>
-                {(!!submitError || !!success) && (
-                    <Alert
-                        icon={submitError ? CircleAlert : Info}
-                        variant={submitError ? "destructive" : "default"}
-                        accessibilityRole="alert"
-                        accessibilityLiveRegion="polite">
-                        <AlertDescription>{submitError || success}</AlertDescription>
-                    </Alert>
-                )}
-                <Button
-                    name={edit ? "Save changes" : "Create home"}
-                    onPress={submit}
-                    type="auth"
-                    loading={loading}
-                    disabled={disabled || locationLoading || !isIconValid || (edit && !dirty)}
-                />
-            </View>
+            {!readOnly && (
+                <View
+                    style={[
+                        styles.actions,
+                        !edit && styles.createActions,
+                        edit && styles.editActions,
+                    ]}>
+                    {(!!submitError || !!success) && (
+                        <Alert
+                            icon={submitError ? CircleAlert : Info}
+                            variant={submitError ? "destructive" : "default"}
+                            accessibilityRole="alert"
+                            accessibilityLiveRegion="polite">
+                            <AlertDescription>{submitError || success}</AlertDescription>
+                        </Alert>
+                    )}
+                    <Button
+                        name={edit ? "Save changes" : "Create home"}
+                        onPress={submit}
+                        type="auth"
+                        loading={loading}
+                        disabled={disabled || locationLoading || !isIconValid || (edit && !dirty)}
+                    />
+                </View>
+            )}
             {!!children && <View style={styles.settings}>{children}</View>}
         </KeyboardAwareScrollView>
     );
@@ -249,9 +259,8 @@ const styles = StyleSheet.create({
     },
     editContent: { paddingHorizontal: 16 },
     fields: { gap: 24 },
-    intro: { gap: 12, marginBottom: 8 },
+    intro: { gap: 8 },
     editFields: { gap: 24 },
-    editIntro: { gap: 8, marginBottom: 0 },
     createFieldGroup: { gap: 24 },
     editFieldGroup: { gap: 24 },
     title: { fontSize: 30, lineHeight: 36, fontWeight: "600" },

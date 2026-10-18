@@ -24,6 +24,7 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
     const [homesList, setHomesList] = useState<Home[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [loadError, setLoadError] = useState("");
+    const [homeBeforeSwitch, setHomeBeforeSwitch] = useState<Home>();
     const [switchError, setSwitchError] = useState<{ homeId: string; message: string }>();
     const [switchingId, setSwitchingId] = useState<string>();
     const requestId = useRef(0);
@@ -75,26 +76,32 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
             return;
         }
         switching.current = true;
+        setHomeBeforeSwitch(homes.current);
         setSwitchingId(home.id);
         setSwitchError(undefined);
         const id = requestId.current;
+        let switched = false;
         try {
             const success = await homes.setCurrent(home.id);
             if (id !== requestId.current) return;
-            if (success) returnToDashboard();
-            else throw new Error("Home switch failed");
+            if (!success) throw new Error("Home switch failed");
+            switched = true;
+            returnToDashboard();
         } catch {
             if (id === requestId.current) {
                 const message = "Couldn't switch homes. Tap this home to try again.";
                 setSwitchError({ homeId: home.id, message });
             }
         } finally {
-            switching.current = false;
-            setSwitchingId(undefined);
+            if (!switched) {
+                switching.current = false;
+                setSwitchingId(undefined);
+            }
         }
     };
 
-    const availableHomes = homesList.filter((home) => home.id !== homes.current?.id);
+    const currentHome = switchingId ? homeBeforeSwitch : homes.current;
+    const availableHomes = homesList.filter((home) => home.id !== currentHome?.id);
     const disabled = !!switchingId;
 
     return (
@@ -104,25 +111,20 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
             style={styles.list}
             contentContainerStyle={styles.content}
             ListHeaderComponent={
-                <View style={styles.header}>
-                    <View style={styles.intro}>
-                        <Text
-                            accessibilityRole="header"
-                            style={[styles.title, { color: colors.authForeground }]}>
-                            Choose a home
-                        </Text>
-                        <Text style={[styles.description, { color: colors.authMuted }]}>
-                            Choose which home to control.
-                        </Text>
-                    </View>
-                    {homes.current && (
+                <View>
+                    <Text
+                        accessibilityRole="header"
+                        style={[styles.title, { color: colors.authForeground }]}>
+                        Choose a home
+                    </Text>
+                    {currentHome && (
                         <View style={styles.currentSection}>
                             <HomeListItem
-                                home={homes.current}
+                                home={currentHome}
                                 selected
                                 disabled={disabled}
                                 separator={false}
-                                onPress={() => void selectHome(homes.current!)}
+                                onPress={() => void selectHome(currentHome)}
                                 onDetails={() => router.navigate("home/details")}
                             />
                         </View>
@@ -132,12 +134,12 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
                         style={[
                             styles.sectionTitle,
                             {
-                                marginTop: homes.current ? 16 : 24,
+                                marginTop: currentHome ? 16 : 24,
                                 marginBottom: 16,
                                 color: colors.authForeground,
                             },
                         ]}>
-                        {homes.current ? "Other homes" : "Homes"}
+                        {currentHome ? "Other homes" : "Homes"}
                     </Text>
                     {!!loadError && (
                         <View style={styles.error}>
@@ -236,8 +238,6 @@ const styles = StyleSheet.create({
         paddingTop: 16,
         paddingBottom: 16,
     },
-    header: {},
-    intro: { gap: 8 },
     title: { fontSize: 24, lineHeight: 32, fontWeight: "600" },
     description: { fontSize: 14, lineHeight: 20 },
     currentSection: { marginTop: 24 },

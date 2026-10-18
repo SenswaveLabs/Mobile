@@ -14,7 +14,6 @@ interface LocalizationSelectorProps {
     initLocation: { latitude?: number; longitude?: number };
     disabled?: boolean;
     onLoadingChange?: (loading: boolean) => void;
-    showDescription?: boolean;
 }
 
 const LocalizationSelector: FC<LocalizationSelectorProps> = ({
@@ -22,7 +21,6 @@ const LocalizationSelector: FC<LocalizationSelectorProps> = ({
     initLocation: { latitude, longitude },
     disabled = false,
     onLoadingChange,
-    showDescription = true,
 }) => {
     const { colors } = useTheme().current;
     const [address, setAddress] = useState("");
@@ -121,16 +119,7 @@ const LocalizationSelector: FC<LocalizationSelectorProps> = ({
 
     return (
         <View style={styles.container}>
-            <View style={styles.intro}>
-                <Text style={[styles.label, { color: colors.authForeground }]}>
-                    Location (optional)
-                </Text>
-                {showDescription && (
-                    <Text style={[styles.description, { color: colors.authMuted }]}>
-                        Helps select the nearest home. You can add it later.
-                    </Text>
-                )}
-            </View>
+            <Text style={[styles.label, { color: colors.authForeground }]}>Location</Text>
             <View style={styles.location}>
                 <MapPin accessible={false} size={20} color={colors.authMuted} />
                 <Text
@@ -197,7 +186,6 @@ export default LocalizationSelector;
 
 const styles = StyleSheet.create({
     container: { gap: 12 },
-    intro: { gap: 4 },
     location: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
     address: { flex: 1 },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },

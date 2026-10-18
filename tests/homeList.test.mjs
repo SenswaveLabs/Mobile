@@ -15,7 +15,11 @@ const currentHome = {
 const otherHome = { ...currentHome, id: "other", name: "Shared home", isOwner: false };
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-async function mountList({ setCurrent = async () => true, get } = {}) {
+async function mountList({
+    setCurrent = async () => true,
+    getCurrent = () => currentHome,
+    get,
+} = {}) {
     let focus;
     let backs = 0;
     const paths = [];
@@ -33,7 +37,7 @@ async function mountList({ setCurrent = async () => true, get } = {}) {
     const form = mountNativeComponent("src/components/home/lists/HomeList.tsx", {
         modules: {
             "@/contexts/domain/HomeProvider": {
-                useHomes: () => ({ current: currentHome, setCurrent }),
+                useHomes: () => ({ current: getCurrent(), setCurrent }),
             },
             "@/contexts/HttpClientProvider": {
                 useHttpClient: () => httpClient,
@@ -119,6 +123,29 @@ test("home picker waits for a successful switch and prevents repeated selection"
     assert.equal(form.row().props.disabled, true);
     finish(true);
     await flush();
+    assert.equal(form.backs(), 1);
+});
+
+test("home picker keeps its rows stable while switching away", async () => {
+    let current = currentHome;
+    const form = await mountList({
+        getCurrent: () => current,
+        setCurrent: async (id) => {
+            assert.equal(id, otherHome.id);
+            current = otherHome;
+            return true;
+        },
+    });
+
+    form.row().props.onPress();
+    await flush();
+    form.render();
+
+    assert.deepEqual(
+        Array.from(form.list().props.data, (home) => home.id),
+        [otherHome.id],
+    );
+    assert.match(JSON.stringify(form.currentRowTree()), /My home/);
     assert.equal(form.backs(), 1);
 });
 

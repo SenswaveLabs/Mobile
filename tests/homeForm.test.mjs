@@ -400,6 +400,8 @@ test("owner and member details expose only their applicable destructive action",
     assert.ok(owner.elements().some((node) => /delete home/i.test(node.props?.name)));
     assert.ok(member.elements().some((node) => /leave home/i.test(node.props?.name)));
     assert.ok(!member.elements().some((node) => /delete home/i.test(node.props?.name)));
+    assert.equal(owner.form().props.readOnly, false);
+    assert.equal(member.form().props.readOnly, true);
 });
 
 test("cancelling home removal closes AlertDialog without sending a request", () => {
@@ -538,12 +540,18 @@ test("unlinking is locked and remains successful when refreshing the binding fai
         remove: () => new Promise((resolve) => (finish = resolve)),
         setCurrent: async () => false,
     });
-    const pending = route.press(/unlink data source/i);
-    const duplicate = route.press(/unlink data source/i);
+    route.press(/unlink data source/i);
+    route.render();
+    assert.equal(route.removalDialog().props.open, true);
+    assert.equal(route.requests.length, 0, "Unlinking requires explicit confirmation");
+    const confirm = route.elements().find((node) => node.type === "AlertDialogAction");
+    const confirmButton = route.elements(confirm).find((node) => node.type === "Button");
+    confirmButton.props.onPress();
+    confirmButton.props.onPress();
     assert.equal(route.requests.length, 1);
     assert.equal(route.requests[0].path, "/v1/homes/home-1/datasource");
     finish({ isSuccess: true, statusCode: 204, response: null });
-    await Promise.all([pending, duplicate]);
+    await settle();
     route.render();
     assert.ok(route.form());
     assert.ok(route.elements().some((node) => /assign data source/i.test(node.props?.name)));
@@ -689,7 +697,7 @@ test("sharing failures keep recovery visible and 404 renders an empty sharing st
     assert.ok(empty.elements().some((node) => node.props?.accessibilityLabel === "Invite someone"));
 });
 
-test("sharing section puts owner-gated Invite beside heading and routes to sharing", async () => {
+test("empty sharing state puts an outlined Invite action below its message", async () => {
     const get = async () => ({
         isSuccess: true,
         statusCode: 200,
@@ -697,19 +705,27 @@ test("sharing section puts owner-gated Invite beside heading and routes to shari
     });
     const invite = (list) =>
         list.elements().find((node) => node.props?.accessibilityLabel === "Invite someone");
-    const state = (node) => JSON.parse(JSON.stringify(node.props.accessibilityState));
 
     const owner = mountSharings({ get });
     await settle();
     owner.render();
     const ownerInvite = invite(owner);
     assert.match(owner.text(), /Sharing/);
-    assert.ok(owner.text().includes('"Invite"'), "Invite remains visible beside the heading");
-    assert.equal(ownerInvite.props.accessibilityRole, "button");
-    assert.deepEqual(state(ownerInvite), { disabled: false, busy: false });
-    const pressedStyles = ownerInvite.props.style({ pressed: true });
-    assert.ok(pressedStyles.some((style) => style?.minHeight >= 48));
-    assert.ok(pressedStyles.some((style) => style?.opacity < 1));
+    assert.equal(ownerInvite.type, "Button");
+    assert.equal(ownerInvite.props.name, "Invite");
+    assert.equal(ownerInvite.props.type, "brand-outline");
+    assert.equal(ownerInvite.props.style.alignSelf, "flex-start");
+    assert.equal(ownerInvite.props.disabled, false);
+    assert.ok(
+        !owner
+            .elements()
+            .some(
+                (node) =>
+                    node.type === "Pressable" &&
+                    node.props?.accessibilityLabel === "Invite someone",
+            ),
+        "The empty-state Invite action sits below the message, not beside the heading",
+    );
     ownerInvite.props.onPress();
     assert.deepEqual(JSON.parse(JSON.stringify(owner.navigation)), [
         { pathname: "home/share", params: { id: "home-1" } },
@@ -718,7 +734,7 @@ test("sharing section puts owner-gated Invite beside heading and routes to shari
     const busy = mountSharings({ get, disabled: true });
     await settle();
     busy.render();
-    assert.deepEqual(state(invite(busy)), { disabled: true, busy: true });
+    assert.equal(invite(busy).props.disabled, true);
     invite(busy).props.onPress();
     assert.deepEqual(busy.navigation, []);
 
@@ -726,7 +742,7 @@ test("sharing section puts owner-gated Invite beside heading and routes to shari
     await settle();
     member.render();
     assert.deepEqual(member.requests, [], "Members must not load owner-only sharing data");
-    assert.deepEqual(state(invite(member)), { disabled: true, busy: false });
+    assert.equal(invite(member).props.disabled, true);
     invite(member).props.onPress();
     assert.deepEqual(member.navigation, []);
 });
