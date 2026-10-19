@@ -374,6 +374,21 @@ const DetailsPage: FC = () => {
 
     const sourceAssigned = !!sourceId && !unlinked;
     const roomRefreshPending = roomActionError?.homeId === home.id && roomActionError.accepted;
+    const rooms = (home.rooms ?? []).filter(
+        (room) => !(removedRoomIds[home.id] ?? []).includes(room.id),
+    );
+    const roomsEmpty = !roomsLoading && !roomsError && !roomRefreshPending && rooms.length === 0;
+    const addRoom = () => {
+        const currentHome = homeRef.current;
+        if (
+            currentHome?.id === home.id &&
+            (currentHome.isOwner || currentHome.canManage) &&
+            !busy &&
+            !pending.current &&
+            active.current
+        )
+            router.push({ pathname: "home/room/add" });
+    };
 
     return (
         <AlertDialog
@@ -476,7 +491,7 @@ const DetailsPage: FC = () => {
                         helper="Organize devices by room."
                         separated
                         headerAction={
-                            canManage ? (
+                            canManage && !roomsEmpty ? (
                                 <SectionHeaderAction
                                     label="Add"
                                     accessibilityLabel="Add room"
@@ -489,18 +504,21 @@ const DetailsPage: FC = () => {
                                     }
                                     disabled={!!busy}
                                     busy={busy === "room"}
-                                    onPress={() => {
-                                        const currentHome = homeRef.current;
-                                        if (
-                                            currentHome?.id === home.id &&
-                                            (currentHome.isOwner || currentHome.canManage) &&
-                                            !busy &&
-                                            !pending.current &&
-                                            active.current
-                                        )
-                                            router.push({ pathname: "home/room/add" });
-                                    }}
+                                    onPress={addRoom}
                                 />
+                            ) : undefined
+                        }
+                        actions={
+                            canManage && roomsEmpty ? (
+                                <View style={styles.actionSlot}>
+                                    <Button
+                                        name="Add room"
+                                        type="brand-outline"
+                                        loading={false}
+                                        disabled={!!busy}
+                                        onPress={addRoom}
+                                    />
+                                </View>
                             ) : undefined
                         }>
                         {roomsLoading && (
@@ -533,153 +551,139 @@ const DetailsPage: FC = () => {
                                 />
                             </>
                         )}
-                        {(home.rooms ?? []).length === 0 && !roomsLoading && !roomsError ? (
-                            <Text style={[styles.description, { color: colors.authMuted }]}>
-                                No rooms yet.
-                            </Text>
-                        ) : (
-                            (home.rooms ?? [])
-                                .filter(
-                                    (room) => !(removedRoomIds[home.id] ?? []).includes(room.id),
-                                )
-                                .map((room, index, rooms) => (
-                                    <ListRow
-                                        key={room.id}
-                                        title={room.name}
-                                        separator={index < rooms.length - 1}
-                                        onPress={
-                                            canManage
-                                                ? () => {
-                                                      const currentHome = homeRef.current;
-                                                      if (
-                                                          currentHome?.id === home.id &&
-                                                          (currentHome.isOwner ||
-                                                              currentHome.canManage) &&
-                                                          !busy &&
-                                                          !pending.current &&
-                                                          active.current
-                                                      )
-                                                          router.push({
-                                                              pathname: "home/room/details",
-                                                              params: { id: room.id },
-                                                          });
-                                                  }
-                                                : undefined
-                                        }
-                                        disabled={!!busy}
-                                        accessibilityLabel={
-                                            canManage ? `Edit ${room.name}` : room.name
-                                        }
-                                        trailing={
-                                            canManage ? (
-                                                <View style={styles.roomActions}>
-                                                    <Pressable
-                                                        cssInterop={false}
-                                                        accessibilityRole="button"
-                                                        accessibilityLabel={`Edit ${room.name}`}
-                                                        accessibilityState={{ disabled: !!busy }}
-                                                        disabled={!!busy}
-                                                        onPress={() => {
-                                                            const currentHome = homeRef.current;
-                                                            if (
-                                                                currentHome?.id === home.id &&
-                                                                (currentHome.isOwner ||
-                                                                    currentHome.canManage) &&
-                                                                !busy &&
-                                                                !pending.current &&
-                                                                active.current
-                                                            )
-                                                                router.push({
-                                                                    pathname: "home/room/details",
-                                                                    params: { id: room.id },
-                                                                });
-                                                        }}
-                                                        android_ripple={{
-                                                            color: colors.authBorder,
-                                                        }}
-                                                        style={({ pressed }) => [
-                                                            styles.roomAction,
-                                                            pressed && styles.pressed,
-                                                        ]}>
-                                                        <Pencil
-                                                            size={20}
-                                                            color={colors.authForeground}
-                                                            accessible={false}
-                                                        />
-                                                    </Pressable>
-                                                    <Pressable
-                                                        cssInterop={false}
-                                                        ref={(node) => {
-                                                            if (roomToRemove?.id === room.id)
-                                                                roomActionRef.current = node;
-                                                        }}
-                                                        accessibilityRole="button"
-                                                        accessibilityLabel={`Remove ${room.name}`}
-                                                        accessibilityState={{
-                                                            disabled: !!busy || roomRefreshPending,
-                                                            busy: busy === "room",
-                                                        }}
-                                                        disabled={!!busy || roomRefreshPending}
-                                                        onPress={() => {
-                                                            const currentHome = homeRef.current;
-                                                            if (
-                                                                currentHome?.id !== home.id ||
-                                                                !(
-                                                                    currentHome.isOwner ||
-                                                                    currentHome.canManage
-                                                                ) ||
-                                                                roomRefreshPending ||
-                                                                busy ||
-                                                                pending.current ||
-                                                                !active.current
-                                                            )
-                                                                return;
-                                                            setRoomToRemove(room);
-                                                            setRoomHomeId(home?.id);
-                                                            setConfirmAction("removeRoom");
-                                                        }}
-                                                        android_ripple={{
-                                                            color: colors.authBorder,
-                                                        }}
-                                                        style={({ pressed }) => [
-                                                            styles.roomAction,
-                                                            pressed && styles.pressed,
-                                                        ]}>
-                                                        {busy === "room" &&
-                                                        roomPendingId === room.id ? (
-                                                            <ActivityIndicator
-                                                                size="small"
-                                                                color={colors.error}
-                                                            />
-                                                        ) : (
-                                                            <Trash2
-                                                                size={20}
-                                                                color={colors.error}
-                                                                accessible={false}
-                                                            />
-                                                        )}
-                                                    </Pressable>
-                                                </View>
-                                            ) : undefined
-                                        }
-                                        children={
-                                            roomActionError?.homeId === home.id &&
-                                            roomActionError.id === room.id &&
-                                            !roomActionError.accepted ? (
-                                                <Alert
-                                                    icon={CircleAlert}
-                                                    variant="destructive"
-                                                    accessibilityRole="alert"
-                                                    accessibilityLiveRegion="polite">
-                                                    <AlertDescription>
-                                                        {roomActionError.message}
-                                                    </AlertDescription>
-                                                </Alert>
-                                            ) : undefined
-                                        }
-                                    />
-                                ))
-                        )}
+                        {rooms.map((room, index) => (
+                            <ListRow
+                                key={room.id}
+                                title={room.name}
+                                separator={index < rooms.length - 1}
+                                onPress={
+                                    canManage
+                                        ? () => {
+                                              const currentHome = homeRef.current;
+                                              if (
+                                                  currentHome?.id === home.id &&
+                                                  (currentHome.isOwner || currentHome.canManage) &&
+                                                  !busy &&
+                                                  !pending.current &&
+                                                  active.current
+                                              )
+                                                  router.push({
+                                                      pathname: "home/room/details",
+                                                      params: { id: room.id },
+                                                  });
+                                          }
+                                        : undefined
+                                }
+                                disabled={!!busy}
+                                accessibilityLabel={canManage ? `Edit ${room.name}` : room.name}
+                                trailing={
+                                    canManage ? (
+                                        <View style={styles.roomActions}>
+                                            <Pressable
+                                                cssInterop={false}
+                                                accessibilityRole="button"
+                                                accessibilityLabel={`Edit ${room.name}`}
+                                                accessibilityState={{ disabled: !!busy }}
+                                                disabled={!!busy}
+                                                onPress={() => {
+                                                    const currentHome = homeRef.current;
+                                                    if (
+                                                        currentHome?.id === home.id &&
+                                                        (currentHome.isOwner ||
+                                                            currentHome.canManage) &&
+                                                        !busy &&
+                                                        !pending.current &&
+                                                        active.current
+                                                    )
+                                                        router.push({
+                                                            pathname: "home/room/details",
+                                                            params: { id: room.id },
+                                                        });
+                                                }}
+                                                android_ripple={{
+                                                    color: colors.authBorder,
+                                                }}
+                                                style={({ pressed }) => [
+                                                    styles.roomAction,
+                                                    pressed && styles.pressed,
+                                                ]}>
+                                                <Pencil
+                                                    size={20}
+                                                    color={colors.authForeground}
+                                                    accessible={false}
+                                                />
+                                            </Pressable>
+                                            <Pressable
+                                                cssInterop={false}
+                                                ref={(node) => {
+                                                    if (roomToRemove?.id === room.id)
+                                                        roomActionRef.current = node;
+                                                }}
+                                                accessibilityRole="button"
+                                                accessibilityLabel={`Remove ${room.name}`}
+                                                accessibilityState={{
+                                                    disabled: !!busy || roomRefreshPending,
+                                                    busy: busy === "room",
+                                                }}
+                                                disabled={!!busy || roomRefreshPending}
+                                                onPress={() => {
+                                                    const currentHome = homeRef.current;
+                                                    if (
+                                                        currentHome?.id !== home.id ||
+                                                        !(
+                                                            currentHome.isOwner ||
+                                                            currentHome.canManage
+                                                        ) ||
+                                                        roomRefreshPending ||
+                                                        busy ||
+                                                        pending.current ||
+                                                        !active.current
+                                                    )
+                                                        return;
+                                                    setRoomToRemove(room);
+                                                    setRoomHomeId(home?.id);
+                                                    setConfirmAction("removeRoom");
+                                                }}
+                                                android_ripple={{
+                                                    color: colors.authBorder,
+                                                }}
+                                                style={({ pressed }) => [
+                                                    styles.roomAction,
+                                                    pressed && styles.pressed,
+                                                ]}>
+                                                {busy === "room" && roomPendingId === room.id ? (
+                                                    <ActivityIndicator
+                                                        size="small"
+                                                        color={colors.error}
+                                                    />
+                                                ) : (
+                                                    <Trash2
+                                                        size={20}
+                                                        color={colors.error}
+                                                        accessible={false}
+                                                    />
+                                                )}
+                                            </Pressable>
+                                        </View>
+                                    ) : undefined
+                                }
+                                children={
+                                    roomActionError?.homeId === home.id &&
+                                    roomActionError.id === room.id &&
+                                    !roomActionError.accepted ? (
+                                        <Alert
+                                            icon={CircleAlert}
+                                            variant="destructive"
+                                            accessibilityRole="alert"
+                                            accessibilityLiveRegion="polite">
+                                            <AlertDescription>
+                                                {roomActionError.message}
+                                            </AlertDescription>
+                                        </Alert>
+                                    ) : undefined
+                                }
+                            />
+                        ))}
                         {roomActionError?.homeId === home.id && roomActionError.accepted && (
                             <View style={styles.roomRecovery}>
                                 <Alert

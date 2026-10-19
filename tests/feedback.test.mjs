@@ -178,6 +178,8 @@ test("redesigned forms and home selection suppress legacy overlays without dismi
         "/home/join",
         "/home/add",
         "/home/details",
+        "/home/room/add",
+        "/home/room/details",
     ]) {
         provider.navigate(route);
         lateCallback.error("Legacy error");

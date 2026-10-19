@@ -1,82 +1,73 @@
-import Button from "@/components/common/Button";
 import Loading from "@/components/common/Loading";
-import RoomForm, { RoomFormHandle } from "@/components/room/RoomForm";
+import RoomForm, { RoomFormValues } from "@/components/room/RoomForm";
 import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useToast } from "@/contexts/ToastProvider";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useRef, useState } from "react";
-import { View } from "react-native";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
+import React, { FC, useCallback, useRef } from "react";
+import { AccessibilityInfo } from "react-native";
 
-function Add() {
+const Add: FC = () => {
     const router = useRouter();
     const homes = useHomes();
     const httpClient = useHttpClient();
-    const toast = useToast();
-    const formRef = useRef<RoomFormHandle>(null);
     const active = useRef(true);
     const pending = useRef(false);
-    const [loading, setLoading] = useState(false);
-    const [isFormValid, setIsFormValid] = useState(false);
+    const created = useRef<string | undefined>(undefined);
     const home = homes.current;
-    const hasHome = !!home;
+    const homeRef = useRef(home);
+    homeRef.current = home;
+    const homeId = home?.id;
     const canManage = home?.isOwner === true || home?.canManage === true;
 
     useFocusEffect(
         useCallback(() => {
             active.current = true;
-            if (!hasHome && !homes.loading) router.replace("/home/list");
-            else if (hasHome && !canManage) router.replace("/home/details");
+            if (!homeId && !homes.loading) router.replace("/home/list");
+            else if (homeId && !canManage) router.replace("/home/details");
+            else if (homeId && created.current === homeId) {
+                if (router.canGoBack()) router.back();
+                else router.replace("/home/details");
+            }
             return () => {
                 active.current = false;
             };
-        }, [hasHome, canManage, homes.loading, router]),
+        }, [homeId, canManage, homes.loading, router]),
     );
 
-    const addClicked = async (values: any) => {
-        const homeId = home?.id;
-        if (!homeId || !canManage || pending.current || !active.current) return;
+    const addClicked = async (values: RoomFormValues) => {
+        const current = homeRef.current;
+        if (
+            !homeId ||
+            current?.id !== homeId ||
+            (!current.isOwner && !current.canManage) ||
+            pending.current ||
+            created.current === homeId ||
+            !active.current
+        )
+            return;
         pending.current = true;
-        setLoading(true);
         try {
             const response = await httpClient.post(`v1/homes/${homeId}/rooms`, values);
-            if (response.isSuccess) {
-                if (homes.current?.id === homeId) await homes.refreshRooms({ silent: true });
-                if (!active.current || homes.current?.id !== homeId) return;
-                toast.success("Room added successfully.");
-                router.back();
-            } else {
-                toast.error("Failed to add room.");
-                const data = await response.response?.text();
-                console.error(data);
+            if (!response.isSuccess) throw new Error("Couldn't create this room. Try again.");
+            created.current = homeId;
+            if (homeRef.current?.id !== homeId) return;
+            try {
+                await homes.refreshRooms({ silent: true });
+            } catch {
+                // Creation already succeeded; the parent can reload its rooms.
             }
+            if (!active.current || homeRef.current?.id !== homeId) return;
+            AccessibilityInfo.announceForAccessibility("Room created.");
+            if (router.canGoBack()) router.back();
+            else router.replace("/home/details");
         } finally {
             pending.current = false;
-            if (active.current) setLoading(false);
         }
     };
 
-    if (!canManage) return <Loading activityColor="textOnBackground" />;
+    if (!home || !canManage) return <Loading activityColor="textOnBackground" />;
 
-    return (
-        <View style={{ flex: 1 }}>
-            <RoomForm
-                ref={formRef}
-                edit={false}
-                onSubmit={addClicked}
-                onValidChange={setIsFormValid}
-            />
-            <KeyboardStickyView style={{ paddingHorizontal: 15, paddingVertical: 12 }}>
-                <Button
-                    name="Create Room"
-                    loading={loading}
-                    disabled={!isFormValid}
-                    onPress={() => formRef.current?.triggerSave()}
-                />
-            </KeyboardStickyView>
-        </View>
-    );
-}
+    return <RoomForm key={home.id} homeName={home.name} onSubmit={addClicked} />;
+};
 
 export default Add;

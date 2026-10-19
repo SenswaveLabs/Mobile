@@ -477,16 +477,79 @@ test("home details puts rooms before owner settings and gates room management by
     );
 });
 
-test("rooms add action stays in section header when empty and respects parent busy state", async () => {
-    const route = mountRoute("src/app/(app)/home/details.tsx", { current: { ...home, rooms: [] } });
+test("empty rooms offer one outlined Add room action only to home managers", async () => {
+    for (const [isOwner, canManage, allowed] of [
+        [true, false, true],
+        [false, true, true],
+        [false, false, false],
+    ]) {
+        const route = mountRoute("src/app/(app)/home/details.tsx", {
+            current: { ...home, isOwner, canManage, rooms: [] },
+        });
+        await settle();
+        route.render();
+        const section = route
+            .elements()
+            .find((node) => node.type === "ContentSection" && node.props.title === "Rooms");
+        assert.equal(section.props.headerAction, undefined);
+        const actions = route
+            .elements(section.props.actions ?? [])
+            .filter((node) => node.type === "Button");
+        assert.equal(actions.length, allowed ? 1 : 0);
+        assert.doesNotMatch(route.text(), /No rooms yet/);
+        if (allowed) {
+            assert.equal(actions[0].props.name, "Add room");
+            assert.equal(actions[0].props.type, "brand-outline");
+            actions[0].props.onPress();
+            assert.deepEqual(JSON.parse(JSON.stringify(route.navigation)), [
+                { pathname: "home/room/add" },
+            ]);
+        }
+    }
+});
+
+test("empty-room loading and failure retain recovery instead of showing an empty action", async () => {
+    let finish;
+    const route = mountRoute("src/app/(app)/home/details.tsx", {
+        current: { ...home, rooms: [] },
+        refreshRooms: () => new Promise((resolve) => (finish = resolve)),
+    });
     const section = () =>
         route
             .elements()
             .find((node) => node.type === "ContentSection" && node.props.title === "Rooms");
-    const action = section().props.headerAction;
-    assert.equal(action.type.name, "SectionHeaderAction");
-    action.props.onPress();
-    assert.deepEqual(JSON.parse(JSON.stringify(route.navigation)), [{ pathname: "home/room/add" }]);
+    route.render();
+    assert.equal(section().props.actions, undefined);
+    assert.ok(route.elements().some((node) => node.props?.accessibilityLabel === "Loading rooms"));
+    finish(false);
+    await settle();
+    route.render();
+    assert.equal(section().props.actions, undefined);
+    assert.ok(route.elements().some((node) => node.props?.name === "Retry loading rooms"));
+});
+
+test("empty-room Add and populated room actions respect the parent save lock", async () => {
+    let finishEmpty;
+    const empty = mountRoute("src/app/(app)/home/details.tsx", {
+        current: { ...home, rooms: [] },
+        patch: () => new Promise((resolve) => (finishEmpty = resolve)),
+    });
+    await settle();
+    empty.render();
+    const savingEmpty = empty.form().props.onSubmit({ name: "Cabin" });
+    empty.render();
+    const emptySection = empty
+        .elements()
+        .find((node) => node.type === "ContentSection" && node.props.title === "Rooms");
+    const add = empty
+        .elements(emptySection.props.actions ?? [])
+        .find((node) => node.type === "Button" && node.props.name === "Add room");
+    assert.ok(add, "Empty Rooms retains its action while the home is saving");
+    assert.equal(add.props.disabled, true);
+    add.props.onPress();
+    assert.deepEqual(empty.navigation, []);
+    finishEmpty({ isSuccess: true, statusCode: 204, response: null });
+    await savingEmpty;
 
     let finish;
     const busy = mountRoute("src/app/(app)/home/details.tsx", {

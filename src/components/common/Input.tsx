@@ -78,7 +78,7 @@ const Input: FC<InputProps> = ({
                     },
                 ]}>
                 <ReusableInput
-                    className="h-auto w-auto rounded-none border-0 bg-transparent p-0 shadow-none dark:bg-transparent"
+                    className={`h-auto w-auto rounded-none border-0 bg-transparent p-0 shadow-none dark:bg-transparent ${auth ? "placeholder:text-muted-foreground" : ""}`}
                     {...inputProps}
                     ref={inputRef}
                     accessibilityLabel={inputProps.accessibilityLabel ?? (title || placeholder)}

@@ -11,7 +11,7 @@
 | Real-time | SignalR (`@microsoft/signalr` 8.x) |
 | Auth storage | `expo-secure-store` |
 | UI | Local React Native Reusables primitives in `src/components/ui`, including AlertDialog with a named `@rn-primitives/portal` host in a native Modal, NativeWind 4 + Tailwind CSS 3. Existing `common` wrappers preserve their native APIs and appearance. Support libs: `reanimated-color-picker`, `@react-native-community/slider`, `react-native-markdown-display` |
-| Auth and home UI | Welcome, login, registration, forgot password and development server selection render native `auth/AuthPanel`. Home selection, joining, creation and settings use the same local primitives; `home/HomeForm` owns its fields and save actions. Session actions, Google OAuth and storage use the existing providers. See [native auth and home UI](../native-auth-ui.md). |
+| Auth, home and room UI | Welcome, login, registration, forgot password and development server selection render native `auth/AuthPanel`. Home selection, joining, creation and settings use the same local primitives; `home/HomeForm` and `room/RoomForm` own their fields and save actions. Session actions, Google OAuth and storage use the existing providers. See [native auth and home UI](../native-auth-ui.md). |
 | Home location | MapLibre React Native 11 with OpenStreetMap raster tiles; native modal picker and optional Expo Location GPS/address lookup. Expo web keeps a native-control fallback without importing the map SDK. |
 | Backend | .NET Minimal API — modular monolith (`Senswave.sln`) |
 

@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Senswave mobile is a DIY Smart Home app built with React Native, Expo and TypeScript.
-Authentication, home selection, creation and settings use local React Native Reusables components; the app renders native React Native UI.
+Authentication, home selection, home/room creation and settings use local React Native Reusables components; the app renders native React Native UI.
 
 ## Rules
 
