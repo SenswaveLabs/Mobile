@@ -10,6 +10,7 @@ import { useIconCatalog } from "@/hooks/useIconCatalog";
 import { keyboardOffset } from "@/styles/defaultStyles";
 import Input from "../common/Input";
 import Button from "../common/Button";
+import FormSection from "../common/FormSection";
 import IconSelector from "../common/IconSelector";
 import LocalizationSelector from "../common/LocalizationSelector";
 
@@ -150,94 +151,96 @@ const HomeForm: FC<HomeFormProps> = ({
         }
     };
 
+    const fields = (
+        <>
+            <Input
+                title="Name"
+                placeholder="e.g. My home"
+                value={values.name}
+                setValue={(name) => change({ name })}
+                error={nameError}
+                variant="auth"
+                inputRef={nameInput}
+                editable={!unavailable}
+                returnKeyType="done"
+                onSubmitEditing={submit}
+            />
+            <IconSelector
+                defaultIcon={values.icon}
+                catalog={catalog}
+                resource="homes"
+                onIconSelected={(icon) => change({ icon })}
+                variant="brand"
+                disabled={unavailable}
+            />
+            {!catalog.loading && !catalog.error && !isIconValid && (
+                <Text style={{ color: colors.error }} accessibilityRole="alert">
+                    Select an available icon.
+                </Text>
+            )}
+            <LocalizationSelector
+                initLocation={values}
+                onSelectLocation={(latitude, longitude) => change({ latitude, longitude })}
+                disabled={unavailable}
+                onLoadingChange={updateLocationLoading}
+            />
+        </>
+    );
+    const actions = !readOnly && (
+        <>
+            {(!!submitError || !!success) && (
+                <Alert
+                    icon={submitError ? CircleAlert : Info}
+                    variant={submitError ? "destructive" : "default"}
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite">
+                    <AlertDescription>{submitError || success}</AlertDescription>
+                </Alert>
+            )}
+            <Button
+                name={edit ? "Save changes" : "Create home"}
+                onPress={submit}
+                type="auth"
+                loading={loading}
+                disabled={disabled || locationLoading || !isIconValid || (edit && !dirty)}
+            />
+        </>
+    );
+
     return (
         <KeyboardAwareScrollView
             bottomOffset={keyboardOffset}
             keyboardShouldPersistTaps="handled"
             style={styles.screen}
             contentContainerStyle={[styles.content, edit && styles.editContent]}>
-            <View style={[styles.fields, edit && styles.editFields]}>
-                <View style={styles.intro}>
-                    <Text
-                        accessibilityRole="header"
-                        style={[
-                            styles.title,
-                            edit && styles.editTitle,
-                            { color: colors.authForeground },
-                        ]}>
-                        {edit ? "Details" : "Create a home"}
-                    </Text>
-                    <Text
-                        style={[
-                            styles.description,
-                            edit && styles.editDescription,
-                            { color: colors.authMuted },
-                        ]}>
-                        {edit
-                            ? readOnly
-                                ? "View this home's name, icon and location. A home manager can change them."
-                                : "Manage this home's name, icon and location."
-                            : "Give your smart home a name. You can add rooms and devices next."}
-                    </Text>
-                </View>
-                <View style={edit ? styles.editFieldGroup : styles.createFieldGroup}>
-                    <Input
-                        title="Name"
-                        placeholder="e.g. My home"
-                        value={values.name}
-                        setValue={(name) => change({ name })}
-                        error={nameError}
-                        variant="auth"
-                        inputRef={nameInput}
-                        editable={!unavailable}
-                        returnKeyType="done"
-                        onSubmitEditing={submit}
-                    />
-                    <IconSelector
-                        defaultIcon={values.icon}
-                        catalog={catalog}
-                        resource="homes"
-                        onIconSelected={(icon) => change({ icon })}
-                        variant="brand"
-                        disabled={unavailable}
-                    />
-                    {!catalog.loading && !catalog.error && !isIconValid && (
-                        <Text style={{ color: colors.error }} accessibilityRole="alert">
-                            Select an available icon.
-                        </Text>
-                    )}
-                    <LocalizationSelector
-                        initLocation={values}
-                        onSelectLocation={(latitude, longitude) => change({ latitude, longitude })}
-                        disabled={unavailable}
-                        onLoadingChange={updateLocationLoading}
-                    />
-                </View>
-            </View>
-            {!readOnly && (
-                <View
-                    style={[
-                        styles.actions,
-                        !edit && styles.createActions,
-                        edit && styles.editActions,
-                    ]}>
-                    {(!!submitError || !!success) && (
-                        <Alert
-                            icon={submitError ? CircleAlert : Info}
-                            variant={submitError ? "destructive" : "default"}
-                            accessibilityRole="alert"
-                            accessibilityLiveRegion="polite">
-                            <AlertDescription>{submitError || success}</AlertDescription>
-                        </Alert>
-                    )}
-                    <Button
-                        name={edit ? "Save changes" : "Create home"}
-                        onPress={submit}
-                        type="auth"
-                        loading={loading}
-                        disabled={disabled || locationLoading || !isIconValid || (edit && !dirty)}
-                    />
-                </View>
+            {edit ? (
+                <FormSection
+                    title="Details"
+                    helper={
+                        readOnly
+                            ? "View this home's name, icon and location. A home manager can change them."
+                            : "Manage this home's name, icon and location."
+                    }
+                    actions={actions}>
+                    {fields}
+                </FormSection>
+            ) : (
+                <>
+                    <View style={styles.fields}>
+                        <View style={styles.intro}>
+                            <Text
+                                accessibilityRole="header"
+                                style={[styles.title, { color: colors.authForeground }]}>
+                                Create a home
+                            </Text>
+                            <Text style={[styles.description, { color: colors.authMuted }]}>
+                                Give your smart home a name. You can add rooms and devices next.
+                            </Text>
+                        </View>
+                        {fields}
+                    </View>
+                    {!!actions && <View style={styles.actions}>{actions}</View>}
+                </>
             )}
             {!!children && <View style={styles.settings}>{children}</View>}
         </KeyboardAwareScrollView>
@@ -260,15 +263,8 @@ const styles = StyleSheet.create({
     editContent: { paddingHorizontal: 16 },
     fields: { gap: 24 },
     intro: { gap: 8 },
-    editFields: { gap: 24 },
-    createFieldGroup: { gap: 24 },
-    editFieldGroup: { gap: 24 },
     title: { fontSize: 30, lineHeight: 36, fontWeight: "600" },
     description: { fontSize: 16, lineHeight: 24 },
-    editTitle: { fontSize: 24, lineHeight: 32 },
-    editDescription: { fontSize: 14, lineHeight: 20 },
-    actions: { paddingTop: 32, gap: 12 },
-    editActions: { paddingTop: 24 },
-    createActions: { marginTop: "auto" },
+    actions: { paddingTop: 32, gap: 12, marginTop: "auto" },
     settings: {},
 });

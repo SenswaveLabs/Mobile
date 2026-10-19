@@ -214,8 +214,8 @@ const styles = StyleSheet.create({
     screen: { flex: 1 },
     measure: { flex: 1, width: "100%", maxWidth: 448, alignSelf: "center" },
     tabsRoot: { flex: 1 },
-    detailsHeader: { gap: 16 },
-    identity: { gap: 2 },
+    detailsHeader: { gap: 24 },
+    identity: { gap: 8 },
     tabsList: {
         flexDirection: "row",
         alignItems: "stretch",
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     visible: { display: "flex" },
     hidden: { display: "none" },
     overviewScroll: { flex: 1 },
-    overviewContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 },
+    overviewContent: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 16 },
     name: { fontSize: 24, lineHeight: 32, fontWeight: "600", flexShrink: 1 },
     endpoint: { fontSize: 14, lineHeight: 20, flexShrink: 1 },
     stateContainer: {

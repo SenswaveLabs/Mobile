@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Text } from "@/components/ui/text";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { CircleAlert, Info } from "lucide-react-native";
-import ContentSection from "@/components/common/ContentSection";
+import FormSection from "@/components/common/FormSection";
 
 const mqttVersionOptions: { label: string; value: MqttVersion }[] = [
     { label: "5.0.0", value: "MqttV5" },
@@ -346,7 +346,11 @@ export const DataSourceForm = forwardRef<DataSourceFormHandle, DataSourceFormPro
             </View>
         );
         const verificationFields = isAuthVisible && (
-            <View style={[styles.authSection, !edit && styles.createAuthSection]}>
+            <View
+                style={[
+                    styles.authSection,
+                    edit ? styles.editAuthSection : styles.createAuthSection,
+                ]}>
                 {edit ? (
                     <View style={styles.intro}>
                         <Text
@@ -417,12 +421,12 @@ export const DataSourceForm = forwardRef<DataSourceFormHandle, DataSourceFormPro
                     {edit ? (
                         <View style={styles.settingsContent}>
                             {header}
-                            <ContentSection
+                            <FormSection
                                 title="Connection"
                                 helper="Update broker details. Credentials verify the connection and are not saved."
                                 separated
                                 actions={
-                                    <View style={styles.actions}>
+                                    <>
                                         {(!!submitError || !!success) && (
                                             <Alert
                                                 accessibilityRole={
@@ -443,25 +447,17 @@ export const DataSourceForm = forwardRef<DataSourceFormHandle, DataSourceFormPro
                                             disabled={!isDirty}
                                             onPress={triggerSave}
                                         />
-                                    </View>
+                                    </>
                                 }>
-                                <View style={styles.connectionGroup}>
-                                    {nameField}
-                                    {serverField}
-                                    <View
-                                        style={[
-                                            styles.inlineContainer,
-                                            styles.editInlineContainer,
-                                        ]}>
-                                        <View style={styles.clientNameField}>
-                                            {clientNameField}
-                                        </View>
-                                        <View style={styles.editPortField}>{portInput}</View>
-                                    </View>
-                                    {selectors}
-                                    {verificationFields}
+                                {nameField}
+                                {serverField}
+                                <View style={[styles.inlineContainer, styles.editInlineContainer]}>
+                                    <View style={styles.clientNameField}>{clientNameField}</View>
+                                    <View style={styles.editPortField}>{portInput}</View>
                                 </View>
-                            </ContentSection>
+                                {selectors}
+                                {verificationFields}
+                            </FormSection>
                             {children}
                         </View>
                     ) : (
@@ -486,20 +482,19 @@ const styles = StyleSheet.create({
     displayContainer: { paddingHorizontal: 15, paddingTop: 5 },
     scrollContainer: { paddingHorizontal: 15, margin: 0 },
     settingsScroll: { flex: 1, paddingHorizontal: 0 },
-    settingsContentContainer: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 },
+    settingsContentContainer: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 16 },
     settingsContent: { width: "100%" },
-    connectionGroup: { gap: 16 },
     createContent: { gap: 14, paddingBottom: 16 },
-    intro: { gap: 4 },
+    intro: { gap: 8 },
     heading: { fontSize: 20, lineHeight: 28, fontWeight: "600" },
     description: { fontSize: 14, lineHeight: 20 },
     inlineContainer: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-    editInlineContainer: { rowGap: 16 },
+    editInlineContainer: { rowGap: 24 },
     inlineField: { flexGrow: 1, flexBasis: 150 },
     clientNameField: { flexGrow: 2, flexBasis: 200 },
     editPortField: { flexGrow: 1, flexBasis: 96 },
     portField: { maxWidth: 260, width: "100%" },
     authSection: { gap: 16 },
+    editAuthSection: { gap: 24 },
     createAuthSection: { paddingTop: 8 },
-    actions: { gap: 12 },
 });
