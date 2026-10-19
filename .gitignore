@@ -40,3 +40,5 @@ pnpm-debug.log*
 !.claude/skills/**
 
 graphify-out
+.impeccable/*
+!.impeccable/config.json
