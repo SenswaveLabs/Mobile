@@ -198,7 +198,7 @@ test("editing sends only changed fields and uses the last save as its baseline",
 
 function mountRoute(
     file,
-    { current = home, post, patch, remove, get, initialize, setCurrent } = {},
+    { current = home, post, patch, remove, get, initialize, setCurrent, refreshRooms } = {},
 ) {
     const navigation = [];
     const requests = [];
@@ -213,6 +213,9 @@ function mountRoute(
         modules: {
             "@/components/home/HomeForm": "HomeForm",
             "@/components/homeSharing/HomeSharingList": "HomeSharingList",
+            "@/components/common/ContentSection": "ContentSection",
+            "@/components/common/ListRow": "ListRow",
+            "@/components/common/Button": "Button",
             "@/components/common/ConfirmDialog": "ConfirmDialog",
             "@rn-primitives/portal": { PortalHost: "PortalHost" },
             "@/components/ui/alert-dialog": Object.fromEntries(
@@ -236,6 +239,7 @@ function mountRoute(
                 useHomes: () => ({
                     current,
                     loading: false,
+                    refreshRooms: refreshRooms || (async () => true),
                     initializeCurrentHome: initialize || (async () => true),
                     setCurrent: setCurrent || (async () => true),
                     refreshCurrent: async () => {},
@@ -402,6 +406,72 @@ test("owner and member details expose only their applicable destructive action",
     assert.ok(!member.elements().some((node) => /delete home/i.test(node.props?.name)));
     assert.equal(owner.form().props.readOnly, false);
     assert.equal(member.form().props.readOnly, true);
+});
+
+test("home details puts rooms before owner settings and gates room management by permission", () => {
+    const manager = mountRoute("src/app/(app)/home/details.tsx", {
+        current: {
+            ...home,
+            isOwner: true,
+            canManage: true,
+            rooms: [{ id: "room-1", name: "Kitchen" }],
+        },
+    });
+    const section = manager
+        .elements()
+        .find((node) => node.type === "ContentSection" && node.props.title === "Rooms");
+    assert.ok(section);
+    assert.ok(
+        manager.elements().some((node) => node.type === "Button" && node.props.name === "Add room"),
+    );
+    assert.ok(
+        manager
+            .elements()
+            .some((node) => node.type === "ListRow" && node.props.title === "Kitchen"),
+    );
+    const roomIndex = manager.elements().indexOf(section);
+    const dataSourceIndex = manager
+        .elements()
+        .findIndex((node) => node.type === "ContentSection" && node.props.title === "Data source");
+    assert.ok(roomIndex < dataSourceIndex, "Rooms precede owner-only settings");
+
+    const display = mountRoute("src/app/(app)/home/details.tsx", {
+        current: {
+            ...home,
+            isOwner: false,
+            canManage: false,
+            rooms: [{ id: "room-1", name: "Kitchen" }],
+        },
+    });
+    assert.ok(
+        display
+            .elements()
+            .some((node) => node.type === "ListRow" && node.props.title === "Kitchen"),
+    );
+    assert.ok(
+        !display
+            .elements()
+            .some((node) => node.type === "Button" && node.props.name === "Add room"),
+    );
+    assert.ok(
+        !display
+            .elements()
+            .some((node) => node.type === "ContentSection" && node.props.title === "Data source"),
+    );
+});
+
+test("room load failure stays local, offers retry and retains cached rows", async () => {
+    const route = mountRoute("src/app/(app)/home/details.tsx", {
+        current: { ...home, rooms: [{ id: "room-1", name: "Kitchen" }] },
+        refreshRooms: async () => false,
+    });
+    await settle();
+    route.render();
+    assert.ok(route.elements().some((node) => node.type === "Alert"));
+    assert.ok(
+        route.elements().some((node) => node.type === "ListRow" && node.props.title === "Kitchen"),
+    );
+    assert.ok(route.elements().some((node) => /retry loading rooms/i.test(node.props?.name)));
 });
 
 test("cancelling home removal closes AlertDialog without sending a request", () => {
@@ -616,6 +686,83 @@ test("initialization discards a removed home but preserves a different current s
     assert.equal(await pending, true);
     provider.render();
     assert.equal(context().current.id, "home-3");
+});
+
+test("room refresh preserves cache and ignores stale same-home and former-home responses", async () => {
+    const roomRequests = [];
+    let failRooms = false;
+    const provider = mountNativeComponent("src/contexts/domain/HomeProvider.tsx", {
+        exportName: "HomeProvider",
+        modules: {
+            "../HttpClientProvider": {
+                useHttpClient: () => ({
+                    get: async (path) => {
+                        if (path === "v1/homes/current")
+                            return { isSuccess: false, statusCode: 404 };
+                        if (path.endsWith("/rooms/display")) {
+                            if (failRooms) return { isSuccess: false, statusCode: 500 };
+                            return new Promise((resolve) => roomRequests.push(resolve));
+                        }
+                        const id = path.split("/")[2];
+                        return {
+                            isSuccess: true,
+                            response: { json: async () => ({ id, rooms: [] }) },
+                        };
+                    },
+                }),
+            },
+            "../ToastProvider": { useToast: () => ({ info() {}, httpError() {}, error() {} }) },
+            "@/utils/location": { getCurrentLocation: async () => null },
+        },
+    });
+    const context = () => provider.elements()[0].props.value;
+    await context().setCurrent("home-1");
+    provider.render();
+    const initialRefresh = context().refreshRooms();
+    roomRequests[0]({
+        isSuccess: true,
+        response: { json: async () => ({ items: [{ id: "room-1", name: "Kitchen" }] }) },
+    });
+    await initialRefresh;
+    await new Promise(setImmediate);
+    provider.render();
+    assert.equal(context().current.rooms[0].id, "room-1");
+
+    const olderSameHome = context().refreshRooms({ silent: true });
+    await new Promise(setImmediate);
+    const newerSameHome = context().refreshRooms({ silent: true });
+    await new Promise(setImmediate);
+    roomRequests[2]({
+        isSuccess: true,
+        response: { json: async () => ({ items: [{ id: "new-room", name: "Office" }] }) },
+    });
+    await newerSameHome;
+    roomRequests[1]({
+        isSuccess: true,
+        response: { json: async () => ({ items: [{ id: "stale-room", name: "Old" }] }) },
+    });
+    await olderSameHome;
+    provider.render();
+    assert.equal(context().current.rooms[0].id, "new-room");
+
+    failRooms = true;
+    assert.equal(await context().refreshRooms({ silent: true }), false);
+    provider.render();
+    assert.equal(context().current.rooms[0].id, "new-room", "Failure must retain cached rooms");
+
+    failRooms = false;
+    const stale = context().refreshRooms({ silent: true });
+    await new Promise(setImmediate);
+    await context().setCurrent("home-2");
+    provider.render();
+    roomRequests[3]({
+        isSuccess: true,
+        response: { json: async () => ({ items: [{ id: "old-room", name: "Old" }] }) },
+    });
+    await stale;
+    provider.render();
+    assert.equal(context().current.id, "home-2");
+    assert.deepEqual(context().current.rooms, []);
 });
 
 function mountSharings({ get, remove, row = false, current = home, disabled = false } = {}) {

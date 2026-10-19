@@ -1,4 +1,12 @@
-import React, { createContext, useState, useContext, ReactNode, FC, useEffect } from "react";
+import React, {
+    createContext,
+    useState,
+    useContext,
+    ReactNode,
+    FC,
+    useEffect,
+    useRef,
+} from "react";
 import { useHttpClient } from "../HttpClientProvider";
 import { useToast } from "../ToastProvider";
 import { Home, Room } from "@/types/HomeTypes";
@@ -10,12 +18,16 @@ interface InitializeHomeOptions {
     removedHomeId?: string;
 }
 
+interface RefreshRoomsOptions {
+    silent?: boolean;
+}
+
 interface HomesContextProps {
     loading: boolean;
     current: Home | undefined;
     setCurrent: (homeId: string) => Promise<boolean>;
     refreshCurrent: () => Promise<void>;
-    refreshRooms: () => Promise<void>;
+    refreshRooms: (options?: RefreshRoomsOptions) => Promise<boolean>;
     initializeCurrentHome: (options?: InitializeHomeOptions) => Promise<boolean>;
     updateHomeDataSourceState: (dataSourceId: string, state: string) => Promise<void>;
 }
@@ -29,6 +41,7 @@ const HomesContext = createContext<HomesContextProps>({
     },
     refreshRooms: async () => {
         console.error("[HomesContext] Not initialized.");
+        return false;
     },
     initializeCurrentHome: async () => {
         console.error("[HomesContext] Not initialized.");
@@ -49,6 +62,7 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const httpClient = useHttpClient();
     const [loading, setLoading] = useState<boolean>(true);
     const [currentHome, setCurrentHome] = useState<Home | undefined>(undefined);
+    const roomsRequest = useRef(0);
 
     const setCurrent = async (homeId: string) => {
         const response = await httpClient.get(`v1/homes/${homeId}`);
@@ -65,33 +79,36 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
         }
     };
 
-    const refreshRooms = async () => {
+    const refreshRooms = async ({ silent = false }: RefreshRoomsOptions = {}) => {
         console.info("[HomesProvider] Triggering rooms refresh.");
 
-        if (!currentHome?.id) {
+        const homeId = currentHome?.id;
+        if (!homeId) {
             console.debug("[Rooms View] No home selected.");
-            return;
+            return false;
         }
 
-        const result = await httpClient.get(`v1/homes/${currentHome?.id}/rooms/display`);
-
-        if (result.isSuccess) {
-            const rooms = (await result.response!.json()) as ListResponse<Room>;
-
-            setCurrentHome((prev) => ({
-                ...prev!,
-                rooms: rooms.items || [],
-            }));
-
-            console.debug("[Rooms View] Rooms refreshed.");
-        } else if (result.statusCode === 404) {
-            console.debug("[Rooms View] No rooms found.");
-            setCurrentHome((prev) => ({
-                ...prev!,
-                rooms: [],
-            }));
-        } else {
-            toast.httpError(result);
+        const requestId = ++roomsRequest.current;
+        try {
+            const result = await httpClient.get(`v1/homes/${homeId}/rooms/display`);
+            const rooms = result.isSuccess
+                ? ((await result.response!.json()) as ListResponse<Room>).items || []
+                : result.statusCode === 404
+                  ? []
+                  : undefined;
+            if (rooms === undefined) {
+                if (!silent && requestId === roomsRequest.current) toast.httpError(result);
+                return false;
+            }
+            if (requestId !== roomsRequest.current) return false;
+            setCurrentHome((previous) =>
+                previous?.id === homeId ? { ...previous, rooms } : previous,
+            );
+            return true;
+        } catch {
+            if (!silent && requestId === roomsRequest.current)
+                toast.error("Couldn't load rooms. Try again.");
+            return false;
         }
     };
 

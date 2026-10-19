@@ -41,6 +41,7 @@ export interface BottomSheetSelectProps {
     renderOptions?: (close: () => boolean) => React.ReactNode;
     initialFocusRef?: React.RefObject<View | null>;
     disabled?: boolean;
+    onClosed?: () => void;
 }
 
 const focusNativeElement = (element: View | Text | null) => {
@@ -57,6 +58,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
     renderOptions,
     initialFocusRef,
     disabled = false,
+    onClosed,
 }) => {
     const { colors } = useTheme().current;
     const insets = useSafeAreaInsets();
@@ -91,7 +93,10 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
         progress.value = 0;
         setVisible(true);
     };
-    const finishClose = () => setVisible(false);
+    const finishClose = () => {
+        setVisible(false);
+        onClosed?.();
+    };
     const focusSelection = () =>
         focusNativeElement(
             initialFocusRef?.current ?? selectedOptionRef.current ?? titleRef.current,

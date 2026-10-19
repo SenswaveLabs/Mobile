@@ -51,6 +51,10 @@ const DetailsPage: FC = () => {
     const [sourceLoading, setSourceLoading] = useState(false);
     const [dataSource, setDataSource] = useState<DataSourceDto>();
     const [sourceReload, setSourceReload] = useState(0);
+    const [roomsLoading, setRoomsLoading] = useState(false);
+    const [roomsError, setRoomsError] = useState("");
+    const [roomsReload, setRoomsReload] = useState(0);
+    const roomsRequest = useRef(0);
     const [unlinked, setUnlinked] = useState(false);
     const pending = useRef(false);
     const active = useRef(true);
@@ -60,10 +64,29 @@ const DetailsPage: FC = () => {
         useCallback(() => {
             active.current = true;
             if (!home && !homes.loading && !pending.current) router.replace("/home/list");
+            if (home) {
+                const homeId = home.id;
+                const requestId = ++roomsRequest.current;
+                setRoomsLoading(true);
+                setRoomsError("");
+                void homes.refreshRooms({ silent: true }).then((success) => {
+                    if (
+                        !active.current ||
+                        requestId !== roomsRequest.current ||
+                        homes.current?.id !== homeId
+                    )
+                        return;
+                    if (!success) setRoomsError("Couldn't load rooms. Try again.");
+                    setRoomsLoading(false);
+                });
+            }
             return () => {
                 active.current = false;
+                roomsRequest.current += 1;
             };
-        }, [home, homes.loading, router]),
+            // refresh on focus; HomeProvider method identity changes on renders.
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [home?.id, homes.loading, router, roomsReload]),
     );
 
     useEffect(() => {
@@ -280,6 +303,78 @@ const DetailsPage: FC = () => {
                     initName={home.name}
                     initLatitude={home.location?.latitude}
                     initLongitude={home.location?.longitude}>
+                    <ContentSection
+                        title="Rooms"
+                        helper="Organize devices by room."
+                        separated
+                        actions={
+                            canManage ? (
+                                <Button
+                                    name="Add room"
+                                    type="brand-outline"
+                                    loading={false}
+                                    disabled={!!busy}
+                                    onPress={() => {
+                                        if (!busy && !pending.current)
+                                            router.push({ pathname: "home/room/add" });
+                                    }}
+                                />
+                            ) : undefined
+                        }>
+                        {roomsLoading && (
+                            <View
+                                style={styles.roomsState}
+                                accessibilityRole="progressbar"
+                                accessibilityLabel="Loading rooms"
+                                accessibilityState={{ busy: true }}>
+                                <ActivityIndicator accessible={false} color={colors.authMuted} />
+                                <Text style={[styles.description, { color: colors.authMuted }]}>
+                                    Loading rooms…
+                                </Text>
+                            </View>
+                        )}
+                        {!!roomsError && (
+                            <>
+                                <Alert
+                                    icon={CircleAlert}
+                                    variant="destructive"
+                                    accessibilityRole="alert"
+                                    accessibilityLiveRegion="polite">
+                                    <AlertDescription>{roomsError}</AlertDescription>
+                                </Alert>
+                                <Button
+                                    name="Retry loading rooms"
+                                    type="brand-outline"
+                                    loading={roomsLoading}
+                                    disabled={!!busy}
+                                    onPress={() => setRoomsReload((value) => value + 1)}
+                                />
+                            </>
+                        )}
+                        {(home.rooms ?? []).length === 0 && !roomsLoading && !roomsError ? (
+                            <Text style={[styles.description, { color: colors.authMuted }]}>
+                                No rooms yet.
+                            </Text>
+                        ) : (
+                            (home.rooms ?? []).map((room, index, rooms) => (
+                                <ListRow
+                                    key={room.id}
+                                    title={room.name}
+                                    separator={index < rooms.length - 1}
+                                    onPress={
+                                        canManage
+                                            ? () =>
+                                                  router.push({
+                                                      pathname: "home/room/details",
+                                                      params: { id: room.id },
+                                                  })
+                                            : undefined
+                                    }
+                                    accessibilityLabel={canManage ? `Edit ${room.name}` : room.name}
+                                />
+                            ))
+                        )}
+                    </ContentSection>
                     {home.isOwner && (
                         <>
                             <ContentSection
@@ -455,6 +550,7 @@ const styles = StyleSheet.create({
     description: { fontSize: 14, lineHeight: 20 },
     sourceContent: { gap: 16 },
     sourceLoading: { flexDirection: "row", alignItems: "center", gap: 12 },
+    roomsState: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 48 },
     sourceActions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
     sourceAction: { flexGrow: 1, flexBasis: 160, width: "auto" },
     unlinkAction: { borderColor: "transparent" },

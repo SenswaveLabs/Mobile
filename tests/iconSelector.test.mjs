@@ -23,6 +23,7 @@ function mountSelector(props = {}) {
         modules: {
             "./Icon": { __esModule: true, default: "Icon", AllIcons: globalIcons },
             "./SenswaveModal": "SenswaveModal",
+            "./BottomSheetSelect": "BottomSheetSelect",
         },
     });
 }
