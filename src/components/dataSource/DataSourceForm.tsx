@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     displayContainer: { paddingHorizontal: 15, paddingTop: 5 },
     scrollContainer: { paddingHorizontal: 15, margin: 0 },
     settingsScroll: { flex: 1, paddingHorizontal: 0 },
-    settingsContentContainer: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 },
+    settingsContentContainer: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 16 },
     settingsContent: { width: "100%" },
     createContent: { gap: 14, paddingBottom: 16 },
     intro: { gap: 8 },
