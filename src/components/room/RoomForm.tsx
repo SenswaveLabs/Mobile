@@ -1,142 +1,183 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from "react";
-import { View, StyleSheet } from "react-native";
-import Input from "../common/Input";
-import RoomTile from "./tiles/RoomTile";
-import Divider from "../common/Divider";
+import React, { FC, ReactNode, useCallback, useRef, useState } from "react";
+import { StyleSheet, TextInput, View } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { CircleAlert } from "lucide-react-native";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Text } from "@/components/ui/text";
+import { useTheme } from "@/contexts/ThemeProvider";
 import { keyboardOffset } from "@/styles/defaultStyles";
+import Button from "../common/Button";
+import FormSection from "../common/FormSection";
+import Input from "../common/Input";
 
-export interface RoomFormHandle {
-    isDirty: boolean;
-    isValid: boolean;
-    triggerSave: () => void;
-    triggerReset: () => void;
+export interface RoomFormValues {
+    name: string;
 }
 
 interface RoomFormProps {
+    homeName: string;
     initName?: string;
-
-    onSubmit: (values: any) => Promise<void>;
-    onDirtyChange?: (dirty: boolean) => void;
-    onValidChange?: (valid: boolean) => void;
+    onSubmit: (values: RoomFormValues) => Promise<void>;
     edit?: boolean;
+    disabled?: boolean;
+    children?: ReactNode;
 }
 
-const RoomForm = forwardRef<RoomFormHandle, RoomFormProps>(function RoomForm(
-    { initName, onSubmit, onDirtyChange, onValidChange, edit = false },
-    ref,
-) {
+const RoomForm: FC<RoomFormProps> = ({
+    homeName,
+    initName = "",
+    onSubmit,
+    edit = false,
+    disabled = false,
+    children,
+}) => {
+    const { colors } = useTheme().current;
+    const [name, setName] = useState(initName);
+    const [saved, setSaved] = useState(initName.trim());
+    const [nameError, setNameError] = useState("");
+    const [submitError, setSubmitError] = useState("");
     const [loading, setLoading] = useState(false);
-    const [name, setName] = useState<string>(initName ?? "");
-    const [nameError, setNameError] = useState<string>("");
+    const pending = useRef(false);
+    const active = useRef(true);
+    const nameInput = useRef<TextInput>(null);
+    const dirty = name.trim() !== saved;
 
-    const isValid = name.length >= 3 && name.length <= 64;
+    useFocusEffect(
+        useCallback(() => {
+            active.current = true;
+            return () => {
+                active.current = false;
+            };
+        }, []),
+    );
 
-    const isDirty = name !== (initName ?? "") || !edit;
-
-    const validateForm = (): boolean => {
-        let valid: boolean = true;
-
-        if (name === "") {
-            valid = false;
-            setNameError("");
-        } else if (name.length > 64) {
-            valid = false;
-            setNameError("Name is too long.");
-        } else if (name.length < 3) {
-            valid = false;
-            setNameError("Name is too short.");
-        } else {
-            setNameError("");
-        }
-
-        return valid;
-    };
-
-    const triggerSave = async () => {
-        if (loading) {
-            console.info("[RoomForm] Form is processing");
+    const submit = async () => {
+        if (pending.current || disabled || !active.current || (edit && !dirty)) return;
+        const value = name.trim();
+        if (value.length < 3 || value.length > 64) {
+            setNameError(
+                !value
+                    ? "Enter a room name."
+                    : value.length < 3
+                      ? "Use at least 3 characters."
+                      : "Use no more than 64 characters.",
+            );
+            nameInput.current?.focus();
             return;
         }
-
-        if (!validateForm()) {
-            console.info("[RoomForm] Form is invalid");
-            return;
-        }
-
+        pending.current = true;
         setLoading(true);
-
-        await onSubmit({ name });
-
-        setLoading(false);
+        setNameError("");
+        setSubmitError("");
+        try {
+            await onSubmit({ name: value });
+            setName(value);
+            setSaved(value);
+        } catch (error) {
+            if (active.current)
+                setSubmitError(
+                    error instanceof Error ? error.message : "Couldn't save this room. Try again.",
+                );
+        } finally {
+            pending.current = false;
+            setLoading(false);
+        }
     };
 
-    const triggerReset = () => {
-        setName(initName ?? "");
-    };
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useImperativeHandle(ref, () => ({ isDirty, isValid, triggerSave, triggerReset }), [
-        isDirty,
-        isValid,
-        loading,
-        name,
-    ]);
-
-    useEffect(() => {
-        onDirtyChange?.(isDirty);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isDirty]);
-
-    useEffect(() => {
-        onValidChange?.(isValid);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isValid]);
-
-    useEffect(() => {
-        validateForm();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [name]);
+    const field = (
+        <Input
+            title="Name"
+            placeholder="e.g. Living room"
+            value={name}
+            setValue={(value) => {
+                if (pending.current || disabled) return;
+                setName(value);
+                setNameError("");
+                setSubmitError("");
+            }}
+            error={nameError}
+            variant="auth"
+            inputRef={nameInput}
+            editable={!loading && !disabled}
+            returnKeyType="done"
+            onSubmitEditing={submit}
+        />
+    );
+    const actions = (
+        <>
+            {!!submitError && (
+                <Alert
+                    icon={CircleAlert}
+                    variant="destructive"
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite">
+                    <AlertDescription>{submitError}</AlertDescription>
+                </Alert>
+            )}
+            <Button
+                name={edit ? "Save changes" : "Create room"}
+                type="auth"
+                loading={loading}
+                disabled={disabled || (edit && !dirty)}
+                onPress={submit}
+            />
+        </>
+    );
 
     return (
-        <View style={styles.container}>
-            <View style={styles.displayContainer}>
-                <RoomTile id={""} name={name ?? ""} disableClicks={true} />
-            </View>
-
-            <Divider style={{ paddingHorizontal: 15 }} />
-
-            <KeyboardAwareScrollView
-                bottomOffset={keyboardOffset}
-                style={styles.scrollContainer}
-                contentContainerStyle={{ paddingBottom: edit ? 80 : 16 }}>
-                <Input
-                    error={nameError}
-                    value={name}
-                    title="Name"
-                    placeholder="Your home name"
-                    setValue={setName}
-                />
-            </KeyboardAwareScrollView>
-        </View>
+        <KeyboardAwareScrollView
+            bottomOffset={keyboardOffset}
+            keyboardShouldPersistTaps="handled"
+            style={styles.screen}
+            contentContainerStyle={[styles.content, edit && styles.editContent]}>
+            {edit ? (
+                <FormSection
+                    title="Room details"
+                    helper={`Update this room's name in “${homeName}”.`}
+                    actions={actions}>
+                    {field}
+                </FormSection>
+            ) : (
+                <>
+                    <View style={styles.fields}>
+                        <View style={styles.intro}>
+                            <Text
+                                accessibilityRole="header"
+                                style={[styles.title, { color: colors.authForeground }]}>
+                                Create a room
+                            </Text>
+                            <Text style={[styles.helper, { color: colors.authMuted }]}>
+                                Organize devices in “{homeName}” by room.
+                            </Text>
+                        </View>
+                        {field}
+                    </View>
+                    <View style={styles.actions}>{actions}</View>
+                </>
+            )}
+            {children}
+        </KeyboardAwareScrollView>
     );
-});
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 0,
-        margin: 0,
-        marginTop: 0,
-    },
-    displayContainer: {
-        paddingHorizontal: 15,
-        paddingTop: 5,
-    },
-    scrollContainer: {
-        paddingHorizontal: 15,
-        margin: 0,
-    },
-});
+};
 
 export default RoomForm;
+
+const styles = StyleSheet.create({
+    screen: { flex: 1 },
+    content: {
+        flexGrow: 1,
+        width: "100%",
+        maxWidth: 448,
+        alignSelf: "center",
+        paddingHorizontal: 24,
+        paddingTop: 24,
+        paddingBottom: 16,
+    },
+    editContent: { paddingHorizontal: 16 },
+    fields: { gap: 24 },
+    intro: { gap: 8 },
+    title: { fontSize: 30, lineHeight: 36, fontWeight: "600" },
+    helper: { fontSize: 16, lineHeight: 24 },
+    actions: { paddingTop: 32, gap: 12, marginTop: "auto" },
+});

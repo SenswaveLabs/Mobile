@@ -29,7 +29,7 @@ or rerun an expensive build for an unrelated documentation edit.
   pending location requests, first-home activation recovery, local source/access errors,
   successful saves completed after blur, accepted-create recovery after refocus,
   name errors preserved while changing icons or locations,
-  owner/member actions, unlink refresh failure, destructive confirmation locks
+  owner/member actions, empty-room Add permissions and save locks, room-loading recovery, unlink refresh failure, destructive confirmation locks
   and controlled AlertDialog cancellation without a deletion request,
   and recovery/invalidation after deletion or leaving, including late completion
   and a different current selection.
@@ -38,6 +38,7 @@ or rerun an expensive build for an unrelated documentation edit.
   late results after cancellation, load retry/timeout, failed native tile requests
   (including a misleading full-render event) and invalid native coordinates.
   These checks do not establish native rendering, keyboard or assistive-technology behavior.
+- Room creation and editing are included in `pnpm test:homes`. Checks execute the real form and route handlers for normalized name validation, keyboard/button submission locks, failed-save draft retention, saved baselines after blur, load retry, accepted-create recovery without duplicate writes, delete cancellation/failure and stale completion after changing rooms.
 - Data-source details and broker/subscription actions: run `pnpm test:data-sources`.
   It executes the real settings form, details route and overview panel handlers,
   covering failed-save draft retention, successful saved baseline without a Reset action, duplicate

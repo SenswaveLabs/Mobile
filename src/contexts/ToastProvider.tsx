@@ -8,7 +8,14 @@ import { isAuthSurface } from "@/components/auth/authTypes";
 
 const usesInlineFeedback = (pathname: string) =>
     isAuthSurface(pathname) ||
-    ["/home/list", "/home/join", "/home/add", "/home/details"].includes(pathname);
+    [
+        "/home/list",
+        "/home/join",
+        "/home/add",
+        "/home/details",
+        "/home/room/add",
+        "/home/room/details",
+    ].includes(pathname);
 
 interface ToastContextType {
     success: (message: string) => void;

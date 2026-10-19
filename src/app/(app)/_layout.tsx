@@ -107,14 +107,14 @@ function InternalLayout() {
             <Stack.Screen
                 name="home/room/add"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Add" titleSuffix="Room" />,
+                    header: () => <DefaultHeader titlePrefix="Rooms" variant="brand" />,
                 }}
             />
 
             <Stack.Screen
                 name="home/room/details"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Room" />,
+                    header: () => <DefaultHeader titlePrefix="Room" variant="brand" />,
                 }}
             />
 
