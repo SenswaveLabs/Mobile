@@ -36,6 +36,7 @@ Read the relevant guide before acting; do not load the whole guide for a small, 
 Material Design 3 guides UX and interaction; Senswave's shadcn-based product defines the visual language.
 Use `next-frontend/apps/web` as a brand reference; choose hierarchy and behavior for mobile tasks. Use React Native Reusables primitives for auth, home selection, creation and settings.
 App components use `FC` and interface props; copied React Native Reusables primitives keep upstream signatures.
+Editable details forms use `common/FormSection` for headings, field spacing and save actions.
 Native styling uses `StyleSheet.create()` and `useTheme()` colors; all screens share the themed background. React Native Reusables primitives use NativeWind and tokens derived from the same theme.
 Home location uses a native MapLibre picker with OpenStreetMap. See [Tooling](docs/agent-guide/tooling.md) for its development-client rebuild requirement.
 
