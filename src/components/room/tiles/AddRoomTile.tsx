@@ -4,17 +4,20 @@ import { useRouter } from "expo-router";
 import Icon from "@/components/common/Icon";
 import { shadowStyles } from "@/styles/shadowStyles";
 import { useTheme } from "@/contexts/ThemeProvider";
+import { useHomes } from "@/contexts/domain/HomeProvider";
 
 export default function AddRoomTile() {
     const router = useRouter();
     const theme = useTheme();
+    const home = useHomes().current;
+    if (!home?.isOwner && !home?.canManage) return null;
 
     const addRoom = () => {
         router.push("home/room/add");
     };
 
     return (
-        <Pressable onPress={addRoom}>
+        <Pressable onPress={addRoom} accessibilityRole="button" accessibilityLabel="Add room">
             <View
                 style={[
                     styles.room,
@@ -38,6 +41,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         marginHorizontal: 4,
         minWidth: 50,
-        minHeight: 30,
+        minHeight: 48,
     },
 });

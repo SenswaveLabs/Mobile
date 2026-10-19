@@ -25,6 +25,7 @@ function mountSelect({
     choices,
     platform = "android",
     deferAnimations = false,
+    onClosed,
 } = {}) {
     const animations = [];
     const options = choices ?? [
@@ -37,6 +38,7 @@ function mountSelect({
             value: "Required",
             options,
             disabled,
+            onClosed,
         },
         modules: {
             "react-native": {
@@ -256,6 +258,21 @@ test("restores accessibility focus to trigger after Android modal closes", () =>
     assert.equal(afterInteractions.length, scheduled + 1);
     afterInteractions.at(-1)();
     assert.equal(accessibilityFocus.at(-1).id, "trigger");
+});
+
+test("onClosed waits until the modal exit animation has finished", () => {
+    let closed = false;
+    const form = mountSelect({
+        deferAnimations: true,
+        onClosed: () => (closed = true),
+    });
+    const sheet = open(form);
+    sheet.props.onRequestClose();
+    assert.equal(closed, false);
+    form.animations.pop().callback(true);
+    form.render();
+    assert.equal(modal(form).props.visible, false);
+    assert.equal(closed, true);
 });
 
 test("focuses the header without a selected option and restores trigger after iOS dismissal", () => {

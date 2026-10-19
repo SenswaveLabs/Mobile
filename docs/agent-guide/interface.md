@@ -272,6 +272,9 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
   pressed feedback and the existing confirmation. Loading has a visible label and
   accessible busy state; errors stay beside the affected action and recovery keeps
   Retry available.
+- Rooms keep a compact Add action in the section header in empty and populated
+  states. Owners and managers use `ListRow` with named 48 dp Edit and Remove actions;
+  confirm removal and explain that devices become unassigned.
 - Local UI / form state: `useState`.
 - Data-source states share the native `DataSourceState` badge. Home settings place
   it beside the source name in a wrapping row. Match web labels and semantic tones:

@@ -1,13 +1,17 @@
 import ConfirmDialog from "@/components/common/ConfirmDialog";
-import FAB, { FABAction } from "@/components/common/FAB";
+import ContentSection from "@/components/common/ContentSection";
+import ListRow from "@/components/common/ListRow";
 import Loading from "@/components/common/Loading";
+import Button from "@/components/common/Button";
 import DeviceForm, { DeviceFormRef } from "@/components/device/DeviceForm";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Device, useDeviceList } from "@/contexts/custom/DeviceListProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useToast } from "@/contexts/ToastProvider";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
+import { CircleAlert } from "lucide-react-native";
 
 function Details() {
     const toast = useToast();
@@ -15,103 +19,134 @@ function Details() {
     const httpClient = useHttpClient();
     const { deviceId } = useLocalSearchParams();
     const formRef = useRef<DeviceFormRef>(null);
-    const [loading, setLoading] = useState(false);
-    const [device, setDevice] = useState<Device | undefined>(undefined);
+    const pending = useRef(false);
+    const active = useRef(true);
+    const openingManagement = useRef(false);
+    const [mutationPending, setMutationPending] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [device, setDevice] = useState<Device>();
+    const [loadedDeviceId, setLoadedDeviceId] = useState<string>();
+    const [failedDeviceId, setFailedDeviceId] = useState<string>();
+    const [loadAttempt, setLoadAttempt] = useState(0);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
     const devices = useDeviceList();
 
-    const editClicked = async (values: any) => {
-        const response = await httpClient.patch(`v1/devices/${deviceId}`, values);
-
-        if (response.isSuccess) {
-            setDevice((current) =>
-                current
-                    ? {
-                          ...current,
-                          icon: values.icon ?? current.icon,
-                          name: values.name ?? current.name,
-                      }
-                    : current,
-            );
-            toast.success("Device updated successfully.");
-            setHasChanges(false);
-            await devices.refresh();
-        } else {
-            toast.error("Failed to update device.");
-
-            const data = await response.response?.text();
-            console.error("[Dashboard Add] Error: " + data);
+    const editClicked = async (values: any): Promise<boolean> => {
+        if (pending.current || !active.current) return false;
+        pending.current = true;
+        setMutationPending(true);
+        try {
+            const response = await httpClient.patch(`v1/devices/${deviceId}`, values);
+            if (!response.isSuccess) throw new Error("Failed to update device. Try again.");
+            if (active.current) {
+                setDevice((current) =>
+                    current
+                        ? ({
+                              ...current,
+                              ...values,
+                              icon: values.icon ?? current.icon,
+                              name: values.name ?? current.name,
+                          } as Device)
+                        : current,
+                );
+                toast.success("Device updated successfully.");
+            }
+            try {
+                await devices.refresh();
+            } catch {
+                /* Device save already succeeded. */
+            }
+            return true;
+        } finally {
+            pending.current = false;
+            setMutationPending(false);
         }
     };
 
     const deleteDevice = async () => {
-        setLoading(true);
-
+        if (pending.current || !active.current) return;
+        pending.current = true;
+        setMutationPending(true);
         try {
             const response = await httpClient.delete(`v1/devices/${deviceId}`);
             if (response.isSuccess) {
                 toast.success("Device removed successfully.");
-                await devices.refresh();
-                router.back();
-            } else {
-                toast.httpError(response);
-            }
+                try {
+                    await devices.refresh();
+                } catch {
+                    /* Deletion already succeeded. */
+                }
+                if (active.current) router.back();
+            } else toast.httpError(response);
+        } catch {
+            if (active.current) toast.error("Failed to remove device. Try again.");
         } finally {
-            setLoading(false);
+            pending.current = false;
+            setMutationPending(false);
         }
     };
 
-    const deleteClicked = () => {
-        setShowDeleteDialog(true);
-    };
+    useFocusEffect(
+        useCallback(() => {
+            active.current = true;
+            openingManagement.current = false;
+            return () => {
+                active.current = false;
+            };
+        }, []),
+    );
 
-    const widgetClicked = () => {
-        router.push({ pathname: "device/widget/list" });
-    };
-
-    const fabActions: FABAction[] = [
-        ...(hasChanges
-            ? [
-                  {
-                      icon: "checkmark-outline",
-                      label: "Save",
-                      onPress: () => formRef.current?.save(),
-                  },
-                  {
-                      icon: "refresh-outline",
-                      label: "Reset",
-                      onPress: () => formRef.current?.reset(),
-                  },
-              ]
-            : []),
-        { icon: "construct-outline", label: "Operations & Widgets", onPress: widgetClicked },
-        { icon: "trash-outline", label: "Delete", onPress: deleteClicked },
-    ];
+    const requestedDeviceId = Array.isArray(deviceId) ? deviceId[0] : deviceId;
 
     useEffect(() => {
-        const getDevice = async () => {
+        let current = true;
+        const load = async () => {
             setLoading(true);
-
-            const response = await httpClient.get("v1/devices/" + deviceId);
-
-            if (response.isSuccess) {
-                const content = (await response.response?.json()) as Device;
-                setDevice(content);
-            } else {
-                toast.error("Failed to load device details.");
-                const content = await response.response?.text();
-                console.error("[Device Details] Error: " + content);
+            try {
+                const response = await httpClient.get(`v1/devices/${deviceId}`);
+                if (!response.isSuccess || !response.response) throw new Error();
+                const content = (await response.response.json()) as Device;
+                if (current) {
+                    setDevice(content);
+                    setLoadedDeviceId(requestedDeviceId);
+                    setFailedDeviceId(undefined);
+                }
+            } catch {
+                if (current) setFailedDeviceId(requestedDeviceId);
+            } finally {
+                if (current) setLoading(false);
             }
-
-            setLoading(false);
         };
-
-        getDevice();
+        void load();
+        return () => {
+            current = false;
+        };
+        // Load when route id changes; the HTTP hook changes identity on renders.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [deviceId, loadAttempt]);
 
     if (loading) return <Loading />;
+    if (!device || loadedDeviceId !== requestedDeviceId) {
+        if (failedDeviceId !== requestedDeviceId) return <Loading />;
+        return (
+            <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 16 }}>
+                <Alert
+                    icon={CircleAlert}
+                    variant="destructive"
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite">
+                    <AlertDescription>Failed to load device details.</AlertDescription>
+                </Alert>
+                <Button
+                    name="Retry"
+                    type="auth"
+                    loading={false}
+                    onPress={() => setLoadAttempt((attempt) => attempt + 1)}
+                />
+            </View>
+        );
+    }
 
     return (
         <View style={{ flex: 1 }}>
@@ -122,27 +157,47 @@ function Details() {
                 confirmLabel="Delete"
                 onConfirm={() => {
                     setShowDeleteDialog(false);
-                    deleteDevice();
+                    void deleteDevice();
                 }}
                 onCancel={() => setShowDeleteDialog(false)}
             />
             <DeviceForm
                 ref={formRef}
                 deviceId={deviceId as string}
-                edit={true}
+                edit
                 onSubmit={editClicked}
                 onHasChanges={setHasChanges}
-                initName={device?.name}
-                initIcon={device?.icon}
-                initRoomId={device?.roomId ?? undefined}
-                initTileType={device?.tile.type}
-                initTileOperationId={device?.tile.operationId}
-                initTileDisplayableOperationId={device?.tile.displayableOperationId}
-                initTileUnit={device?.tile.configuration?.unit}
-                initPresenceType={device?.presence?.type}
-                initPresenceOperationId={device?.presence?.operationId}
+                initName={device.name}
+                initIcon={device.icon}
+                initRoomId={device.roomId ?? undefined}
+                initTileType={device.tile.type}
+                initTileOperationId={device.tile.operationId}
+                initTileDisplayableOperationId={device.tile.displayableOperationId}
+                initTileUnit={device.tile.configuration?.unit}
+                initPresenceType={device.presence?.type}
+                initPresenceOperationId={device.presence?.operationId}
             />
-            <FAB actions={fabActions} forceExpanded={hasChanges} />
+            <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+                <ContentSection title="Operations & Widgets" separated>
+                    <ListRow
+                        title="Manage operations and widgets"
+                        description="Configure device functions and dashboard controls."
+                        onPress={() => {
+                            if (pending.current || hasChanges || openingManagement.current) return;
+                            openingManagement.current = true;
+                            router.push({ pathname: "device/widget/list" });
+                        }}
+                        disabled={mutationPending || hasChanges}
+                    />
+                </ContentSection>
+                <Button
+                    name="Delete device"
+                    type="brand-destructive"
+                    loading={false}
+                    disabled={mutationPending || hasChanges}
+                    onPress={() => setShowDeleteDialog(true)}
+                />
+            </View>
         </View>
     );
 }

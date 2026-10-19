@@ -1,5 +1,5 @@
 import React, { FC, useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text as NativeText, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text as NativeText, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { CircleAlert, Plus } from "lucide-react-native";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
@@ -10,6 +10,7 @@ import { ListResponse } from "@/utils/httpClient";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Button from "@/components/common/Button";
 import ContentSection from "@/components/common/ContentSection";
+import SectionHeaderAction from "@/components/common/SectionHeaderAction";
 import HomeSharingListItem from "./HomeSharingListItem";
 
 interface HomeSharingListProps {
@@ -74,20 +75,14 @@ const HomeSharingList: FC<HomeSharingListProps> = ({ disabled = false }) => {
             separated
             headerAction={
                 sharings.length > 0 && (
-                    <Pressable
-                        cssInterop={false}
-                        accessibilityRole="button"
+                    <SectionHeaderAction
+                        label="Invite"
                         accessibilityLabel="Invite someone"
-                        accessibilityState={{ disabled: inviteDisabled, busy: disabled && isOwner }}
+                        icon={<Plus size={18} color={colors.authForeground} accessible={false} />}
                         disabled={inviteDisabled}
+                        busy={disabled && isOwner}
                         onPress={invite}
-                        android_ripple={{ color: colors.authBorder }}
-                        style={({ pressed }) => [styles.inviteAction, pressed && styles.pressed]}>
-                        <Plus size={18} color={colors.authForeground} accessible={false} />
-                        <NativeText style={[styles.inviteLabel, { color: colors.authForeground }]}>
-                            Invite
-                        </NativeText>
-                    </Pressable>
+                    />
                 )
             }
             actions={
@@ -159,18 +154,6 @@ export default HomeSharingList;
 const styles = StyleSheet.create({
     error: { gap: 16 },
     actionSlot: { minHeight: 72, justifyContent: "center" },
-    inviteAction: {
-        minWidth: 72,
-        minHeight: 48,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
-        paddingHorizontal: 8,
-        borderRadius: 8,
-    },
-    inviteLabel: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
-    pressed: { opacity: 0.72 },
     loading: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 12 },
     loadingText: { flex: 1, fontSize: 14, lineHeight: 20 },
     list: { gap: 0 },

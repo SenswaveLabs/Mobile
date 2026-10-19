@@ -123,6 +123,7 @@ test("Device details updates the saved icon baseline before list refresh, preser
             },
             "@/contexts/ToastProvider": { useToast: () => ({ success() {}, error() {} }) },
             "expo-router": {
+                useFocusEffect: (callback) => callback(),
                 useLocalSearchParams: () => ({ deviceId: "device" }),
                 useRouter: () => ({}),
             },
@@ -229,9 +230,10 @@ for (const config of resources) {
             form.render();
             await form.save();
             assert.equal(form.submissions[0].icon, config.key);
+            form.render();
             form.reset();
             form.render();
-            assert.equal(form.selector().props.defaultIcon, "retired-key");
+            assert.equal(form.selector().props.defaultIcon, config.key);
             await form.save();
             assert.equal(Object.hasOwn(form.submissions[1], "icon"), false);
         });
