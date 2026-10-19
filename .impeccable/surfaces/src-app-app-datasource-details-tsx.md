@@ -18,6 +18,8 @@ related_targets:
 
 Mode: Operate. Scope: the native Android Data Source details route and its Overview and Settings panels. Audience: DIY owners monitoring and configuring an MQTT broker. Existing broker contracts, credentials verification, topic subscriptions, linked start/add routes and permission behavior remain authoritative.
 
+Visual direction follows the current Homes Details, List, Create and Join implementations and the shared mobile UI policy.
+
 ## Direction contract
 
 THESIS: Understand broker health and take the next action immediately. Overview groups operation and topics; Settings gives configuration a focused, keyboard-aware page.
@@ -26,15 +28,15 @@ OWN-WORLD: Preserve Senswave's warm themed canvas, amber primary actions, native
 
 STORY: Identify the broker, read its actual connection state, start/stop/restart when permitted, then inspect or change subscriptions. Switch to Settings to edit connection parameters; Save is the sole primary action and Delete remains separate and confirmed. Recover from errors without losing the draft.
 
-FIRST VIEWPORT: Native Back header above the broker name and endpoint; real React Native Reusables underline tabs for Overview and Settings. Overview leads with broker identity and visible labeled client controls, followed by plain subscription rows on the same gutter and a compact Add action beside the heading. Settings shows an open Connection section with Save 16 dp below it in the same scroll content. Delete is a separate confirmed action 24 dp farther down.
+FIRST VIEWPORT: Native Back header; broker name and endpoint precede equal underline tabs in each panel's own scroll content. Let full identity wrap and scroll with the page. Overview shows the client controls then Subscriptions with plain `ListRow` topics and compact Add. Settings shows Connection and the broker fields. Both panels remain mounted. Do not keep a fixed identity above the scrollable content.
 
-FORM: Settings uses standard selected-value fields for TLS and MQTT version. Each opens a bottom-attached sliding selector with a named dismiss action and selected option. TLS stays boolean and MQTT stays its opaque `MqttVersion` through submission. Topics remain selectable and wrap; each remove icon keeps a named 48 dp target. Native pressed states; no decorative motion. Narrow screens and large text wrap controls and data; constrain the content measure on wider screens. Both themes follow app settings.
+FORM: Preserve full-width Name and Server, then a wrapping 2:1 Client name/Port row and equal TLS/MQTT selected-value fields. Each opens the existing bottom-attached selector; TLS stays boolean and MQTT stays its opaque `MqttVersion` through submission. Save is full width inside Connection. Delete uses a separated `ContentSection`, a full-width 72 dp action slot and an error beside its action; confirmation is unchanged and its text scrolls within a 90%-height dialog while actions stay reachable. Keep edit-only changes out of DataSource creation. Topics remain selectable and wrap; each remove icon keeps a named 48 dp target. Native pressed states; no decorative motion. Narrow screens and large text wrap controls and data; constrain the content measure on wider screens. Both themes follow app settings.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 
 ## Verification and boundaries
 
-Use existing native component harness for meaningful save, duplicate-action, retry, client-state, selector and deletion checks. Run typecheck, lint and test:poc; run affected source checks and existing shared form caller checks. Capture native phone light/dark and large text when the installed development client permits it. The Tabs primitive uses exact `@rn-primitives/tabs@1.5.2`; no backend contract changes, invented session metrics or production releases. Existing missing global DESIGN.md is pre-existing documentation drift; this local screen redesign preserves the product's established visual system.
+Use existing native component harness for meaningful save, duplicate-action, retry, client-state, selector and deletion checks. Run typecheck, lint and test:poc; run affected source checks and existing shared form caller checks. The user explicitly skipped dark and zoom/font-scale checks; keep them outside this task's acceptance. The Tabs primitive uses exact `@rn-primitives/tabs@1.5.2`; no backend contract changes, invented session metrics or production releases. Existing missing global DESIGN.md is pre-existing documentation drift; this local screen redesign preserves the product's established visual system.
 
 ## Delivery evidence
 
@@ -87,3 +89,11 @@ Current evidence is saved outside the repository in `/tmp/senswave-polish-202610
 The shared row previously drew a bottom separator by default, including after the final Other homes item. `ListRow` and its tile wrappers now default to no separator. Each owning list enables the rule only when another sibling follows; widget lists calculate this within each group. Single-item lists and operation group headers have no rule. The selected Home's amber outline remains independent of list separators.
 
 Sol 6.1 reviewed every shared-row owner and found no boundary misses. Fresh `pnpm typecheck`, `pnpm lint` and `git diff --check` passed on Node 26.10.0. The unchanged Android emulator confirmed one line between the two Other homes rows and none after the final row, with the selected Home outline retained. Current evidence is `separator-homes-confirmed.png` and matching XML in `/tmp/senswave-polish-20261018`; earlier Homes captures retain the superseded closing rule. Other lists received source review only, and test suites were not rerun for this presentation-only adjustment. No display settings or server data changed.
+
+### User-directed redesign — 2026-10-19
+
+This revision uses fetched `origin/next-dev` base `d45709cac3ec1448da19095f3e23250077260bdd` and the user's approved Data Source Details design direction.
+
+Luna 6 moved broker identity and flexible underline tabs into each retained panel's existing scroll, preserving the shared Tabs context and form draft. Settings reuses the existing keyboard-aware scroll, Connection/Delete `ContentSection` spacing and Home destructive-action treatment. Delete feedback sits beside its action; the confirmation text scrolls inside a bounded dialog. Creation, API payloads, credentials, request guards and navigation keep their existing behavior.
+
+Sol 6.1 reviewed the complete source diff and connected callers/components/tests; no material defects remained. `pnpm typecheck`, `pnpm lint`, `pnpm test:poc` (30/30), `pnpm test:data-sources` (24/24) and `git diff --check` passed. The final flexible-height/dead-style cleanup passed typecheck/lint; behavior suites were not repeated for those presentation-only edits. Dark and zoom/font-scale checks were skipped at the user's direction.

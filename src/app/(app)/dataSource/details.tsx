@@ -84,6 +84,49 @@ const DetailsPage: FC = () => {
         if (active.current) setDataSource(updated);
     };
 
+    const detailsHeader = dataSource && (
+        <View style={styles.detailsHeader}>
+            <View style={styles.identity}>
+                <Text
+                    accessibilityRole="header"
+                    style={[styles.name, { color: colors.authForeground }]}
+                    selectable>
+                    {dataSource.name}
+                </Text>
+                <Text selectable style={[styles.endpoint, { color: colors.authMuted }]}>
+                    {dataSource.url}:{dataSource.port}
+                </Text>
+            </View>
+            <TabsList
+                className="h-auto min-h-12 w-full flex-row items-stretch justify-start rounded-none bg-transparent p-0"
+                style={styles.tabsList}>
+                {(["Overview", "Settings"] as const).map((item) => (
+                    <TabsTrigger
+                        key={item}
+                        value={item}
+                        accessibilityLabel={item}
+                        className="h-auto min-h-12 flex-1 rounded-none border-0 bg-transparent px-0 py-0 shadow-none active:opacity-70"
+                        android_ripple={{ color: colors.authBorder }}
+                        style={[
+                            styles.tabTrigger,
+                            tab === item && {
+                                borderBottomWidth: 2,
+                                borderBottomColor: colors.authForeground,
+                            },
+                        ]}>
+                        <Text
+                            style={[
+                                styles.tabLabel,
+                                { color: tab === item ? colors.authForeground : colors.authMuted },
+                            ]}>
+                            {item}
+                        </Text>
+                    </TabsTrigger>
+                ))}
+            </TabsList>
+        </View>
+    );
+
     if (loading) {
         return (
             <View style={[styles.stateContainer, { backgroundColor: colors.background }]}>
@@ -126,39 +169,6 @@ const DetailsPage: FC = () => {
                     value={tab}
                     onValueChange={(value) => setTab(value as DetailsTab)}
                     style={styles.tabsRoot}>
-                    <TabsList
-                        className="h-auto min-h-12 w-full flex-row items-stretch justify-start rounded-none bg-transparent p-0"
-                        style={styles.tabsList}>
-                        {(["Overview", "Settings"] as const).map((item) => (
-                            <TabsTrigger
-                                key={item}
-                                value={item}
-                                accessibilityLabel={item}
-                                className="h-12 min-h-12 flex-1 rounded-none border-0 bg-transparent px-0 py-0 shadow-none active:opacity-70"
-                                android_ripple={{ color: colors.authBorder }}
-                                style={[
-                                    styles.tabTrigger,
-                                    tab === item && {
-                                        borderBottomWidth: 2,
-                                        borderBottomColor: colors.authForeground,
-                                    },
-                                ]}>
-                                <Text
-                                    style={[
-                                        styles.tabLabel,
-                                        {
-                                            color:
-                                                tab === item
-                                                    ? colors.authForeground
-                                                    : colors.authMuted,
-                                        },
-                                    ]}>
-                                    {item}
-                                </Text>
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
-
                     <TabsContent
                         value="Overview"
                         forceMount
@@ -171,18 +181,7 @@ const DetailsPage: FC = () => {
                             style={styles.overviewScroll}
                             contentContainerStyle={styles.overviewContent}
                             keyboardShouldPersistTaps="handled">
-                            <View style={styles.sourceHeading}>
-                                <Text
-                                    accessibilityRole="header"
-                                    style={[styles.name, { color: colors.authForeground }]}>
-                                    {dataSource.name}
-                                </Text>
-                                <Text
-                                    selectable
-                                    style={[styles.endpoint, { color: colors.authMuted }]}>
-                                    {dataSource.url}:{dataSource.port}
-                                </Text>
-                            </View>
+                            {detailsHeader}
                             <BrokerClient id={dataSource.id} />
                             <BrokerSubscriptions id={dataSource.id} />
                         </ScrollView>
@@ -198,6 +197,7 @@ const DetailsPage: FC = () => {
                         }>
                         <DataSourceDetailsSection
                             dataSource={dataSource}
+                            header={detailsHeader}
                             onSaved={saved}
                             onDeleted={() => router.back()}
                         />
@@ -214,21 +214,23 @@ const styles = StyleSheet.create({
     screen: { flex: 1 },
     measure: { flex: 1, width: "100%", maxWidth: 448, alignSelf: "center" },
     tabsRoot: { flex: 1 },
+    detailsHeader: { gap: 16 },
+    identity: { gap: 2 },
     tabsList: {
         flexDirection: "row",
         alignItems: "stretch",
         justifyContent: "flex-start",
         minHeight: 48,
         gap: 24,
-        paddingHorizontal: 16,
+        paddingHorizontal: 0,
     },
     tabTrigger: {
         flex: 1,
         minHeight: 48,
         alignItems: "center",
         justifyContent: "center",
-        paddingHorizontal: 0,
-        paddingVertical: 0,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
         borderWidth: 0,
         borderRadius: 0,
         backgroundColor: "transparent",
@@ -239,7 +241,6 @@ const styles = StyleSheet.create({
     hidden: { display: "none" },
     overviewScroll: { flex: 1 },
     overviewContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 },
-    sourceHeading: { gap: 4 },
     name: { fontSize: 24, lineHeight: 32, fontWeight: "600", flexShrink: 1 },
     endpoint: { fontSize: 14, lineHeight: 20, flexShrink: 1 },
     stateContainer: {
