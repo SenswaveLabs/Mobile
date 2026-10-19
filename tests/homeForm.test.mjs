@@ -421,14 +421,29 @@ test("home details puts rooms before owner settings and gates room management by
         .elements()
         .find((node) => node.type === "ContentSection" && node.props.title === "Rooms");
     assert.ok(section);
-    assert.ok(
-        manager.elements().some((node) => node.type === "Button" && node.props.name === "Add room"),
-    );
+    const addAction = section.props.headerAction;
+    assert.equal(addAction.type.name, "SectionHeaderAction");
+    assert.equal(addAction.props.accessibilityLabel, "Add room");
+    assert.equal(addAction.props.label, "Add");
     assert.ok(
         manager
             .elements()
             .some((node) => node.type === "ListRow" && node.props.title === "Kitchen"),
     );
+    const kitchen = manager
+        .elements()
+        .find((node) => node.type === "ListRow" && node.props.title === "Kitchen");
+    const roomActions = manager
+        .elements(kitchen.props.trailing)
+        .filter((node) => node.type === "Pressable");
+    assert.deepEqual(
+        roomActions.map((node) => node.props.accessibilityLabel),
+        ["Edit Kitchen", "Remove Kitchen"],
+    );
+    roomActions[0].props.onPress();
+    assert.deepEqual(JSON.parse(JSON.stringify(manager.navigation)), [
+        { pathname: "home/room/details", params: { id: "room-1" } },
+    ]);
     const roomIndex = manager.elements().indexOf(section);
     const dataSourceIndex = manager
         .elements()
@@ -448,15 +463,314 @@ test("home details puts rooms before owner settings and gates room management by
             .elements()
             .some((node) => node.type === "ListRow" && node.props.title === "Kitchen"),
     );
-    assert.ok(
-        !display
+    assert.equal(
+        display
             .elements()
-            .some((node) => node.type === "Button" && node.props.name === "Add room"),
+            .find((node) => node.type === "ContentSection" && node.props.title === "Rooms").props
+            .headerAction,
+        undefined,
     );
     assert.ok(
         !display
             .elements()
             .some((node) => node.type === "ContentSection" && node.props.title === "Data source"),
+    );
+});
+
+test("rooms add action stays in section header when empty and respects parent busy state", async () => {
+    const route = mountRoute("src/app/(app)/home/details.tsx", { current: { ...home, rooms: [] } });
+    const section = () =>
+        route
+            .elements()
+            .find((node) => node.type === "ContentSection" && node.props.title === "Rooms");
+    const action = section().props.headerAction;
+    assert.equal(action.type.name, "SectionHeaderAction");
+    action.props.onPress();
+    assert.deepEqual(JSON.parse(JSON.stringify(route.navigation)), [{ pathname: "home/room/add" }]);
+
+    let finish;
+    const busy = mountRoute("src/app/(app)/home/details.tsx", {
+        patch: () => new Promise((resolve) => (finish = resolve)),
+        current: { ...home, rooms: [{ id: "room-1", name: "Kitchen" }] },
+    });
+    const saving = busy.form().props.onSubmit({ name: "Cabin" });
+    busy.render();
+    const busySection = busy
+        .elements()
+        .find((node) => node.type === "ContentSection" && node.props.title === "Rooms");
+    assert.equal(busySection.props.headerAction.props.disabled, true);
+    const row = busy
+        .elements()
+        .find((node) => node.type === "ListRow" && node.props.title === "Kitchen");
+    assert.equal(row.props.disabled, true);
+    busy.elements(row.props.trailing)
+        .find((node) => node.type === "Pressable")
+        .props.onPress();
+    assert.deepEqual(busy.navigation, []);
+    finish({ isSuccess: true, statusCode: 204, response: null });
+    await saving;
+});
+
+test("room removal requires confirmation, names unassigned devices, and cancel sends no request", () => {
+    const route = mountRoute("src/app/(app)/home/details.tsx", {
+        current: { ...home, rooms: [{ id: "room-1", name: "Kitchen" }] },
+    });
+    const remove = () =>
+        route.elements().find((node) => node.props?.accessibilityLabel === "Remove Kitchen");
+    remove().props.onPress();
+    route.render();
+    assert.match(route.text(), /Delete “Kitchen”\?/);
+    assert.match(route.text(), /devices will become unassigned/i);
+    const cancel = route.elements().find((node) => node.type === "AlertDialogCancel");
+    route
+        .elements(cancel)
+        .find((node) => node.type === "Button")
+        .props.onPress();
+    assert.deepEqual(route.requests, []);
+});
+
+test("rooms and populated Sharing use same compact section header action", async () => {
+    const sharing = mountSharings({
+        get: async () => ({
+            isSuccess: true,
+            statusCode: 200,
+            response: {
+                json: async () => ({
+                    items: [
+                        {
+                            sharingId: "sharing-1",
+                            friendEmail: "friend@example.com",
+                            sharingType: "Manage",
+                        },
+                    ],
+                }),
+            },
+        }),
+    });
+    await settle();
+    sharing.render();
+    const invite = sharing
+        .elements()
+        .find((node) => node.props?.accessibilityLabel === "Invite someone");
+    assert.equal(invite.type.name, "SectionHeaderAction");
+});
+
+test("room deletion locks duplicates, preserves failures, and refresh recovery never repeats delete", async () => {
+    let deleteAttempts = 0;
+    let refreshAttempts = 0;
+    let finish;
+    const route = mountRoute("src/app/(app)/home/details.tsx", {
+        current: { ...home, rooms: [{ id: "room-1", name: "Kitchen" }] },
+        remove: () => {
+            deleteAttempts++;
+            if (deleteAttempts === 1) return { isSuccess: false, statusCode: 500, response: null };
+            return new Promise((resolve) => (finish = resolve));
+        },
+        refreshRooms: async () => ++refreshAttempts > 2,
+    });
+    const requestDelete = () => {
+        route
+            .elements()
+            .find((node) => node.props?.accessibilityLabel === "Remove Kitchen")
+            .props.onPress();
+        route.render();
+        return route.confirmRemoval();
+    };
+    requestDelete();
+    await settle();
+    route.render();
+    assert.match(route.text(), /Couldn't remove room/);
+    assert.equal(deleteAttempts, 1);
+
+    const pending = requestDelete();
+    const duplicate = route.confirmRemoval();
+    assert.equal(deleteAttempts, 2, "Synchronous guard blocks a second DELETE");
+    route.render();
+    const row = route
+        .elements()
+        .find((node) => node.type === "ListRow" && node.props.title === "Kitchen");
+    assert.equal(
+        route
+            .elements(row.props.trailing)
+            .find((node) => node.props?.accessibilityLabel === "Remove Kitchen").props.disabled,
+        true,
+    );
+    finish({ isSuccess: true, statusCode: 204, response: null });
+    await Promise.all([pending, duplicate]);
+    await settle();
+    route.render();
+    assert.match(route.text(), /was deleted, but rooms couldn't refresh/i);
+    const retry = route
+        .elements()
+        .find((node) => node.type === "Button" && node.props.name === "Retry room refresh");
+    await retry.props.onPress();
+    assert.equal(deleteAttempts, 2, "Recovery retries only the room refresh");
+    assert.equal(refreshAttempts, 3);
+});
+
+test("room delete and refresh locks clear after finishing while details are blurred", async () => {
+    let finishDelete;
+    const route = mountRoute("src/app/(app)/home/details.tsx", {
+        current: { ...home, rooms: [{ id: "room-1", name: "Kitchen" }] },
+        remove: () => new Promise((resolve) => (finishDelete = resolve)),
+        refreshRooms: async () => false,
+    });
+    route
+        .elements()
+        .find((node) => node.props?.accessibilityLabel === "Remove Kitchen")
+        .props.onPress();
+    route.render();
+    const deletion = route.confirmRemoval();
+    route.blur();
+    finishDelete({ isSuccess: true, statusCode: 204, response: null });
+    await deletion;
+    await settle();
+    route.refocus();
+    route.render();
+    const section = route
+        .elements()
+        .find((node) => node.type === "ContentSection" && node.props.title === "Rooms");
+    assert.equal(
+        section.props.headerAction.props.disabled,
+        false,
+        "Blurred completion must release room busy state",
+    );
+});
+
+test("room refresh retry releases its lock when it finishes while details are blurred", async () => {
+    let refreshAttempts = 0;
+    let finishRetry;
+    const route = mountRoute("src/app/(app)/home/details.tsx", {
+        current: { ...home, rooms: [{ id: "room-1", name: "Kitchen" }] },
+        refreshRooms: () => {
+            refreshAttempts++;
+            if (refreshAttempts === 1) return Promise.resolve(true);
+            if (refreshAttempts === 2) return Promise.resolve(false);
+            return new Promise((resolve) => (finishRetry = resolve));
+        },
+    });
+    route
+        .elements()
+        .find((node) => node.props?.accessibilityLabel === "Remove Kitchen")
+        .props.onPress();
+    route.render();
+    route.confirmRemoval();
+    await settle();
+    route.render();
+    const retry = route.elements().find((node) => node.props?.name === "Retry room refresh");
+    retry.props.onPress();
+    route.blur();
+    finishRetry(true);
+    await settle();
+    route.refocus();
+    await settle();
+    route.render();
+    const section = route
+        .elements()
+        .find((node) => node.type === "ContentSection" && node.props.title === "Rooms");
+    assert.equal(
+        section.props.headerAction.props.disabled,
+        false,
+        "Blurred retry completion must release room busy state",
+    );
+});
+
+test("accepted room refresh recovery blocks other deletes until refresh succeeds", async () => {
+    let deleteAttempts = 0;
+    let refreshAttempts = 0;
+    const route = mountRoute("src/app/(app)/home/details.tsx", {
+        current: {
+            ...home,
+            rooms: [
+                { id: "room-1", name: "Kitchen" },
+                { id: "room-2", name: "Office" },
+            ],
+        },
+        remove: async () => {
+            deleteAttempts++;
+            return { isSuccess: true, statusCode: 204, response: null };
+        },
+        refreshRooms: async () => {
+            refreshAttempts++;
+            return refreshAttempts === 1 || refreshAttempts >= 3;
+        },
+    });
+    const openRemoval = (name) => {
+        route
+            .elements()
+            .find((node) => node.props?.accessibilityLabel === `Remove ${name}`)
+            .props.onPress();
+        route.render();
+        assert.equal(
+            route.removalDialog().props.open,
+            true,
+            `Expected ${name} confirmation to open`,
+        );
+    };
+    const remove = (name) => {
+        openRemoval(name);
+        return route.confirmRemoval();
+    };
+    remove("Kitchen");
+    await settle();
+    route.render();
+    assert.ok(route.elements().some((node) => node.props?.name === "Retry room refresh"));
+    const removeOffice = route
+        .elements()
+        .find((node) => node.props?.accessibilityLabel === "Remove Office");
+    assert.equal(
+        removeOffice.props.disabled,
+        true,
+        "Other deletes stay disabled during accepted recovery",
+    );
+    assert.equal(removeOffice.props.accessibilityState.disabled, true);
+    removeOffice.props.onPress();
+    route.render();
+    assert.equal(
+        route.removalDialog().props.open,
+        false,
+        "Handler guard must reject a disabled room delete",
+    );
+    assert.equal(deleteAttempts, 1, "No later DELETE may hide unresolved accepted recovery");
+    assert.ok(
+        route.elements().some((node) => node.props?.name === "Retry room refresh"),
+        "The first accepted delete recovery remains visible",
+    );
+    assert.match(route.text(), /Kitchen.*deleted, but rooms couldn't refresh/i);
+    const retry = route.elements().find((node) => node.props?.name === "Retry room refresh");
+    await retry.props.onPress();
+    await settle();
+    route.render();
+    assert.equal(refreshAttempts, 3);
+    assert.ok(
+        !route.elements().some((node) => node.props?.name === "Retry room refresh"),
+        "Successful refresh clears accepted recovery",
+    );
+    remove("Office");
+    await settle();
+    assert.equal(deleteAttempts, 2, "Office may be deleted after successful refresh recovery");
+    assert.equal(refreshAttempts, 4);
+});
+
+test("room removal tracks its initiating focus target and suppresses home trigger while open", () => {
+    const route = mountRoute("src/app/(app)/home/details.tsx", {
+        current: { ...home, rooms: [{ id: "room-1", name: "Kitchen" }] },
+    });
+    const remove = route
+        .elements()
+        .find((node) => node.props?.accessibilityLabel === "Remove Kitchen");
+    assert.equal(
+        typeof remove.props.ref,
+        "function",
+        "Room action ref identifies the initiating button for focus restoration",
+    );
+    remove.props.onPress();
+    route.render();
+    const homeTrigger = route.elements().find((node) => node.type === "AlertDialogTrigger");
+    assert.equal(
+        homeTrigger,
+        undefined,
+        "The Delete home trigger must not steal room dialog focus",
     );
 });
 
