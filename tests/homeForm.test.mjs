@@ -693,11 +693,11 @@ test("sharing failures keep recovery visible and 404 renders an empty sharing st
     const empty = mountSharings();
     await settle();
     empty.render();
-    assert.match(empty.text(), /no one|not shared|no.*access/i);
+    assert.doesNotMatch(empty.text(), /no one|not shared|no.*access/i);
     assert.ok(empty.elements().some((node) => node.props?.accessibilityLabel === "Invite someone"));
 });
 
-test("empty sharing state puts an outlined Invite action below its message", async () => {
+test("empty sharing state omits redundant copy and puts outlined Invite in its 72 dp action slot", async () => {
     const get = async () => ({
         isSuccess: true,
         statusCode: 200,
@@ -711,10 +711,14 @@ test("empty sharing state puts an outlined Invite action below its message", asy
     owner.render();
     const ownerInvite = invite(owner);
     assert.match(owner.text(), /Sharing/);
+    assert.doesNotMatch(owner.text(), /no one|not shared|no.*access/i);
     assert.equal(ownerInvite.type, "Button");
     assert.equal(ownerInvite.props.name, "Invite");
     assert.equal(ownerInvite.props.type, "brand-outline");
-    assert.equal(ownerInvite.props.style.alignSelf, "flex-start");
+    assert.ok(
+        owner.elements().some((node) => node.type === "View" && node.props.style.minHeight === 72),
+        "The full-width Invite action stays in its 72 dp action slot",
+    );
     assert.equal(ownerInvite.props.disabled, false);
     assert.ok(
         !owner

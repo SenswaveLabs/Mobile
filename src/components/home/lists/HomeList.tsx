@@ -102,6 +102,8 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
 
     const currentHome = switchingId ? homeBeforeSwitch : homes.current;
     const availableHomes = homesList.filter((home) => home.id !== currentHome?.id);
+    const hideOtherHomesHeading =
+        !!currentHome && !loading && !loadError && availableHomes.length === 0;
     const disabled = !!switchingId;
 
     return (
@@ -129,18 +131,20 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
                             />
                         </View>
                     )}
-                    <Text
-                        accessibilityRole="header"
-                        style={[
-                            styles.sectionTitle,
-                            {
-                                marginTop: currentHome ? 16 : 24,
-                                marginBottom: 16,
-                                color: colors.authForeground,
-                            },
-                        ]}>
-                        {currentHome ? "Other homes" : "Homes"}
-                    </Text>
+                    {!hideOtherHomesHeading && (
+                        <Text
+                            accessibilityRole="header"
+                            style={[
+                                styles.sectionTitle,
+                                {
+                                    marginTop: currentHome ? 16 : 24,
+                                    marginBottom: 16,
+                                    color: colors.authForeground,
+                                },
+                            ]}>
+                            {currentHome ? "Other homes" : "Homes"}
+                        </Text>
+                    )}
                     {!!loadError && (
                         <View style={styles.error}>
                             <Text
@@ -192,11 +196,9 @@ const HomeList: FC<HomeListProps> = ({ onCreateHome, onJoinHome }) => {
                             color={colors.authForeground}
                         />
                     </View>
-                ) : !loadError ? (
+                ) : !loadError && !currentHome ? (
                     <Text style={[styles.empty, styles.description, { color: colors.authMuted }]}>
-                        {homes.current
-                            ? "No other homes yet. Create one or join a home shared with you."
-                            : "No homes yet. Create one or join a home shared with you."}
+                        No homes yet. Create one or join a home shared with you.
                     </Text>
                 ) : null
             }

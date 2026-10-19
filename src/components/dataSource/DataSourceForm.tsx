@@ -50,6 +50,7 @@ export interface DataSourceFormHandle {
 
 interface DataSourceFormProps {
     edit?: boolean;
+    header?: React.ReactNode;
     onClick: (values: DataSourceFormValues) => Promise<void>;
     onDirtyChange?: (dirty: boolean) => void;
     onValidChange?: (valid: boolean) => void;
@@ -68,6 +69,7 @@ export const DataSourceForm = forwardRef<DataSourceFormHandle, DataSourceFormPro
     function DataSourceForm(
         {
             edit = false,
+            header,
             onClick,
             onDirtyChange,
             onValidChange,
@@ -414,9 +416,11 @@ export const DataSourceForm = forwardRef<DataSourceFormHandle, DataSourceFormPro
                     }>
                     {edit ? (
                         <View style={styles.settingsContent}>
+                            {header}
                             <ContentSection
                                 title="Connection"
                                 helper="Update broker details. Credentials verify the connection and are not saved."
+                                separated
                                 actions={
                                     <View style={styles.actions}>
                                         {(!!submitError || !!success) && (
@@ -458,7 +462,7 @@ export const DataSourceForm = forwardRef<DataSourceFormHandle, DataSourceFormPro
                                     {verificationFields}
                                 </View>
                             </ContentSection>
-                            {children && <View style={styles.destructiveSection}>{children}</View>}
+                            {children}
                         </View>
                     ) : (
                         <>
@@ -498,5 +502,4 @@ const styles = StyleSheet.create({
     authSection: { gap: 16 },
     createAuthSection: { paddingTop: 8 },
     actions: { gap: 12 },
-    destructiveSection: { marginTop: 24 },
 });

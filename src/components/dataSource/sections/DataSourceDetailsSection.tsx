@@ -1,4 +1,5 @@
 import Button from "@/components/common/Button";
+import ContentSection from "@/components/common/ContentSection";
 import { DataSourceForm, DataSourceFormValues } from "@/components/dataSource/DataSourceForm";
 import {
     AlertDialog,
@@ -16,16 +17,18 @@ import { DataSourceDto } from "@/types/DataSourcesTypes";
 import { PortalHost } from "@rn-primitives/portal";
 import { CircleAlert } from "lucide-react-native";
 import React, { FC, useEffect, useId, useRef, useState } from "react";
-import { Modal as NativeModal, StyleSheet, View } from "react-native";
+import { Modal as NativeModal, ScrollView, StyleSheet, View } from "react-native";
 
 interface DataSourceDetailsSectionProps {
     dataSource: DataSourceDto;
+    header?: React.ReactNode;
     onSaved: (dataSource: DataSourceDto) => void;
     onDeleted: () => void;
 }
 
 const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
     dataSource,
+    header,
     onSaved,
     onDeleted,
 }) => {
@@ -110,13 +113,15 @@ const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
                     accessibilityViewIsModal
                     className="max-w-md"
                     style={styles.dialogContent}>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete data source</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This permanently removes the broker and its subscriptions. This action
-                            cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
+                    <ScrollView style={styles.dialogBody}>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete data source</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This permanently removes the broker and its subscriptions. This
+                                action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                    </ScrollView>
                     <AlertDialogFooter className="sm:flex-col-reverse">
                         <AlertDialogCancel asChild>
                             <Button
@@ -139,13 +144,9 @@ const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
                     </AlertDialogFooter>
                 </AlertDialogContent>
 
-                {deleteError !== "" && (
-                    <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
-                        <AlertDescription>{deleteError}</AlertDescription>
-                    </Alert>
-                )}
                 <DataSourceForm
                     edit
+                    header={header}
                     id={dataSource.id}
                     initServer={dataSource.url}
                     initName={dataSource.name}
@@ -154,14 +155,30 @@ const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
                     initMqttVersion={dataSource.mqttVersion}
                     initTls={dataSource.tls}
                     onClick={saveSettings}>
-                    <Button
-                        name="Delete data source"
-                        type="brand-destructive"
-                        style={styles.deleteAction}
-                        loading={deleting}
-                        disabled={deleting}
-                        onPress={() => setShowDeleteDialog(true)}
-                    />
+                    <ContentSection
+                        title="Delete data source"
+                        helper="Permanently remove this broker and its subscriptions."
+                        separated
+                        actions={
+                            <View style={styles.deleteActionSlot}>
+                                <Button
+                                    name="Delete data source"
+                                    type="brand-destructive"
+                                    loading={deleting}
+                                    disabled={deleting}
+                                    onPress={() => setShowDeleteDialog(true)}
+                                />
+                            </View>
+                        }>
+                        {!!deleteError && (
+                            <Alert
+                                accessibilityRole="alert"
+                                variant="destructive"
+                                icon={CircleAlert}>
+                                <AlertDescription>{deleteError}</AlertDescription>
+                            </Alert>
+                        )}
+                    </ContentSection>
                 </DataSourceForm>
             </View>
         </AlertDialog>
@@ -172,6 +189,7 @@ export default DataSourceDetailsSection;
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    dialogContent: { width: "100%", maxWidth: 560 },
-    deleteAction: { width: "auto", maxWidth: "100%", alignSelf: "flex-start" },
+    dialogContent: { width: "100%", maxWidth: 560, maxHeight: "90%" },
+    dialogBody: { flexShrink: 1 },
+    deleteActionSlot: { minHeight: 72, justifyContent: "center" },
 });
