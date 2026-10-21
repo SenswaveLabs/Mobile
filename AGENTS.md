@@ -337,6 +337,15 @@ Context: `useLiveUpdate()` → `addDeviceTileCallback(deviceId, cb)`, `addHomeDa
 | `build.yaml` | Every pull request |
 | `build-expo-preview.yaml` | Preview build |
 | `build-expo-production.yaml` | Production build (manual) |
+| `notify-discord.yaml` | Completed Android build/CI workflows, including failures and cancellations |
+
+Configure `DISCORD_WEBHOOK_URL` as a repository Actions secret. The notification
+workflow must exist on the default branch (`main`); it monitors `Build Android`
+and `Mobile CI and Next Dev Proposal` from any branch. It runs on a GitHub-hosted
+runner with no checkout or repository permissions. Messages include the result,
+branch, workflow commit, actor, duration, attempt and original run link; mentions
+are disabled. The signed next-dev APK build and deployment are reported separately
+by `Next-Infra`. Delivery errors affect only the notification workflow.
 
 **Versioning** — `{major}.{minor}.{patch}`:
 
