@@ -1,6 +1,7 @@
 import React, { FC, useEffect, useRef, useState } from "react";
 import {
     AccessibilityInfo,
+    ActivityIndicator,
     InteractionManager,
     Keyboard,
     Modal as NativeModal,
@@ -13,7 +14,7 @@ import {
     findNodeHandle,
     useWindowDimensions,
 } from "react-native";
-import { Check, ChevronDown, X } from "lucide-react-native";
+import { Check, ChevronDown, Circle, CircleDot, X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
     cancelAnimation,
@@ -42,6 +43,8 @@ export interface BottomSheetSelectProps {
     initialFocusRef?: React.RefObject<View | null>;
     disabled?: boolean;
     onClosed?: () => void;
+    variant?: "field" | "tile";
+    busy?: boolean;
 }
 
 const focusNativeElement = (element: View | Text | null) => {
@@ -59,6 +62,8 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
     initialFocusRef,
     disabled = false,
     onClosed,
+    variant = "field",
+    busy = false,
 }) => {
     const { colors } = useTheme().current;
     const insets = useSafeAreaInsets();
@@ -126,7 +131,9 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
 
     return (
         <View style={styles.container}>
-            <Text style={[styles.label, { color: colors.authForeground }]}>{title}</Text>
+            {variant === "field" && (
+                <Text style={[styles.label, { color: colors.authForeground }]}>{title}</Text>
+            )}
             <Pressable
                 ref={triggerRef}
                 cssInterop={false}
@@ -137,7 +144,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel={`${title}, ${value}`}
                 accessibilityHint={`Opens ${title} options`}
-                accessibilityState={{ disabled }}
+                accessibilityState={{ disabled, busy, expanded: visible }}
                 style={({ pressed }) => [
                     styles.trigger,
                     leading ? styles.triggerLeading : undefined,
@@ -146,13 +153,41 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                         borderColor: focused ? colors.authFocus : colors.authBorder,
                         opacity: disabled ? 0.55 : 1,
                     },
+                    variant === "tile" && styles.tileTrigger,
                     pressed && !disabled && styles.pressed,
                 ]}>
                 {leading}
-                <Text numberOfLines={1} style={[styles.value, { color: colors.authForeground }]}>
+                <Text
+                    numberOfLines={variant === "tile" ? undefined : 1}
+                    style={[
+                        styles.value,
+                        variant === "tile" && styles.tileValue,
+                        { color: colors.authForeground },
+                    ]}>
                     {value}
                 </Text>
-                <ChevronDown size={20} color={colors.authMuted} accessible={false} />
+                {variant === "tile" ? (
+                    <View
+                        style={[
+                            styles.tileIcon,
+                            {
+                                backgroundColor: colors.deviceTileSubtle,
+                                borderColor: focused ? colors.authFocus : "transparent",
+                            },
+                        ]}>
+                        {busy ? (
+                            <ActivityIndicator size="small" color={colors.authForeground} />
+                        ) : (
+                            <ChevronDown
+                                size={20}
+                                color={colors.authForeground}
+                                accessible={false}
+                            />
+                        )}
+                    </View>
+                ) : (
+                    <ChevronDown size={20} color={colors.authMuted} accessible={false} />
+                )}
             </Pressable>
 
             <NativeModal
@@ -255,12 +290,28 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                                               ]}>
                                               {option.label}
                                           </Text>
-                                          {option.selected && (
-                                              <Check
-                                                  size={20}
-                                                  color={colors.authOnPrimary}
-                                                  accessible={false}
-                                              />
+                                          {variant === "tile" ? (
+                                              option.selected ? (
+                                                  <CircleDot
+                                                      size={22}
+                                                      color={colors.authOnPrimary}
+                                                      accessible={false}
+                                                  />
+                                              ) : (
+                                                  <Circle
+                                                      size={22}
+                                                      color={colors.authMuted}
+                                                      accessible={false}
+                                                  />
+                                              )
+                                          ) : (
+                                              option.selected && (
+                                                  <Check
+                                                      size={20}
+                                                      color={colors.authOnPrimary}
+                                                      accessible={false}
+                                                  />
+                                              )
                                           )}
                                       </Pressable>
                                   ))}
@@ -289,6 +340,25 @@ const styles = StyleSheet.create({
     },
     triggerLeading: { paddingVertical: 8 },
     value: { flex: 1, fontSize: 16 },
+    tileTrigger: {
+        minHeight: 48,
+        minWidth: 48,
+        borderWidth: 0,
+        paddingHorizontal: 0,
+        paddingVertical: 0,
+        opacity: 1,
+        backgroundColor: "transparent",
+        gap: 8,
+    },
+    tileValue: { fontSize: 17, lineHeight: 24, fontWeight: "500", textAlign: "right" },
+    tileIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        borderWidth: 2,
+        alignItems: "center",
+        justifyContent: "center",
+    },
     overlay: { flex: 1, justifyContent: "flex-end" },
     scrim: {
         position: "absolute",

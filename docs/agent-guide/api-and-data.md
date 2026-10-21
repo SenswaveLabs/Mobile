@@ -1,5 +1,50 @@
 # Domain and API contracts
 
+## Home tile controls
+
+`PATCH v1/devices/{id}` accepts the existing tile fields with two additional type
+strings: `Slider` and `Options`. Both use `operationId`; `displayableOperationId`
+remains the Display readout reference. Slider configuration contains `step`
+(default 1; 0 permits continuous Number operations) and `unit` (at most 5
+characters). Its finite ordered range comes from the Number/Integer operation.
+Integer sliders require a positive integral step. Discrete ranges are limited
+to 10,000 steps to match the installed native slider's allocation limit.
+
+Display responses add `configuration.range = { min, max }` for Slider and
+`configuration.options: string[]` for Options. Options are operation-owned names;
+their MQTT payload values stay inside the operation contract. Send a number or
+an exact option name through the existing `POST v1/devices/{id}/tile/action`
+body `{ value }`. Backend validates type, range/step or option membership and
+retains existing device ownership and action permissions. No database migration
+or new endpoint is required. Existing Default/Switch/Display payloads remain valid.
+
+## Display summaries with multiple readings
+
+Display keeps `displayableOperationId`, primary `tile.value` and `configuration.unit`.
+Its configuration may also include `label` (up to 64 characters) and `readings`
+(up to eight additional entries `{ operationId, label, unit }`, units up to five
+characters). Each reference must select a different Number, Integer or Boolean
+operation on the same device, excluding the primary operation. Configuration
+writes omit runtime values and types; the server normalizes them before saving.
+Display now accepts a Boolean primary operation for a read-only On/Off summary.
+It still rejects actions through the tile action endpoint.
+
+Display responses decorate the primary configuration with `label` and
+`operationType`; each additional reading receives `value`, `operationType` and
+its operation name when its configured label is empty. Keep native readings;
+never invent unit conversions. The existing tile update event covers primary
+and additional references. An operation referenced by a tile must be unassigned
+before deletion. Existing scalar consumers and V1/V2 configuration envelopes stay
+compatible. The implementation is in the sibling backend checkout and must be
+integrated before clients rely on the additional metadata. Verify the backend
+solution build and Devices test projects when changing this shared contract.
+
+BooleanOperation presence `false` means Inactive, separately from a switch
+reporting Off. Inactive summaries keep a disconnected icon beside the room in a neutral status chip, mask cached values
+with em dashes and block commands; live subscriptions continue so they can
+recover. Missing presence remains Status unavailable and is not inferred as
+Inactive. No configured presence means no availability claim.
+
 ## Domain model
 
 | Entity | Meaning |
@@ -105,6 +150,18 @@ including when the initiating screen lost focus. It preserves a different curren
 selection, including one selected during recovery. A failed initializer sends the
 active details screen to the picker; it must not repeat the destructive request.
 Ordinary initialization and refresh callers keep their existing behavior.
+
+`DeviceListProvider` owns client-side dashboard loading and error recovery. It
+requests the complete V1 collection with `size=2147483647` (the API's full-collection
+sentinel); omitting size returns only ten devices and gives incomplete room filters.
+It derives room filtering from the current home's device collection, preserves a
+valid selected room during refresh and resets to All on home changes. Collections
+from another home are hidden immediately and late list responses are ignored.
+Failed reads retain cached current-home devices and expose an inline error;
+`404` represents an empty collection. `refresh()` schedules a reload and returns
+`true`; awaiting it does not wait for the request or report its result. Retained
+device-update callbacks consult the current-home ref before updating that collection.
+These are client context behaviors; backend API contracts are unchanged.
 
 ### Home and Device icons
 

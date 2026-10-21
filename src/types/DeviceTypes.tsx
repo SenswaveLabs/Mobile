@@ -2,6 +2,12 @@ export type OperationType = "Boolean" | "Number" | "Integer" | "Text" | "HexColo
 
 export type DevicePresenceType = "" | "Default" | "BooleanOperation";
 
+export interface TileReadingConfiguration {
+    operationId: string;
+    label: string;
+    unit: string;
+}
+
 export type WidgetType =
     | "Invalid"
     | "Empty"

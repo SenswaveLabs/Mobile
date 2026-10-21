@@ -7,23 +7,31 @@ interface DataSourceStateProps {
     connectionStatus?: string;
 }
 
+export const getDataSourceStateLabel = (connectionStatus?: string): string => {
+    if (connectionStatus === "Working" || connectionStatus === "Connected") return "Connected";
+    if (
+        connectionStatus === "Restarting" ||
+        connectionStatus === "Connecting" ||
+        connectionStatus === "Error"
+    )
+        return connectionStatus;
+    return "Disconnected";
+};
+
 const DataSourceState: FC<DataSourceStateProps> = ({ connectionStatus }) => {
     const { colors } = useTheme().current;
     let tone: keyof typeof colors.dataSourceStatus = "neutral";
-    let message = "Disconnected";
+    const message = getDataSourceStateLabel(connectionStatus);
     let indicator = false;
 
     if (connectionStatus === "Working" || connectionStatus === "Connected") {
         tone = "positive";
-        message = "Connected";
         indicator = true;
     } else if (connectionStatus === "Restarting" || connectionStatus === "Connecting") {
         tone = "warning";
-        message = connectionStatus;
         indicator = true;
     } else if (connectionStatus === "Error") {
         tone = "critical";
-        message = "Error";
     }
     const palette = colors.dataSourceStatus[tone];
 

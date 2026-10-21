@@ -22,6 +22,9 @@ export function mountNativeComponent(
     const effects = [];
     const focused = [];
     let cursor = 0;
+    let currentAction;
+    let pendingActions = 0;
+    const optimisticSlots = new Set();
     const sameDeps = (a, b) =>
         a && b && a.length === b.length && a.every((v, i) => Object.is(v, b[i]));
     const memo = (factory, deps) => {
@@ -30,6 +33,54 @@ export function mountNativeComponent(
         return slots[index].value;
     };
     const react = {
+        startTransition: (action) => {
+            const previous = currentAction;
+            currentAction = true;
+            pendingActions++;
+            let result;
+            try {
+                result = action();
+            } finally {
+                currentAction = previous;
+            }
+            const finish = () => {
+                if (--pendingActions === 0)
+                    for (const index of optimisticSlots) slots[index].optimistic = false;
+            };
+            Promise.resolve(result).then(finish, finish);
+        },
+        useOptimistic: (base, reducer = (_current, value) => value) => {
+            const index = cursor++;
+            const slot = (slots[index] ??= {});
+            slot.base = base;
+            return [
+                slot.optimistic ? slot.value : base,
+                (value) => {
+                    if (!currentAction) throw new Error("Optimistic update outside Action");
+                    slot.value = reducer(slot.optimistic ? slot.value : slot.base, value);
+                    slot.optimistic = true;
+                    optimisticSlots.add(index);
+                },
+            ];
+        },
+        useTransition: () => {
+            const index = cursor++;
+            const slot = (slots[index] ??= { pending: 0 });
+            return [
+                slot.pending > 0,
+                (action) => {
+                    slot.pending++;
+                    react.startTransition(() => {
+                        const result = action();
+                        Promise.resolve(result).then(
+                            () => slot.pending--,
+                            () => slot.pending--,
+                        );
+                        return result;
+                    });
+                },
+            ];
+        },
         createContext: (value) => ({ Provider: "ContextProvider", value }),
         useContext: (context) => context.value,
         createElement: (type, props, ...children) => {
@@ -128,7 +179,19 @@ export function mountNativeComponent(
             if (name in modules) return modules[name];
             if (name === "react") return react;
             if (name === "react-native") return native;
-            if (name === "lucide-react-native") return { CircleAlert: "CircleAlert", Info: "Info" };
+            if (name === "lucide-react-native")
+                return Object.fromEntries(
+                    [
+                        "CircleAlert",
+                        "Info",
+                        "CircleHelp",
+                        "Clock3",
+                        "Unplug",
+                        "LockKeyhole",
+                        "LayoutGrid",
+                        "List",
+                    ].map((name) => [name, name]),
+                );
             if (name === "react-native-keyboard-controller")
                 return {
                     KeyboardAwareScrollView: "KeyboardAwareScrollView",
@@ -190,6 +253,7 @@ export function mountNativeComponent(
                         "children",
                         "actions",
                         "header",
+                        "heading",
                         "headerAction",
                         "intro",
                         "leading",

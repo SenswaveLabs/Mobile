@@ -25,6 +25,9 @@ function mountForm(onSubmit, props = {}) {
             "../common/Expander": "Expander",
             "../common/Text": "Text",
             "./tile/DeviceTile": "DeviceTile",
+            "@/contexts/HttpClientProvider": {
+                useHttpClient: () => ({ get: async () => ({ isSuccess: false }) }),
+            },
             "@/contexts/domain/HomeProvider": {
                 useHomes: () => ({ current: { id: "home-1", rooms: [] } }),
             },
@@ -42,6 +45,122 @@ function mountForm(onSubmit, props = {}) {
     });
     form.flushEffects();
     return form;
+}
+
+test("Display settings preserve multiple readings, strip runtime metadata and reset drafts", async () => {
+    const requests = [];
+    const form = mountForm(async (request) => requests.push(request), {
+        initTileType: "Display",
+        initTileDisplayableOperationId: "temperature",
+        initTileUnit: "°C",
+        initTileLabel: "Temperature",
+        initTileReadings: [
+            {
+                operationId: "humidity",
+                label: "Humidity",
+                unit: "%",
+                value: 61,
+                operationType: "Number",
+            },
+        ],
+    });
+    const input = (title) =>
+        form.elements().find((n) => n.type === "Input" && n.props.title === title);
+    const save = () =>
+        form.elements().find((n) => n.type === "Button" && n.props.name === "Save changes");
+    assert.ok(
+        form
+            .elements()
+            .find((n) => n.type === "OperationSelector")
+            .props.filterTypes.includes("Boolean"),
+    );
+    input("Reading 2 label").props.setValue("Moisture");
+    form.render();
+    await save().props.onPress();
+    assert.deepEqual(JSON.parse(JSON.stringify(requests[0])), {
+        type: "Display",
+        displayableOperationId: "temperature",
+        configuration: {
+            unit: "°C",
+            label: "Temperature",
+            readings: [{ operationId: "humidity", label: "Moisture", unit: "%" }],
+        },
+    });
+    form.render();
+    input("Reading 2 unit").props.setValue("ppm");
+    form.render();
+    form.elements()
+        .find((n) => n.type === "Button" && n.props.name === "Reset")
+        .props.onPress();
+    form.render();
+    assert.equal(input("Reading 2 unit").props.value, "%");
+    assert.equal(save().props.disabled, true);
+});
+
+test("Display duplicate reading references cannot be saved", async () => {
+    let requests = 0;
+    const form = mountForm(async () => requests++, {
+        initTileType: "Display",
+        initTileDisplayableOperationId: "same",
+        initTileReadings: [{ operationId: "same", label: "Duplicate", unit: "" }],
+    });
+    await form
+        .elements()
+        .find((n) => n.type === "Button" && n.props.name === "Save changes")
+        .props.onPress();
+    form.render();
+    assert.equal(requests, 0);
+    assert.match(form.text(), /different operation/);
+});
+
+for (const [type, filterTypes] of [
+    ["Slider", ["Number", "Integer"]],
+    ["Options", ["Options"]],
+]) {
+    test(
+        type + " settings filter operations and resend retained configuration after Default",
+        async () => {
+            const requests = [];
+            const form = mountForm(async (request) => requests.push(request), {
+                initTileType: type,
+                initTileUnit: "%",
+                initTileStep: 2,
+            });
+            const select = () =>
+                form
+                    .elements()
+                    .find((node) => node.type === "Dropdown" && node.props.title === "Tile Type");
+            assert.deepEqual(
+                Array.from(
+                    form.elements().find((node) => node.type === "OperationSelector").props
+                        .filterTypes,
+                ),
+                filterTypes,
+            );
+            assert.ok(select().props.options.some((option) => option.value === type));
+            select().props.onSelected("Default");
+            form.render();
+            await form
+                .elements()
+                .find((node) => node.type === "Button" && node.props.name === "Save changes")
+                .props.onPress();
+            form.render();
+            select().props.onSelected(type);
+            form.render();
+            await form
+                .elements()
+                .find((node) => node.type === "Button" && node.props.name === "Save changes")
+                .props.onPress();
+            form.render();
+            assert.equal(requests[1].type, type);
+            assert.equal(requests[1].operationId, "operation-1");
+            if (type === "Slider")
+                assert.equal(
+                    JSON.stringify(requests[1].configuration),
+                    JSON.stringify({ unit: "%", step: 2 }),
+                );
+        },
+    );
 }
 
 test("device editor sends changed fields only, keeps failed drafts, and saves new reset baseline", async () => {

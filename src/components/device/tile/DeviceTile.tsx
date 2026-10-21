@@ -1,213 +1,254 @@
-import React, { useEffect, useState } from "react";
-import { StyleSheet, Pressable, View, Dimensions } from "react-native";
+import React, { FC } from "react";
+import { StyleSheet, Pressable, View, Text, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
-import BaseDeviceTile from "./BaseDeviceTile";
+import { CircleHelp, Clock3, Unplug } from "lucide-react-native";
 import DisplayDeviceTile from "./DisplayDeviceTile";
+import { getDeviceReadings, formatReadingValue } from "@/utils/deviceReadings";
 import SwitchDeviceTile from "./SwitchDeviceTile";
+import ControlDeviceTile from "./ControlDeviceTile";
+import Icon from "@/components/common/Icon";
 import { Device } from "@/contexts/custom/DeviceListProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
-import Text from "@/components/common/Text";
 import { useHomes } from "@/contexts/domain/HomeProvider";
-
-const numColumns = 2;
-const screenWidth = Dimensions.get("window").width;
-const edgePadding = 15;
-const innerSpacing = 20;
-const itemWidth = (screenWidth - edgePadding * 2 - innerSpacing * (numColumns - 1)) / numColumns;
+import { useDeviceTileAction } from "@/hooks/useDeviceTileAction";
+import { DeviceLayout } from "@/hooks/useDeviceLayout";
 
 interface DeviceTileProps {
     device: Device;
+    layout?: DeviceLayout;
+    last?: boolean;
     disablePress?: boolean;
     onTilePressParam?: () => void;
 }
 
-export default function DeviceTile({
+const DeviceTile: FC<DeviceTileProps> = ({
     device,
+    layout = "grid",
+    last = false,
     disablePress = false,
     onTilePressParam,
-}: DeviceTileProps) {
+}) => {
     const router = useRouter();
-    const theme = useTheme();
-    const homes = useHomes();
+    const { colors } = useTheme().current;
+    const home = useHomes().current;
+    const { width, fontScale } = useWindowDimensions();
+    const list = layout === "list";
+    const horizontal = list && width >= 360 && fontScale < 1.25 && device.tile.type !== "Slider";
+    const roomName = home?.rooms.find((room) => room.id === device.roomId)?.name;
+    const canManage = home?.isOwner || home?.canManage;
+    const hasControl = ["Switch", "Slider", "Options"].includes(device.tile.type);
+    const hasPresence = device.presence?.type === "BooleanOperation";
+    const inactive = hasPresence && device.presence?.value === false;
+    const unknown = hasPresence && device.presence?.value == null;
+    const action = useDeviceTileAction({
+        deviceId: device.id,
+        tile: device.tile,
+        disabled: disablePress || !hasControl,
+        inactive,
+    });
+    const noReading =
+        device.tile.type === "Display"
+            ? getDeviceReadings(device.tile).every(
+                  ({ value }) =>
+                      typeof value !== "boolean" &&
+                      !(typeof value === "number" && Number.isFinite(value)),
+              )
+            : hasControl && (action.value == null || action.value === "");
+    const presence = inactive
+        ? "Inactive"
+        : unknown
+          ? "Status unavailable"
+          : noReading
+            ? "No data"
+            : null;
+    const StatusIcon = inactive ? Unplug : unknown ? CircleHelp : Clock3;
+    const label = [
+        device.name,
+        roomName,
+        presence,
+        device.tile.type === "Display"
+            ? getDeviceReadings(device.tile, inactive)
+                  .map(
+                      (reading) =>
+                          `${reading.label} ${formatReadingValue(reading.value, reading.unit)}`,
+                  )
+                  .join(", ")
+            : null,
+    ]
+        .filter(Boolean)
+        .join(", ");
 
-    const [roomName, setRoomName] = useState<string | undefined>(undefined);
-
-    const tileClicked = () => {
-        if (disablePress) {
-            console.info("[Device Tile] Device Tile press disabled.");
-            return;
-        }
-
-        if (onTilePressParam) {
-            console.info("[Device Tile] Device Tile custom press.");
-            onTilePressParam();
-            return;
-        }
-
-        console.info(`[Device Tile] Device Tile default press. Device: ${device.id}`);
-        router.push({
-            pathname: "device/device",
-            params: {
-                deviceId: device.id,
-            },
-        });
-    };
-
-    const tileLongClicked = () => {
-        console.info("[Device Tile] Opening device details.");
-
-        router.push({
-            pathname: "device/details",
-            params: {
-                deviceId: device.id,
-            },
-        });
-    };
-
-    useEffect(() => {
-        const getRoomName = async () => {
-            if (!homes.current) return;
-
-            const room = homes.current.rooms.find((room) => room.id === device.roomId);
-
-            if (room) {
-                setRoomName(room.name);
-            } else {
-                setRoomName(undefined);
+    const navigation = (
+        <Pressable
+            cssInterop={false}
+            accessibilityRole={disablePress ? "text" : "button"}
+            accessibilityLabel={label}
+            accessibilityHint={
+                disablePress
+                    ? undefined
+                    : canManage
+                      ? "Open device dashboard. Touch and hold for device settings."
+                      : "Open device dashboard."
             }
-        };
-
-        getRoomName();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [homes.current, homes.current?.rooms, device.roomId]);
-
-    return (
-        <View style={{ flex: 1, width: itemWidth }}>
-            <Pressable onPress={tileClicked} onLongPress={tileLongClicked} style={styles.wrapper}>
-                <View
-                    style={[
-                        styles.contianer,
-                        { backgroundColor: theme.current.colors.primary },
-                        shadowStyles.default,
-                    ]}>
-                    {device.presence?.type === "BooleanOperation" && (
-                        <View
-                            style={[
-                                styles.presenceDot,
-                                {
-                                    backgroundColor:
-                                        device.presence.value === true
-                                            ? theme.current.colors.success
-                                            : device.presence.value === false
-                                              ? theme.current.colors.error
-                                              : theme.current.colors.warning,
-                                },
-                            ]}
-                        />
-                    )}
-                    <View style={styles.internalContainer}>
-                        {device.tile.type === "Switch" && (
-                            <SwitchDeviceTile
-                                deviceId={device.id}
-                                icon={device.icon}
-                                tile={device.tile}
-                                disablePress={disablePress}
-                            />
-                        )}
-                        {device.tile.type === "Display" && (
-                            <DisplayDeviceTile
-                                deviceId={device.id}
-                                icon={device.icon}
-                                tile={device.tile}
-                            />
-                        )}
-                        {device.tile.type === "Default" && <BaseDeviceTile icon={device.icon} />}
-
-                        <View style={styles.textContainer}>
-                            <Text size={"medium"} color={"onPrimary"} numberOfLines={1}>
-                                {device.name}
+            disabled={disablePress}
+            onPress={() => {
+                if (disablePress) return;
+                if (onTilePressParam) onTilePressParam();
+                else router.push({ pathname: "device/device", params: { deviceId: device.id } });
+            }}
+            onLongPress={
+                !disablePress && canManage
+                    ? () =>
+                          router.push({
+                              pathname: "device/details",
+                              params: { deviceId: device.id },
+                          })
+                    : undefined
+            }
+            style={({ pressed }) => [
+                styles.main,
+                hasControl && styles.controlMain,
+                list && styles.listMain,
+                horizontal && styles.horizontalMain,
+                pressed && styles.pressed,
+            ]}>
+            <View style={[styles.top, horizontal && styles.listTop]}>
+                <View style={inactive && styles.mutedIcon}>
+                    <Icon
+                        icon={device.icon}
+                        resource="devices"
+                        size={list ? 22 : 20}
+                        color="brand"
+                    />
+                </View>
+                <View style={styles.identity}>
+                    <Text
+                        style={[
+                            styles.name,
+                            list && styles.listName,
+                            { color: colors.authForeground },
+                        ]}>
+                        {device.name}
+                    </Text>
+                    <View style={styles.metadata}>
+                        {!!roomName && (
+                            <Text style={[styles.room, { color: colors.authMuted }]}>
+                                {roomName}
                             </Text>
-
-                            <Text
-                                size={"small"}
-                                color={"onPrimary"}
-                                numberOfLines={1}
-                                style={!roomName ? { opacity: 0 } : {}}>
-                                {roomName || "Placeholder"}
-                            </Text>
-                        </View>
+                        )}
+                        {presence && (
+                            <View
+                                style={[
+                                    styles.status,
+                                    { backgroundColor: colors.deviceTileSubtle },
+                                ]}>
+                                <StatusIcon size={12} color={colors.authMuted} accessible={false} />
+                                <Text style={[styles.presence, { color: colors.authMuted }]}>
+                                    {presence}
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 </View>
-            </Pressable>
+            </View>
+            {device.tile.type === "Display" && (
+                <View style={[styles.body, horizontal && styles.listBody]}>
+                    <DisplayDeviceTile
+                        deviceId={device.id}
+                        tile={device.tile}
+                        inactive={inactive}
+                        layout={horizontal ? "list" : "grid"}
+                    />
+                </View>
+            )}
+        </Pressable>
+    );
+
+    return (
+        <View
+            style={[
+                styles.tile,
+                {
+                    backgroundColor: colors.deviceTileSurface ?? colors.authFieldBackground,
+                    borderColor: colors.deviceTileBorder ?? colors.authBorder,
+                },
+                list && styles.listTile,
+                list && { backgroundColor: "transparent", borderBottomWidth: last ? 0 : 1 },
+                horizontal && styles.horizontal,
+            ]}>
+            {device.tile.type !== "Slider" && navigation}
+            {hasControl && (
+                <View
+                    style={[
+                        styles.control,
+                        device.tile.type === "Slider" && styles.sliderControl,
+                        list && styles.listControl,
+                        horizontal && styles.horizontalControl,
+                        horizontal && device.tile.type === "Options" && styles.optionsControl,
+                    ]}>
+                    {device.tile.type === "Switch" ? (
+                        <SwitchDeviceTile
+                            name={device.name}
+                            action={action}
+                            disablePress={disablePress}
+                            inactive={inactive}
+                            layout={horizontal ? "list" : "grid"}
+                        />
+                    ) : (
+                        <ControlDeviceTile
+                            heading={device.tile.type === "Slider" ? navigation : undefined}
+                            layout={layout}
+                            name={device.name}
+                            tile={device.tile}
+                            action={action}
+                            disablePress={disablePress}
+                            inactive={inactive}
+                        />
+                    )}
+                </View>
+            )}
         </View>
     );
-}
-
+};
+export default DeviceTile;
 const styles = StyleSheet.create({
-    wrapper: {
-        flex: 1,
-        alignSelf: "center",
+    tile: { width: "100%", flex: 1, minHeight: 112, borderRadius: 12, borderWidth: 1 },
+    listTile: { minHeight: 84, borderWidth: 0, borderRadius: 0, paddingVertical: 14, gap: 10 },
+    horizontal: { flexDirection: "row", alignItems: "center", gap: 12 },
+    main: { flex: 1, minHeight: 48, padding: 12, gap: 10, borderRadius: 12 },
+    controlMain: { paddingBottom: 0 },
+    listMain: { padding: 0 },
+    horizontalMain: { flexDirection: "row", alignItems: "center", gap: 16 },
+    top: { flexDirection: "row", alignItems: "flex-start", gap: 9 },
+    listTop: { flex: 1, alignItems: "center" },
+    identity: { flex: 1, minWidth: 0, gap: 2 },
+    name: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
+    listName: { fontSize: 15, lineHeight: 21 },
+    room: { fontSize: 12, lineHeight: 18 },
+    metadata: {
         flexDirection: "row",
-    },
-    contianer: {
-        flex: 1,
-        borderRadius: 14,
-        padding: 10,
-        paddingHorizontal: 5,
-    },
-    internalContainer: {
+        flexWrap: "wrap",
         alignItems: "center",
-        justifyContent: "center",
-        flexDirection: "column",
-        alignSelf: "center",
-        margin: 0,
-        width: "100%",
-        flex: 1,
+        columnGap: 6,
+        rowGap: 4,
     },
-    textContainer: {
-        justifyContent: "flex-start",
-        alignItems: "flex-start",
-        width: "100%",
-        height: "40%",
-        paddingHorizontal: 5,
-        minHeight: 20,
-        paddingTop: 5,
-    },
-    deviceName: {
-        fontSize: 18,
-    },
-    deviceRoom: {
-        fontSize: 14,
-    },
-    actionContainer: {
-        width: "100%",
-        height: "60%",
+    status: {
         flexDirection: "row",
-    },
-    iconContainer: {
-        justifyContent: "center",
         alignItems: "center",
-        width: "60%",
-        height: "100%",
+        gap: 4,
+        borderRadius: 5,
+        paddingHorizontal: 6,
+        paddingVertical: 1,
+        maxWidth: "100%",
     },
-    switchContainer: {
-        justifyContent: "center",
-        alignItems: "center",
-        width: "40%",
-        height: "100%",
-    },
-    switch: {
-        width: 64,
-        height: 34,
-    },
-    presenceDot: {
-        position: "absolute",
-        top: 12,
-        left: 12,
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        zIndex: 1,
-    },
+    presence: { fontSize: 12, lineHeight: 18, fontWeight: "500", flexShrink: 1 },
+    mutedIcon: { opacity: 0.65 },
+    body: { marginTop: "auto" },
+    listBody: { marginTop: 0, maxWidth: "48%", flexShrink: 1 },
+    control: { paddingHorizontal: 12, paddingBottom: 12 },
+    sliderControl: { paddingHorizontal: 0, paddingBottom: 4 },
+    listControl: { padding: 0, paddingHorizontal: 0, paddingBottom: 0 },
+    horizontalControl: { flexShrink: 1, maxWidth: "46%", minWidth: 120 },
+    optionsControl: { width: "56%", maxWidth: "60%", minWidth: 0, flexShrink: 0 },
+    pressed: { opacity: 0.72 },
 });

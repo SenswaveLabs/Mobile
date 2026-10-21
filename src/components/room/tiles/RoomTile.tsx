@@ -1,9 +1,9 @@
 import { useDeviceList } from "@/contexts/custom/DeviceListProvider";
+import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
-import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Animated } from "react-native";
+import { useRouter } from "expo-router";
+import React, { FC } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 interface RoomProperties {
     id: string;
@@ -12,98 +12,65 @@ interface RoomProperties {
     disableDetails?: boolean;
 }
 
-export default function RoomTile({
+const RoomTile: FC<RoomProperties> = ({
     id,
     name,
     disableClicks = false,
     disableDetails = false,
-}: RoomProperties) {
-    const theme = useTheme();
+}) => {
+    const { colors } = useTheme().current;
     const devices = useDeviceList();
-
-    const backgroundColorAnim = useRef(new Animated.Value(0)).current;
-    const textColorAnim = useRef(new Animated.Value(0)).current;
-
-    const [isSelected, setIsSelected] = useState(devices.filter === id);
-
-    useEffect(() => {
-        setIsSelected(devices.filter === id);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [devices.filter]);
-
-    useEffect(() => {
-        Animated.timing(backgroundColorAnim, {
-            toValue: isSelected ? 1 : 0,
-            duration: 300,
-            useNativeDriver: false,
-        }).start();
-
-        Animated.timing(textColorAnim, {
-            toValue: isSelected ? 1 : 0,
-            duration: 300,
-            useNativeDriver: false,
-        }).start();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isSelected]);
-
-    const animatedBackgroundColor = backgroundColorAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [theme.current.colors.primary, theme.current.colors.secondary],
-    });
-
-    const animatedTextColor = textColorAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [theme.current.colors.textOnPrimary, theme.current.colors.textOnSecondary],
-    });
-
-    const switchRoom = () => {
-        if (disableClicks) {
-            console.debug("[Room Tile] Room clicks disabled");
-            return;
-        }
-
-        console.debug("[Room Tile] Switching to room:", id);
-        devices.setFilter(id);
-    };
-
-    const roomDetails = () => {
-        if (disableDetails) {
-            console.debug("[Room Tile] Room details disabled");
-            return;
-        }
-
-        router.push({ pathname: `home/room/details`, params: { id: id } });
-    };
-
+    const home = useHomes().current;
+    const router = useRouter();
+    const selected = !disableClicks && devices.filter === id;
+    const canEdit = !disableClicks && !disableDetails && (home?.isOwner || home?.canManage);
     return (
-        <Pressable onPress={switchRoom} onLongPress={roomDetails}>
-            <Animated.View
+        <Pressable
+            cssInterop={false}
+            accessibilityRole="button"
+            accessibilityLabel={name}
+            accessibilityState={{ selected, disabled: disableClicks }}
+            accessibilityHint={canEdit ? "Touch and hold for room details." : undefined}
+            disabled={disableClicks}
+            onPress={() => devices.setFilter(id)}
+            onLongPress={
+                canEdit
+                    ? () => router.push({ pathname: "home/room/details", params: { id } })
+                    : undefined
+            }
+            style={({ pressed }) => [styles.target, pressed && styles.pressed]}>
+            <View
+                pointerEvents="none"
                 style={[
-                    styles.room,
-                    { backgroundColor: animatedBackgroundColor },
-                    shadowStyles.default,
+                    styles.chip,
+                    {
+                        backgroundColor: selected ? colors.authPrimary : colors.authFieldBackground,
+                        borderColor: selected ? colors.authPrimary : colors.authBorder,
+                    },
                 ]}>
-                <Animated.Text style={[styles.text, { color: animatedTextColor }]}>
+                <Text
+                    style={[
+                        styles.text,
+                        { color: selected ? colors.authOnPrimary : colors.authForeground },
+                    ]}>
                     {name}
-                </Animated.Text>
-            </Animated.View>
+                </Text>
+            </View>
         </Pressable>
     );
-}
-
+};
+export default RoomTile;
 const styles = StyleSheet.create({
-    text: {
-        fontSize: 16,
-    },
-    room: {
-        borderRadius: 12,
-        alignSelf: "center",
-        justifyContent: "center",
+    text: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
+    target: { minHeight: 48, minWidth: 48, justifyContent: "center" },
+    chip: {
+        minHeight: 32,
+        borderRadius: 8,
+        borderWidth: 1,
         alignItems: "center",
-        paddingVertical: 3,
-        paddingHorizontal: 10,
-        marginHorizontal: 2,
-        minWidth: 60,
-        minHeight: 30,
+        justifyContent: "center",
+        paddingHorizontal: 12,
+        paddingVertical: 5,
     },
+    pressed: { opacity: 0.72 },
 });

@@ -1,12 +1,21 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { Dimensions, StyleSheet, View } from "react-native";
+import React, {
+    forwardRef,
+    ReactNode,
+    useEffect,
+    useImperativeHandle,
+    useRef,
+    useState,
+} from "react";
+import { StyleSheet, View } from "react-native";
 import { CircleAlert } from "lucide-react-native";
 import Button from "../common/Button";
 import Input from "../common/Input";
+import FormSection from "../common/FormSection";
 import IconSelector from "../common/IconSelector";
 import DeviceTile from "./tile/DeviceTile";
 import { useHomes } from "@/contexts/domain/HomeProvider";
-import { DevicePresenceType } from "@/types/DeviceTypes";
+import { DevicePresenceType, OperationDto, TileReadingConfiguration } from "@/types/DeviceTypes";
+import { useHttpClient } from "@/contexts/HttpClientProvider";
 import Dropdown, { Option } from "../common/Dropdown";
 import OperationSelector from "./operation/OperationSelector";
 import RoomSelector from "../room/RoomSelector";
@@ -18,12 +27,13 @@ import { useIconCatalog } from "@/hooks/useIconCatalog";
 import Text from "../common/Text";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-const screenWidth = Dimensions.get("window").width;
 const DefaultDeviceIcon = "bulb-outline";
 const TileTypeOptions: Option[] = [
     { name: "Default", value: "Default" },
     { name: "Switch", value: "Switch" },
     { name: "Display", value: "Display" },
+    { name: "Slider", value: "Slider" },
+    { name: "Options", value: "Options" },
 ];
 const PresenceTypeOptions: Option[] = [
     { value: "Default", name: "No presence" },
@@ -38,6 +48,9 @@ interface DeviceValues {
     tileOperationId: string;
     tileDisplayableOperationId: string;
     tileUnit: string;
+    tileStep: string;
+    tileLabel: string;
+    tileReadings: TileReadingConfiguration[];
     presenceType: string;
     presenceOperationId: string;
 }
@@ -56,11 +69,15 @@ interface DeviceFormProps {
     initTileOperationId?: string;
     initTileDisplayableOperationId?: string;
     initTileUnit?: string;
+    initTileStep?: number;
+    initTileLabel?: string;
+    initTileReadings?: TileReadingConfiguration[];
     initPresenceType?: string;
     initPresenceOperationId?: string;
     onSubmit: (values: any) => Promise<void | boolean>;
     onHasChanges?: (hasChanges: boolean) => void;
     edit?: boolean;
+    children?: ReactNode;
 }
 
 const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceForm(
@@ -73,16 +90,21 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
         initTileOperationId,
         initTileDisplayableOperationId,
         initTileUnit,
+        initTileStep,
+        initTileLabel,
+        initTileReadings,
         initPresenceType,
         initPresenceOperationId,
         onSubmit,
         onHasChanges,
         edit = false,
+        children,
     },
     ref,
 ) {
     const homes = useHomes();
     const toast = useToast();
+    const httpClient = useHttpClient();
     const catalog = useIconCatalog("devices");
     const initial: DeviceValues = {
         name: initName ?? "",
@@ -92,6 +114,13 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
         tileOperationId: initTileOperationId ?? "None",
         tileDisplayableOperationId: initTileDisplayableOperationId ?? "None",
         tileUnit: initTileUnit ?? "",
+        tileStep: String(initTileStep ?? 1),
+        tileLabel: initTileLabel ?? "",
+        tileReadings: (initTileReadings ?? []).map(({ operationId, label, unit }) => ({
+            operationId,
+            label: label ?? "",
+            unit: unit ?? "",
+        })),
         presenceType: initPresenceType ?? "Default",
         presenceOperationId: initPresenceOperationId ?? "None",
     };
@@ -113,6 +142,28 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
         initial.tileDisplayableOperationId,
     );
     const [tileUnit, setTileUnit] = useState(initial.tileUnit);
+    const [tileStep, setTileStep] = useState(initial.tileStep);
+    const [tileLabel, setTileLabel] = useState(initial.tileLabel);
+    const [tileReadings, setTileReadings] = useState(initial.tileReadings);
+    const tileLabelError = tileLabel.length > 64 ? "Label must be at most 64 characters." : "";
+    const readingIds = [
+        tileDisplayableOperationId,
+        ...tileReadings.map((reading) => reading.operationId),
+    ];
+    const tileReadingsError =
+        tileReadings.length > 8 ||
+        readingIds.some((id) => !id || id === "None") ||
+        new Set(readingIds).size !== readingIds.length
+            ? "Select a different operation for every reading (up to 8 additional readings)."
+            : tileReadings.some((reading) => reading.label.length > 64 || reading.unit.length > 5)
+              ? "Reading labels allow 64 characters and units allow 5."
+              : "";
+    const [previewOperation, setPreviewOperation] = useState<OperationDto | null>(null);
+    const tileStepError =
+        !tileStep.trim() || !Number.isFinite(Number(tileStep)) || Number(tileStep) < 0
+            ? "Enter a non-negative numeric step."
+            : "";
+    const tileUnitError = tileUnit.length > 5 ? "Unit must be at most 5 characters." : "";
     const [presenceType, setPresenceType] = useState(initial.presenceType);
     const [presenceOperationId, setPresenceOperationId] = useState(initial.presenceOperationId);
     const [tileExpanded, setTileExpanded] = useState(false);
@@ -126,13 +177,18 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
         tileOperationId,
         tileDisplayableOperationId,
         tileUnit,
+        tileStep,
+        tileLabel,
+        tileReadings,
         presenceType,
         presenceOperationId,
     };
     const dirty =
         !edit ||
-        Object.keys(values).some(
-            (key) => values[key as keyof DeviceValues] !== saved[key as keyof DeviceValues],
+        Object.keys(values).some((key) =>
+            key === "tileReadings"
+                ? JSON.stringify(tileReadings) !== JSON.stringify(saved.tileReadings)
+                : values[key as keyof DeviceValues] !== saved[key as keyof DeviceValues],
         );
 
     const validateForm = () => {
@@ -145,8 +201,15 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
             valid = false;
         } else setNameError("");
 
-        if (tileType === "Switch" && (tileOperationId === "None" || tileOperationId === "")) {
-            toast.info("Select operation for switch tile.");
+        if (
+            ["Switch", "Slider", "Options"].includes(tileType) &&
+            (tileOperationId === "None" || tileOperationId === "")
+        ) {
+            toast.info("Select operation for this tile.");
+            setTileExpanded(true);
+            valid = false;
+        }
+        if (tileType === "Slider" && (tileStepError || tileUnitError)) {
             setTileExpanded(true);
             valid = false;
         }
@@ -155,6 +218,10 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
             (tileDisplayableOperationId === "None" || tileDisplayableOperationId === "")
         ) {
             toast.info("Select operation for display tile.");
+            setTileExpanded(true);
+            valid = false;
+        }
+        if (tileType === "Display" && (tileReadingsError || tileLabelError || tileUnitError)) {
             setTileExpanded(true);
             valid = false;
         }
@@ -186,22 +253,33 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
             if (roomId !== saved.roomId) request.roomId = roomId === "None" ? null : roomId;
             if (tileType !== saved.tileType) request.type = tileType;
             if (
-                tileType === "Switch" &&
-                (tileType !== saved.tileType || tileOperationId !== saved.tileOperationId)
+                ["Switch", "Slider", "Options"].includes(tileType) &&
+                (tileType !== saved.tileType ||
+                    tileOperationId !== saved.tileOperationId ||
+                    (tileType === "Slider" &&
+                        (tileStep !== saved.tileStep || tileUnit !== saved.tileUnit)))
             ) {
                 request.type = tileType;
                 request.operationId = tileOperationId === "None" ? null : tileOperationId;
+                if (tileType === "Slider")
+                    request.configuration = { unit: tileUnit, step: Number(tileStep) };
             }
             if (tileType === "Display") {
                 if (
                     tileType !== saved.tileType ||
                     tileDisplayableOperationId !== saved.tileDisplayableOperationId ||
-                    tileUnit !== saved.tileUnit
+                    tileUnit !== saved.tileUnit ||
+                    tileLabel !== saved.tileLabel ||
+                    JSON.stringify(tileReadings) !== JSON.stringify(saved.tileReadings)
                 ) {
                     request.type = tileType;
                     request.displayableOperationId =
                         tileDisplayableOperationId === "None" ? null : tileDisplayableOperationId;
-                    request.configuration = { unit: tileUnit };
+                    request.configuration = {
+                        unit: tileUnit,
+                        ...(tileLabel ? { label: tileLabel } : {}),
+                        ...(tileReadings.length ? { readings: tileReadings } : {}),
+                    };
                 }
             }
             const presenceTypeChanged = presenceType !== saved.presenceType;
@@ -240,6 +318,9 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
         setTileOperationId(saved.tileOperationId);
         setTileDisplayableOperationId(saved.tileDisplayableOperationId);
         setTileUnit(saved.tileUnit);
+        setTileStep(saved.tileStep);
+        setTileLabel(saved.tileLabel);
+        setTileReadings(saved.tileReadings);
         setPresenceType(saved.presenceType);
         setPresenceOperationId(saved.presenceOperationId);
         setSubmitError("");
@@ -247,6 +328,34 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
 
     useImperativeHandle(ref, () => ({ save, reset }));
     useEffect(() => onHasChanges?.(dirty), [dirty, onHasChanges]);
+    useEffect(() => {
+        setPreviewOperation(null);
+        const previewOperationId =
+            tileType === "Display" ? tileDisplayableOperationId : tileOperationId;
+        if (
+            !["Slider", "Options", "Display"].includes(tileType) ||
+            !previewOperationId ||
+            previewOperationId === "None"
+        )
+            return;
+        let active = true;
+        const loadPreview = async () => {
+            try {
+                const result = await httpClient.get("v1/devices/operations/" + previewOperationId);
+                if (result.isSuccess && result.response) {
+                    const operation = (await result.response.json()) as OperationDto;
+                    if (active) setPreviewOperation(operation);
+                }
+            } catch {
+                /* The inactive preview explains that an operation must be available. */
+            }
+        };
+        void loadPreview();
+        return () => {
+            active = false;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tileOperationId, tileDisplayableOperationId, tileType]);
     useEffect(() => {
         const roomOptions = (homes.current?.rooms ?? []).map((room) => ({
             value: room.id,
@@ -272,12 +381,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
         setRoomId(value);
         setSubmitError("");
     };
-    const tileSummary =
-        tileType === "Switch"
-            ? "Switch tile"
-            : tileType === "Display"
-              ? "Display tile"
-              : "Default tile";
+    const tileSummary = `${tileType} tile`;
     const presenceSummary =
         presenceType === "BooleanOperation" ? "Boolean operation" : "No presence";
     const tilePreview = (
@@ -293,7 +397,32 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                         operationId: tileOperationId,
                         displayableOperationId: tileDisplayableOperationId,
                         value: undefined,
-                        configuration: tileType === "Display" ? { unit: tileUnit } : undefined,
+                        configuration:
+                            tileType === "Display"
+                                ? {
+                                      unit: tileUnit,
+                                      label: tileLabel,
+                                      operationType: previewOperation?.type,
+                                      readings: tileReadings,
+                                  }
+                                : tileType === "Slider"
+                                  ? {
+                                        unit: tileUnit,
+                                        step: Number(tileStep),
+                                        range: previewOperation
+                                            ? {
+                                                  min: previewOperation.configuration.min,
+                                                  max: previewOperation.configuration.max,
+                                              }
+                                            : undefined,
+                                    }
+                                  : tileType === "Options"
+                                    ? {
+                                          options: previewOperation?.configuration.options?.map(
+                                              (option: { name: string }) => option.name,
+                                          ),
+                                      }
+                                    : undefined,
                     },
                     presence:
                         presenceType !== "Default"
@@ -308,189 +437,356 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
         </View>
     );
 
-    return (
-        <View style={styles.container}>
-            <KeyboardAwareScrollView
-                bottomOffset={keyboardOffset}
-                style={styles.scrollContainer}
-                contentContainerStyle={styles.content}>
-                <Input
-                    error={nameError}
-                    value={name}
-                    title="Name"
-                    placeholder="Your device name"
-                    variant="auth"
-                    setValue={onNameChange}
-                    editable={!loading}
-                />
-                <IconSelector
-                    defaultIcon={icon}
-                    catalog={catalog}
-                    resource="devices"
-                    variant="brand"
-                    onIconSelected={(value) => {
-                        setIcon(value);
-                        setSubmitError("");
-                    }}
+    const fields = (
+        <>
+            <Input
+                error={nameError}
+                value={name}
+                title="Name"
+                placeholder="Your device name"
+                variant="auth"
+                setValue={onNameChange}
+                editable={!loading}
+            />
+            <IconSelector
+                defaultIcon={icon}
+                catalog={catalog}
+                resource="devices"
+                variant="brand"
+                onIconSelected={(value) => {
+                    setIcon(value);
+                    setSubmitError("");
+                }}
+                disabled={loading}
+            />
+            {!catalog.loading && !catalog.error && !isIconValid && (
+                <Text color="error" accessibilityRole="alert">
+                    Select an available icon.
+                </Text>
+            )}
+            {edit ? (
+                <RoomSelector
+                    initialRoomId={roomId}
+                    onSelected={onRoomSelected}
                     disabled={loading}
                 />
-                {!catalog.loading && !catalog.error && !isIconValid && (
-                    <Text color="error" accessibilityRole="alert">
-                        Select an available icon.
-                    </Text>
-                )}
-                {edit ? (
-                    <RoomSelector
-                        initialRoomId={roomId}
-                        onSelected={onRoomSelected}
-                        disabled={loading}
-                    />
-                ) : (
+            ) : (
+                <Dropdown
+                    selectedValue={roomId}
+                    title="Room"
+                    options={roomOptions}
+                    onSelected={onRoomSelected}
+                    disablePress={loading}
+                />
+            )}
+
+            {!edit && tilePreview}
+
+            {edit && (
+                <Expander
+                    title="Tile"
+                    summary={tileSummary}
+                    expanded={tileExpanded}
+                    onExpandedChange={setTileExpanded}
+                    padding={{ paddingTop: 4 }}>
                     <Dropdown
-                        selectedValue={roomId}
-                        title="Room"
-                        options={roomOptions}
-                        onSelected={onRoomSelected}
+                        title="Tile Type"
+                        options={TileTypeOptions}
+                        selectedValue={tileType}
+                        onSelected={(value) => {
+                            setTileType(value);
+                            setSubmitError("");
+                        }}
                         disablePress={loading}
                     />
-                )}
-
-                {!edit && tilePreview}
-
-                {edit && (
-                    <Expander
-                        title="Tile"
-                        summary={tileSummary}
-                        expanded={tileExpanded}
-                        onExpandedChange={setTileExpanded}
-                        padding={{ paddingTop: 4 }}>
-                        <Dropdown
-                            title="Tile Type"
-                            options={TileTypeOptions}
-                            selectedValue={tileType}
-                            onSelected={(value) => {
-                                setTileType(value);
-                                setSubmitError("");
-                            }}
-                            disablePress={loading}
-                        />
-                        {tileType === "Switch" && (
-                            <View
-                                style={styles.disclosureField}
-                                pointerEvents={loading ? "none" : "auto"}>
+                    {["Switch", "Slider", "Options"].includes(tileType) && (
+                        <View
+                            style={styles.disclosureField}
+                            pointerEvents={loading ? "none" : "auto"}>
+                            <OperationSelector
+                                key={tileType}
+                                initialOperationId={tileOperationId}
+                                deviceId={deviceId!}
+                                filterTypes={
+                                    tileType === "Slider"
+                                        ? ["Number", "Integer"]
+                                        : tileType === "Options"
+                                          ? ["Options"]
+                                          : ["Boolean"]
+                                }
+                                onSelected={(value) => {
+                                    setTileOperationId(value);
+                                    setSubmitError("");
+                                }}
+                            />
+                        </View>
+                    )}
+                    {tileType === "Slider" && (
+                        <View style={styles.disclosureField}>
+                            <Input
+                                title="Step"
+                                placeholder="e.g. 1"
+                                error={tileStepError}
+                                value={tileStep}
+                                keyboardType="decimal-pad"
+                                variant="auth"
+                                editable={!loading}
+                                setValue={(value) => {
+                                    setTileStep(value);
+                                    setSubmitError("");
+                                }}
+                            />
+                            <Text>
+                                Range comes from the selected operation. Use 0 for a continuous
+                                numeric slider.
+                            </Text>
+                            <Input
+                                title="Unit"
+                                error={tileUnitError}
+                                value={tileUnit}
+                                placeholder="e.g. %"
+                                variant="auth"
+                                editable={!loading}
+                                setValue={(value) => {
+                                    setTileUnit(value);
+                                    setSubmitError("");
+                                }}
+                            />
+                        </View>
+                    )}
+                    {tileType === "Display" && (
+                        <View style={styles.disclosureField}>
+                            <View pointerEvents={loading ? "none" : "auto"}>
                                 <OperationSelector
-                                    initialOperationId={tileOperationId}
+                                    initialOperationId={tileDisplayableOperationId}
                                     deviceId={deviceId!}
-                                    filterTypes={["Boolean"]}
+                                    filterTypes={["Number", "Integer", "Boolean"]}
                                     onSelected={(value) => {
-                                        setTileOperationId(value);
+                                        setTileDisplayableOperationId(value);
                                         setSubmitError("");
                                     }}
                                 />
                             </View>
-                        )}
-                        {tileType === "Display" && (
-                            <View style={styles.disclosureField}>
-                                <View pointerEvents={loading ? "none" : "auto"}>
-                                    <OperationSelector
-                                        initialOperationId={tileDisplayableOperationId}
-                                        deviceId={deviceId!}
-                                        filterTypes={["Number", "Integer"]}
-                                        onSelected={(value) => {
-                                            setTileDisplayableOperationId(value);
+                            {!!tileDisplayableOperationId &&
+                                tileDisplayableOperationId !== "None" && (
+                                    <Input
+                                        value={tileUnit}
+                                        title="Unit"
+                                        placeholder="e.g. °C"
+                                        setValue={(value) => {
+                                            setTileUnit(value);
+                                            setSubmitError("");
+                                        }}
+                                        error={tileUnitError}
+                                        variant="auth"
+                                        editable={!loading}
+                                    />
+                                )}
+                            <Input
+                                title="Reading label"
+                                placeholder="Operation name by default"
+                                value={tileLabel}
+                                error={tileLabelError}
+                                variant="auth"
+                                editable={!loading}
+                                setValue={(value) => {
+                                    setTileLabel(value);
+                                    setSubmitError("");
+                                }}
+                            />
+                            <Text>
+                                Boolean operations show read-only On/Off. Add separate operations
+                                for additional units or measurements.
+                            </Text>
+                            {tileReadings.map((reading, index) => (
+                                <View key={index} style={styles.disclosureField}>
+                                    <Text>Reading {index + 2}</Text>
+                                    <View pointerEvents={loading ? "none" : "auto"}>
+                                        <OperationSelector
+                                            initialOperationId={reading.operationId}
+                                            deviceId={deviceId!}
+                                            filterTypes={["Number", "Integer", "Boolean"]}
+                                            onSelected={(operationId) => {
+                                                setTileReadings((current) =>
+                                                    current.map((item, position) =>
+                                                        position === index
+                                                            ? { ...item, operationId }
+                                                            : item,
+                                                    ),
+                                                );
+                                                setSubmitError("");
+                                            }}
+                                        />
+                                    </View>
+                                    <Input
+                                        title={`Reading ${index + 2} label`}
+                                        placeholder="Operation name by default"
+                                        value={reading.label}
+                                        error={
+                                            reading.label.length > 64
+                                                ? "Label must be at most 64 characters."
+                                                : ""
+                                        }
+                                        variant="auth"
+                                        editable={!loading}
+                                        setValue={(label) => {
+                                            setTileReadings((current) =>
+                                                current.map((item, position) =>
+                                                    position === index ? { ...item, label } : item,
+                                                ),
+                                            );
+                                            setSubmitError("");
+                                        }}
+                                    />
+                                    <Input
+                                        title={`Reading ${index + 2} unit`}
+                                        placeholder="e.g. %"
+                                        value={reading.unit}
+                                        error={
+                                            reading.unit.length > 5
+                                                ? "Unit must be at most 5 characters."
+                                                : ""
+                                        }
+                                        variant="auth"
+                                        editable={!loading}
+                                        setValue={(unit) => {
+                                            setTileReadings((current) =>
+                                                current.map((item, position) =>
+                                                    position === index ? { ...item, unit } : item,
+                                                ),
+                                            );
+                                            setSubmitError("");
+                                        }}
+                                    />
+                                    <Button
+                                        name={`Remove reading ${index + 2}`}
+                                        type="brand-outline"
+                                        loading={false}
+                                        disabled={loading}
+                                        onPress={() => {
+                                            setTileReadings((current) =>
+                                                current.filter((_, position) => position !== index),
+                                            );
                                             setSubmitError("");
                                         }}
                                     />
                                 </View>
-                                {!!tileDisplayableOperationId &&
-                                    tileDisplayableOperationId !== "None" && (
-                                        <Input
-                                            value={tileUnit}
-                                            title="Unit"
-                                            placeholder="e.g. °C"
-                                            setValue={(value) => {
-                                                setTileUnit(value);
-                                                setSubmitError("");
-                                            }}
-                                            error=""
-                                            variant="auth"
-                                            editable={!loading}
-                                        />
-                                    )}
-                            </View>
-                        )}
-                        {tilePreview}
-                    </Expander>
-                )}
-
-                {edit && (
-                    <Expander
-                        title="Presence"
-                        summary={presenceSummary}
-                        expanded={presenceExpanded}
-                        onExpandedChange={setPresenceExpanded}
-                        padding={{ paddingTop: 4 }}>
-                        <Dropdown
-                            title="Presence Type"
-                            options={PresenceTypeOptions}
-                            selectedValue={presenceType}
-                            onSelected={(value) => {
-                                setPresenceType(value);
-                                setSubmitError("");
-                            }}
-                            disablePress={loading}
-                        />
-                        {presenceType === "BooleanOperation" && (
-                            <View
-                                style={styles.disclosureField}
-                                pointerEvents={loading ? "none" : "auto"}>
-                                <OperationSelector
-                                    deviceId={deviceId!}
-                                    initialOperationId={presenceOperationId}
-                                    filterTypes={["Boolean"]}
-                                    onSelected={(value) => {
-                                        setPresenceOperationId(value);
-                                        setSubmitError("");
-                                    }}
-                                />
-                            </View>
-                        )}
-                    </Expander>
-                )}
-
-                {!!submitError && (
-                    <Alert
-                        icon={CircleAlert}
-                        variant="destructive"
-                        accessibilityRole="alert"
-                        accessibilityLiveRegion="polite">
-                        <AlertDescription>{submitError}</AlertDescription>
-                    </Alert>
-                )}
-                {edit ? (
-                    <View style={styles.actions}>
-                        <Button
-                            name="Save changes"
-                            type="auth"
-                            loading={loading}
-                            disabled={!dirty || !isIconValid}
-                            onPress={save}
-                        />
-                        {dirty && (
+                            ))}
+                            {!!tileReadingsError && <Text color="error">{tileReadingsError}</Text>}
                             <Button
-                                name="Reset"
-                                type="brand-ghost"
+                                name="Add reading"
+                                type="brand-outline"
                                 loading={false}
-                                disabled={loading}
-                                onPress={reset}
+                                disabled={loading || tileReadings.length >= 8}
+                                onPress={() => {
+                                    setTileReadings((current) => [
+                                        ...current,
+                                        { operationId: "None", label: "", unit: "" },
+                                    ]);
+                                    setSubmitError("");
+                                }}
                             />
-                        )}
-                    </View>
-                ) : dirty ? (
-                    <View style={styles.createButton}>
-                        <Button name="Add Device" loading={loading} onPress={save} />
-                    </View>
-                ) : null}
+                        </View>
+                    )}
+                    {tilePreview}
+                </Expander>
+            )}
+
+            {edit && (
+                <Expander
+                    title="Presence"
+                    summary={presenceSummary}
+                    expanded={presenceExpanded}
+                    onExpandedChange={setPresenceExpanded}
+                    padding={{ paddingTop: 4 }}>
+                    <Dropdown
+                        title="Presence Type"
+                        options={PresenceTypeOptions}
+                        selectedValue={presenceType}
+                        onSelected={(value) => {
+                            setPresenceType(value);
+                            setSubmitError("");
+                        }}
+                        disablePress={loading}
+                    />
+                    {presenceType === "BooleanOperation" && (
+                        <View
+                            style={styles.disclosureField}
+                            pointerEvents={loading ? "none" : "auto"}>
+                            <OperationSelector
+                                deviceId={deviceId!}
+                                initialOperationId={presenceOperationId}
+                                filterTypes={["Boolean"]}
+                                onSelected={(value) => {
+                                    setPresenceOperationId(value);
+                                    setSubmitError("");
+                                }}
+                            />
+                        </View>
+                    )}
+                </Expander>
+            )}
+        </>
+    );
+    const actions = (
+        <>
+            {!!submitError && (
+                <Alert
+                    icon={CircleAlert}
+                    variant="destructive"
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite">
+                    <AlertDescription>{submitError}</AlertDescription>
+                </Alert>
+            )}
+            {edit ? (
+                <View style={styles.actions}>
+                    <Button
+                        name="Save changes"
+                        type="auth"
+                        loading={loading}
+                        disabled={!dirty || !isIconValid}
+                        onPress={save}
+                    />
+                    {dirty && (
+                        <Button
+                            name="Reset"
+                            type="brand-ghost"
+                            loading={false}
+                            disabled={loading}
+                            onPress={reset}
+                        />
+                    )}
+                </View>
+            ) : dirty ? (
+                <View style={styles.createButton}>
+                    <Button name="Add Device" loading={loading} onPress={save} />
+                </View>
+            ) : null}
+        </>
+    );
+
+    return (
+        <View style={styles.container}>
+            <KeyboardAwareScrollView
+                bottomOffset={keyboardOffset}
+                keyboardShouldPersistTaps="handled"
+                style={styles.scrollContainer}
+                contentContainerStyle={[styles.content, edit && styles.editContent]}>
+                {edit ? (
+                    <FormSection
+                        title="Device details"
+                        helper="Update this device's name, icon and room."
+                        actions={actions}>
+                        {fields}
+                    </FormSection>
+                ) : (
+                    <>
+                        {fields}
+                        {actions}
+                    </>
+                )}
+                {children}
             </KeyboardAwareScrollView>
         </View>
     );
@@ -498,17 +794,26 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    scrollContainer: { paddingHorizontal: 16 },
-    content: { paddingTop: 8, paddingBottom: 20, gap: 16 },
+    scrollContainer: { flex: 1 },
+    content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20, gap: 16 },
+    editContent: {
+        width: "100%",
+        maxWidth: 448,
+        alignSelf: "center",
+        paddingTop: 24,
+        paddingBottom: 16,
+        gap: 0,
+    },
     disclosureField: { paddingTop: 12 },
     tilePreview: {
         justifyContent: "center",
         alignItems: "center",
-        minHeight: 112,
-        maxHeight: (screenWidth - 30) / 2,
+        width: "100%",
+        maxWidth: 260,
+        alignSelf: "center",
         marginTop: 12,
     },
-    actions: { gap: 4, paddingTop: 4 },
+    actions: { gap: 12 },
     createButton: { alignItems: "center", paddingTop: 8 },
 });
 

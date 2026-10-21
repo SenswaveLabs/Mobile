@@ -39,6 +39,31 @@ or rerun an expensive build for an unrelated documentation edit.
   (including a misleading full-render event) and invalid native coordinates.
   These checks do not establish native rendering, keyboard or assistive-technology behavior.
 - Room creation and editing are included in `pnpm test:homes`. Checks execute the real form and route handlers for normalized name validation, keyboard/button submission locks, failed-save draft retention, saved baselines after blur, load retry, accepted-create recovery without duplicate writes, delete cancellation/failure and stale completion after changing rooms.
+- Main home dashboard, room filtering, device-tile controls and dashboard slider: run `pnpm test:dashboard`
+  (`node --test tests/homeDashboard.test.mjs tests/deviceTileActions.test.mjs`). It executes the real provider and
+  component handlers, covering selected-room retention, failed/malformed reads,
+  cached data and late responses across homes, complete collections beyond the API's
+  default ten results and filtering devices from later results, retained live callbacks, manager/owner
+  actions, command locks and failures, inactive previews, exact readouts,
+  retained feedback after failed refresh and recovery after a successful same-value
+  refresh, and the large-text column fallback. Slider checks cover the 48 dp native
+  height/tint props, finite range/step guards and 10,000-step cap, changed-release
+  commands, non-touch adjustments and duplicate completion suppression, reported-value synchronization, zero with a negative minimum and widget
+  pending/failure recovery. Shared-switch checks cover branded overrides and legacy
+  color defaults. Action checks execute the root optimistic provider and the shared
+  home-tile hook for Switch, Slider and Options: immediate values, independent
+  completion of concurrent devices, synchronous duplicate guards, accepted-value
+  retention, rollback and recovery alerts, stale-read rejection, late completion
+  after unmount, and preview isolation. Manual timers cover no spinner before
+  300 ms, spinner after 300 ms even beyond four seconds, and cancellation for quick
+  actions. Presentation checks retain the same layout slots while pending; mixed
+  grid rows preserve order and give Slider a complete row. These checks do not establish
+  native layout, touch ordering, screen-reader behavior or hardware command delivery.
+- Device tile settings: run `pnpm test:device-details`. It covers multiple Display readings, Boolean read-only selection, duplicate-reference validation, metadata stripping and reset baselines, plus Slider/Options
+  operation filtering, retained step/unit drafts and partial edit payloads, plus
+  the tile selector's fixed busy icon slot, current-choice guard, changed-choice
+  submission, cancellation and focus callbacks. The handler adapter cannot prove
+  native slider targets, sheet focus or rendering during a React async action.
 - Data-source details and broker/subscription actions: run `pnpm test:data-sources`.
   It executes the real settings form, details route and overview panel handlers,
   covering failed-save draft retention, successful saved baseline without a Reset action, duplicate
@@ -86,6 +111,29 @@ For user-facing changes, exercise the affected flow in a native development buil
 or emulator when available. Check navigation/Back, keyboard/scrolling, safe areas,
 light/dark mode, text scaling and applicable loading, empty, success and error
 states. Check screen-reader labels, focus order and usable touch targets.
+For the home dashboard, exercise home switching, source/room/device navigation,
+room filtering and selection after pull-to-refresh. Check one/two/three-column
+layouts at their width/text-scale boundaries, wrapping labels/readouts and the
+complete informational footer in both themes. Verify the switch target does not
+open the device dashboard, pending commands cannot repeat, and failure feedback
+can recover; report hardware commands separately from fixture or handler checks.
+For home Switch, Slider and Options actions, observe the immediate selected value
+before the response, then delayed spinner and final value/rollback. Keep an action
+pending beyond four seconds to confirm it retains only the spinner and unchanged
+tile geometry. Check the entire home list stays visible in intermediate frames;
+handler tests cannot detect a native Fabric/Suspense fallback blink. Exercise a
+second device while the first is pending to verify its feedback finishes
+independently. Options current selection, Back, Close and scrim send no command.
+Check Slider's full-row packing, changed release and real 48 dp SeekBar target in
+both themes and with large text; verify settings previews send no commands or live
+subscriptions. Separate isolated demo-topic checks from physical device delivery.
+For the dashboard slider, verify an enabled native SeekBar has a usable 48 dp
+target, including its margins; wrapper dimensions alone are insufficient. Check
+thumb, active track and rail contrast in both themes from actual pixels, since
+Android can dim its native rail. Exercise dragging without intermediate commands,
+changed release, reported-value updates, pending/error recovery and the configured
+dashboard grid sizes. A local slider fixture proves touch behavior without proving
+hardware delivery or native pending/error states.
 For home location, pan/zoom the native map, confirm its center, cancel without
 changing the draft and reopen settings with the saved location. Verify map
 loading/retry and visible OpenStreetMap attribution. A JavaScript export cannot replace the native
@@ -108,3 +156,9 @@ Confirm the requested behavior, preserved API/application boundaries, relevant
 checks and documentation updates. Report failures and any known limitations.
 Notify on test failure and wait for human; never merge PRs autonomously. Keep
 `next-dev` separate from `main` until integration is explicitly requested.
+
+The dashboard suite also covers neutral compact surfaces, distinct Inactive/No data chips beside the room, read-only Boolean On/Off, multi-reading labels and units, zero/missing readings, inactive command guards with continued live updates, retained callback guards, list row packing and layout preference restoration without late-hydration races. Native screenshots verify layout, not hardware delivery. Changes to the shared Display contract also require the sibling backend's solution build and Devices unit, integration and end-test projects.
+
+The native handler adapter traverses the `heading` slot used by Slider tile navigation. Its navigation, permissions and preview regression runs across all five tile types. No data tests distinguish missing data from zero/false and from a valid additional reading. Layout write ordering is checked with a delayed previous write.
+
+General-screen control checks cover the single-choice List/Grid group, ignored empty/current selections, keyboard focus and the Options trigger's expanded state and focus outline. Native verification remains necessary for compact selection rendering, radio announcements, 48 dp targets and sheet cancellation.

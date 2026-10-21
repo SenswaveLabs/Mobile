@@ -1,76 +1,72 @@
-import React from "react";
-import { View, StyleSheet, Pressable, TouchableOpacity } from "react-native";
-import Text from "../common/Text";
+import React, { FC } from "react";
+import { View, StyleSheet, Pressable, Text } from "react-native";
 import UserProfileImage from "../user/UserProfileImage";
 import { useHomes } from "@/contexts/domain/HomeProvider";
+import { useTheme } from "@/contexts/ThemeProvider";
 import { useRouter } from "expo-router";
 import Icon from "../common/Icon";
 
-const ProfileHeader = () => {
+const ProfileHeader: FC = () => {
     const router = useRouter();
     const homes = useHomes();
-
-    const hamburgerClicked = () => {
-        console.debug("[Profile Header] Change home clicked.");
-        router.push("home/list");
-    };
-
+    const { colors } = useTheme().current;
     return (
-        <View style={styles.header}>
-            <View style={styles.left}>
-                {!homes.loading && homes.current && (
-                    <TouchableOpacity onPress={hamburgerClicked}>
-                        <Icon icon="menu-outline" size={36} />
-                    </TouchableOpacity>
-                )}
-            </View>
-
-            <View style={styles.center}>
-                {!homes.loading && homes.current && (
+        <View style={[styles.header, { backgroundColor: colors.background }]}>
+            {!homes.loading && homes.current ? (
+                <>
                     <Pressable
                         cssInterop={false}
-                        style={({ pressed }) => [pressed && styles.pressed]}
-                        onPress={hamburgerClicked}>
-                        <Text size="medium" bold color="onBackground" numberOfLines={1}>
+                        accessibilityRole="button"
+                        accessibilityLabel={"Switch home, current home: " + homes.current.name}
+                        onPress={() => router.push("home/list")}
+                        style={({ pressed }) => [styles.home, pressed && styles.pressed]}>
+                        <Text style={[styles.title, { color: colors.authForeground }]}>
                             {homes.current.name}
                         </Text>
+                        <Icon icon="chevron-down-outline" size={18} color="brand" />
                     </Pressable>
-                )}
-            </View>
-
-            <View style={styles.right}>
-                <UserProfileImage size={48} enableNavigation={true} />
-            </View>
+                    <Pressable
+                        cssInterop={false}
+                        accessibilityRole="button"
+                        accessibilityLabel="Home details"
+                        onPress={() => router.push("home/details")}
+                        style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+                        <Icon icon="settings-outline" size={22} color="brand" />
+                    </Pressable>
+                </>
+            ) : (
+                <View style={styles.spacer} />
+            )}
+            <UserProfileImage size={48} enableNavigation />
         </View>
     );
 };
-
 export default ProfileHeader;
-
 const styles = StyleSheet.create({
     header: {
-        height: 80,
-        paddingHorizontal: 15,
-        paddingTop: 10,
+        minHeight: 64,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
         flexDirection: "row",
         alignItems: "center",
+        gap: 8,
     },
-    left: {
-        width: 48,
-        alignItems: "flex-start",
-        justifyContent: "center",
-    },
-    center: {
+    home: {
         flex: 1,
+        minHeight: 48,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingVertical: 8,
+    },
+    title: { flexShrink: 1, fontSize: 24, lineHeight: 32, fontWeight: "600" },
+    iconButton: {
+        minWidth: 48,
+        minHeight: 48,
         alignItems: "center",
         justifyContent: "center",
+        borderRadius: 8,
     },
-    right: {
-        width: 48,
-        alignItems: "flex-end",
-        justifyContent: "center",
-    },
-    pressed: {
-        opacity: 0.8,
-    },
+    spacer: { flex: 1 },
+    pressed: { opacity: 0.72 },
 });
