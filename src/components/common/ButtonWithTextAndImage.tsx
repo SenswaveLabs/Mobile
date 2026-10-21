@@ -34,6 +34,7 @@ const ButtonWithTextAndImage: FC<ButtonWithTextAndImagePropertiess> = ({
     return (
         <View style={[{ padding: 15 }, style]}>
             <Pressable
+                cssInterop={false}
                 style={({ pressed }) => [
                     buttonStyles,
                     pressed && localStyles.buttonPressed,

@@ -5,6 +5,9 @@ import Icon from "./Icon";
 
 interface ExpanderProps {
     title: string;
+    summary?: string;
+    expanded?: boolean;
+    onExpandedChange?: (expanded: boolean) => void;
     children: React.ReactNode;
     padding?: {
         paddingTop?: number;
@@ -14,16 +17,25 @@ interface ExpanderProps {
     };
 }
 
-const Expander: React.FC<ExpanderProps> = ({ title, children, padding }) => {
+const Expander: React.FC<ExpanderProps> = ({
+    title,
+    summary,
+    expanded: expandedProp,
+    onExpandedChange,
+    children,
+    padding,
+}) => {
     const theme = useTheme();
 
-    const [expanded, setExpanded] = useState(false);
+    const [internalExpanded, setInternalExpanded] = useState(false);
+    const expanded = expandedProp ?? internalExpanded;
 
     // Animated value for rotation
     const rotateAnim = useRef(new Animated.Value(0)).current;
 
     const toggleExpand = () => {
-        setExpanded(!expanded);
+        if (expandedProp === undefined) setInternalExpanded(!expanded);
+        onExpandedChange?.(!expanded);
 
         // Animate rotation between 0 and 90 degrees
         Animated.timing(rotateAnim, {
@@ -68,6 +80,13 @@ const Expander: React.FC<ExpanderProps> = ({ title, children, padding }) => {
                     <Text style={[styles.title, { color: theme.current.colors.textOnBackground }]}>
                         {title}
                     </Text>
+                    {!!summary && (
+                        <Text
+                            numberOfLines={1}
+                            style={[styles.summary, { color: theme.current.colors.authMuted }]}>
+                            {summary}
+                        </Text>
+                    )}
                 </View>
             </TouchableOpacity>
             {expanded && <View style={styles.content}>{children}</View>}
@@ -82,7 +101,8 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: "row",
         alignItems: "center",
-        height: 36,
+        minHeight: 48,
+        paddingVertical: 6,
     },
     iconContainer: {
         width: 24,
@@ -97,6 +117,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "bold",
     },
+    summary: { fontSize: 13, lineHeight: 18 },
     content: {
         paddingBottom: 15,
     },

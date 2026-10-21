@@ -13,7 +13,7 @@
     "splash": {
       "image": "./src/assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#DFE6F8"
+      "backgroundColor": "#F9F7F1"
     },
     "ios": {
       "supportsTablet": true
@@ -22,7 +22,7 @@
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/adaptive.png",
-        "backgroundColor": "#DFE6F8"
+        "backgroundColor": "#F9F7F1"
       },
       "package": "com.develite.senswave",
       "intentFilters": [
@@ -72,7 +72,7 @@
             }
           ],
           "category": [
-            "BROWSABLE", 
+            "BROWSABLE",
             "DEFAULT"
           ]
         }
@@ -90,16 +90,17 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#DFE6F8",
+          "backgroundColor": "#F9F7F1",
           "image": "./src/assets/splash.png",
           "dark": {
             "image": "./src/assets/splash-dark.png",
-            "backgroundColor": "#33363F"
+            "backgroundColor": "#100D08"
           },
           "imageWidth": 200
         }
       ],
-      "expo-router"
+      "expo-router",
+      "@maplibre/maplibre-react-native"
     ]
   }
 }

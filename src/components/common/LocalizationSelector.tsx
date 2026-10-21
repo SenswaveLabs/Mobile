@@ -1,141 +1,183 @@
-import React, { useState, useEffect, useRef } from "react";
-import { View, StyleSheet, Animated } from "react-native";
+import React, { FC, useCallback, useEffect, useRef, useState } from "react";
+import { Keyboard, StyleSheet, View } from "react-native";
+import { useFocusEffect } from "expo-router";
 import * as Location from "expo-location";
-import ImageButton from "./ImageButton";
-import { useToast } from "@/contexts/ToastProvider";
-import Text from "./Text";
+import { CircleAlert, MapPin } from "lucide-react-native";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Text } from "@/components/ui/text";
+import { useTheme } from "@/contexts/ThemeProvider";
+import LocationMapPicker from "@/components/home/LocationMapPicker";
+import Button from "./Button";
 
 interface LocalizationSelectorProps {
     onSelectLocation: (latitude: number, longitude: number) => void;
-    initLocation: {
-        latitude?: number;
-        longitude?: number;
-    };
+    initLocation: { latitude?: number; longitude?: number };
+    disabled?: boolean;
+    onLoadingChange?: (loading: boolean) => void;
 }
 
-const LocalizationSelector: React.FC<LocalizationSelectorProps> = ({
+const LocalizationSelector: FC<LocalizationSelectorProps> = ({
     onSelectLocation,
-    ...props
-}: LocalizationSelectorProps) => {
-    const toast = useToast();
+    initLocation: { latitude, longitude },
+    disabled = false,
+    onLoadingChange,
+}) => {
+    const { colors } = useTheme().current;
+    const [address, setAddress] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [mapOpen, setMapOpen] = useState(false);
+    const pending = useRef<"gps" | "map" | null>(null);
+    const active = useRef(true);
 
-    const [address, setAddress] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [expand] = useState(false);
-
-    const [loactionProvided] = useState(
-        props.initLocation.latitude && props.initLocation.longitude,
+    useFocusEffect(
+        useCallback(() => {
+            active.current = true;
+            return () => {
+                active.current = false;
+                if (pending.current === "map") {
+                    pending.current = null;
+                    setMapOpen(false);
+                    onLoadingChange?.(false);
+                }
+            };
+        }, [onLoadingChange]),
     );
-    const [latitude, setLatitude] = useState(props.initLocation.latitude ?? 0);
-    const [longitude, setLongitude] = useState(props.initLocation.longitude ?? 0);
-
-    const animatedHeight = useRef(new Animated.Value(0)).current;
-
-    const loadinitLocation = async () => {
-        if (loactionProvided) {
-            await updateAddress(latitude, longitude);
-        }
-    };
 
     useEffect(() => {
-        loadinitLocation();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    useEffect(() => {
-        // Animate map height expansion/collapse
-        Animated.timing(animatedHeight, {
-            toValue: expand ? 300 : 0, // Expanded height to 300 or collapsed to 0
-            duration: 300, // Duration of animation
-            useNativeDriver: false,
-        }).start();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [expand]);
+        let current = true;
+        setAddress("");
+        if (latitude === undefined || longitude === undefined) return;
+        void Location.reverseGeocodeAsync({ latitude, longitude })
+            .then((places) => {
+                const place = places[0];
+                if (current && place)
+                    setAddress(
+                        [
+                            [place.streetNumber, place.street].filter(Boolean).join(" "),
+                            place.city,
+                            place.region,
+                        ]
+                            .filter(Boolean)
+                            .join(", "),
+                    );
+            })
+            .catch(() => {
+                // The selected place stays usable when its address is unavailable.
+            });
+        return () => {
+            current = false;
+        };
+    }, [latitude, longitude]);
 
     const loadLocation = async () => {
-        setIsLoading(true);
-
-        const overallTimeout = 10000;
-
-        // Create a timeout promise that rejects after overallTimeout
-        const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error("Location request timed out")), overallTimeout),
-        );
-
+        if (pending.current || disabled || !active.current) return;
+        pending.current = "gps";
+        setLoading(true);
+        setError("");
+        onLoadingChange?.(true);
+        let timeout: ReturnType<typeof setTimeout> | undefined;
         try {
-            await Promise.race([
-                (async () => {
-                    const { status } = await Location.requestForegroundPermissionsAsync();
-
-                    if (status !== "granted") {
-                        toast.error("Permission to access location was denied");
-                        return;
-                    }
-
-                    const location = await Location.getCurrentPositionAsync({});
-                    const { latitude, longitude } = location.coords;
-
-                    await updateAddress(latitude, longitude);
-                    onSelectLocation(latitude, longitude);
-                })(),
-                timeoutPromise,
+            const request = async () => {
+                const permission = await Location.requestForegroundPermissionsAsync();
+                if (permission.status !== "granted")
+                    throw new Error("Allow location access in system settings, then try again.");
+                return Location.getCurrentPositionAsync({});
+            };
+            const location = await Promise.race([
+                request(),
+                new Promise<never>((_, reject) => {
+                    timeout = setTimeout(
+                        () =>
+                            reject(new Error("Location timed out. Try again or save without it.")),
+                        10000,
+                    );
+                }),
             ]);
-        } catch (error) {
-            // This will catch timeout or any other error
-            toast.error(error instanceof Error ? error.message : "Error fetching location");
-            console.error("Error fetching location:", error);
+            if (active.current)
+                onSelectLocation(location.coords.latitude, location.coords.longitude);
+        } catch (failure) {
+            if (active.current)
+                setError(
+                    failure instanceof Error
+                        ? failure.message
+                        : "Couldn't get your location. Try again.",
+                );
         } finally {
-            setIsLoading(false); // Always reset loading
+            clearTimeout(timeout);
+            pending.current = null;
+            setLoading(false);
+            onLoadingChange?.(false);
         }
     };
 
-    const updateAddress = async (latitude: number, longitude: number) => {
-        setLongitude(longitude);
-        setLatitude(latitude);
-
-        const reverseGeocode = await Location.reverseGeocodeAsync({ latitude, longitude });
-        if (reverseGeocode.length > 0) {
-            const place = reverseGeocode[0];
-            const address =
-                `${place.streetNumber ? place.streetNumber : ""} ${place.street ? place.street + "," : ""} ${place.city ? place.city + "," : ""} ${place.region || ""}`.trim();
-            setAddress(address);
-        }
+    const closeMap = () => {
+        pending.current = null;
+        setMapOpen(false);
+        onLoadingChange?.(false);
     };
-
-    // const handleMapPress = async (event: any) => {
-    //     const { latitude, longitude } = event.nativeEvent.coordinate;
-    //     await updateAddress(latitude, longitude);
-    //     props.onSelectLocation(latitude, longitude);
-    // };
 
     return (
-        <View style={styles.mainContainer}>
-            <Text bold={true} size={"medium"} color={"onBackground"}>
-                Location
-            </Text>
-
-            <View style={styles.dataContainer}>
-                {/* <ImageButton
-                    icon="location-outline"
-                    loading={isLoading}
-                    onPress={() => setExpand(!expand)}
-                    style={{ marginRight: 10 }} /> */}
-
-                <ImageButton
-                    icon="locate-outline"
-                    loading={isLoading}
-                    onPress={loadLocation}
-                    style={{ marginRight: 20 }}
-                />
-
-                <View style={styles.textContainer}>
-                    <Text bold={true} size={"medium"} color={"onPrimary"}>
-                        {isLoading
-                            ? "Fetching your location..."
-                            : address || "No location selected"}
-                    </Text>
-                </View>
+        <View style={styles.container}>
+            <Text style={[styles.label, { color: colors.authForeground }]}>Location</Text>
+            <View style={styles.location}>
+                <MapPin accessible={false} size={20} color={colors.authMuted} />
+                <Text
+                    style={[styles.description, styles.address, { color: colors.authForeground }]}>
+                    {address ||
+                        (latitude !== undefined && longitude !== undefined
+                            ? "Selected location"
+                            : "No location selected")}
+                </Text>
             </View>
+            {!!error && (
+                <Alert
+                    icon={CircleAlert}
+                    variant="destructive"
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite">
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+            )}
+            <View style={styles.actions}>
+                <Button
+                    name="Choose on map"
+                    type="brand-outline"
+                    style={styles.action}
+                    loading={false}
+                    disabled={disabled || loading || mapOpen}
+                    onPress={() => {
+                        if (pending.current || disabled || !active.current) return;
+                        Keyboard.dismiss();
+                        pending.current = "map";
+                        setError("");
+                        setMapOpen(true);
+                        onLoadingChange?.(true);
+                    }}
+                />
+                <Button
+                    name={
+                        latitude !== undefined && longitude !== undefined
+                            ? "Update location"
+                            : "Use current location"
+                    }
+                    type="brand-ghost"
+                    style={styles.action}
+                    loading={loading}
+                    disabled={disabled || mapOpen}
+                    onPress={loadLocation}
+                />
+            </View>
+            {mapOpen && (
+                <LocationMapPicker
+                    initialLocation={{ latitude, longitude }}
+                    onCancel={closeMap}
+                    onConfirm={(lat, lng) => {
+                        if (active.current) onSelectLocation(lat, lng);
+                        closeMap();
+                    }}
+                />
+            )}
         </View>
     );
 };
@@ -143,23 +185,11 @@ const LocalizationSelector: React.FC<LocalizationSelectorProps> = ({
 export default LocalizationSelector;
 
 const styles = StyleSheet.create({
-    mainContainer: {
-        marginTop: 0,
-    },
-    dataContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 10,
-        paddingTop: 5,
-    },
-    textContainer: {
-        flex: 1,
-    },
-    animatedMapContainer: {
-        overflow: "hidden",
-        width: "100%",
-    },
-    map: {
-        ...StyleSheet.absoluteFillObject,
-    },
+    container: { gap: 12 },
+    location: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+    address: { flex: 1 },
+    actions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+    action: { flexGrow: 1, flexBasis: 160, width: "auto" },
+    label: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
+    description: { fontSize: 14, lineHeight: 20 },
 });

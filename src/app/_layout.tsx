@@ -1,10 +1,11 @@
 import "react-native-gesture-handler";
 import "react-native-reanimated";
+import "../../global.css";
 import { SessionProvider } from "@/contexts/SessionProvider";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeProvider";
-import { Slot } from "expo-router";
-import React, { useEffect } from "react";
-import { View } from "react-native";
+import { Stack } from "expo-router";
+import React, { FC, useEffect } from "react";
+import { StyleSheet, View } from "react-native";
 import { RootSiblingParent } from "react-native-root-siblings";
 import { ToastProvider } from "@/contexts/ToastProvider";
 import { StatusBar } from "expo-status-bar";
@@ -17,10 +18,38 @@ import { LegalProvider } from "@/contexts/domain/LegalProvider";
 import { SignalRProvider } from "@/contexts/SignalRProvider";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { vars } from "nativewind";
 
-function RootLayoutInner() {
+const RootLayoutInner: FC = () => {
     const theme = useTheme();
     const insets = useSafeAreaInsets();
+    const backgroundColor = theme.current.colors.background;
+    const { colors } = theme.current;
+    const nativeTheme = vars(
+        Object.entries({
+            background: colors.background,
+            foreground: colors.authForeground,
+            card: colors.authFieldBackground,
+            "card-foreground": colors.authForeground,
+            primary: colors.authPrimary,
+            "primary-foreground": colors.authOnPrimary,
+            secondary: colors.secondary,
+            "secondary-foreground": colors.textOnSecondary,
+            muted: colors.authFieldBackground,
+            "muted-foreground": colors.authMuted,
+            accent: colors.authFieldBackground,
+            "accent-foreground": colors.authForeground,
+            destructive: colors.error,
+            border: colors.authBorder,
+            input: colors.authFieldBackground,
+            ring: colors.authFocus,
+        }).reduce<Record<string, string>>((tokens, [role, color]) => {
+            tokens[`--${role}`] = [1, 3, 5]
+                .map((start) => parseInt(color.slice(start, start + 2), 16))
+                .join(" ");
+            return tokens;
+        }, {}),
+    );
 
     useEffect(() => {
         GoogleSignin.configure({
@@ -32,21 +61,26 @@ function RootLayoutInner() {
 
     return (
         <View
-            style={{
-                flex: 1,
-                backgroundColor: theme.current.colors.background,
-                paddingTop: insets.top,
-                paddingBottom: insets.bottom,
-            }}>
-            <Slot />
-            <StatusBar backgroundColor={theme.current.colors.background} />
+            style={[
+                styles.container,
+                nativeTheme,
+                { backgroundColor, paddingTop: insets.top, paddingBottom: insets.bottom },
+            ]}>
+            <Stack
+                screenOptions={{
+                    headerShown: false,
+                    animation: "none",
+                    contentStyle: { backgroundColor },
+                }}
+            />
+            <StatusBar style={theme.current.type === "dark" ? "light" : "dark"} />
         </View>
     );
-}
+};
 
-export default function RootLayout() {
+const RootLayout: FC = () => {
     return (
-        <GestureHandlerRootView style={{ flex: 1 }}>
+        <GestureHandlerRootView style={styles.container}>
             <RootSiblingParent>
                 <SafeAreaProvider>
                     <KeyboardProvider>
@@ -72,4 +106,10 @@ export default function RootLayout() {
             </RootSiblingParent>
         </GestureHandlerRootView>
     );
-}
+};
+
+const styles = StyleSheet.create({
+    container: { flex: 1 },
+});
+
+export default RootLayout;

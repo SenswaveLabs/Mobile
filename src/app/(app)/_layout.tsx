@@ -64,35 +64,36 @@ function InternalLayout() {
             <Stack.Screen
                 name="home/list"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="My" titleSuffix="Homes" />,
+                    header: () => <DefaultHeader titlePrefix="Homes" variant="brand" />,
+                    contentStyle: { backgroundColor: theme.current.colors.authBackground },
                 }}
             />
 
             <Stack.Screen
                 name="home/details"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Home" />,
+                    header: () => <DefaultHeader titlePrefix="Home" variant="brand" />,
                 }}
             />
 
             <Stack.Screen
                 name="home/add"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Add" titleSuffix="Home" />,
+                    header: () => <DefaultHeader titlePrefix="Homes" variant="brand" />,
                 }}
             />
 
             <Stack.Screen
                 name="home/share"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Share" titleSuffix="Home" />,
+                    header: () => <DefaultHeader titlePrefix="Home" variant="brand" />,
                 }}
             />
 
             <Stack.Screen
                 name="home/join"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Join" titleSuffix="Home" />,
+                    header: () => <DefaultHeader titlePrefix="Homes" variant="brand" />,
                 }}
             />
 
@@ -106,14 +107,14 @@ function InternalLayout() {
             <Stack.Screen
                 name="home/room/add"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Add" titleSuffix="Room" />,
+                    header: () => <DefaultHeader titlePrefix="Rooms" variant="brand" />,
                 }}
             />
 
             <Stack.Screen
                 name="home/room/details"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Room" />,
+                    header: () => <DefaultHeader titlePrefix="Room" variant="brand" />,
                 }}
             />
 
@@ -136,7 +137,7 @@ function InternalLayout() {
                 name="device/details"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Device" titleSuffix="Details" />,
+                    header: () => <DefaultHeader titlePrefix="Device" variant="brand" />,
                 }}
             />
 
@@ -229,7 +230,9 @@ function InternalLayout() {
             <Stack.Screen
                 name="dataSource/details"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Data" titleSuffix="Source" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Data" titleSuffix="Source" variant="brand" />
+                    ),
                 }}
             />
 

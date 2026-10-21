@@ -18,6 +18,9 @@ interface SwitchProps {
     duration?: number;
     orientation: "horizontal" | "vertical";
     disabled?: boolean;
+    accessibilityLabel?: string;
+    trackColors?: { on: string; off: string };
+    thumbColor?: string;
 }
 
 export const Switch = ({
@@ -27,6 +30,9 @@ export const Switch = ({
     duration = 400,
     orientation = "horizontal",
     disabled = false,
+    accessibilityLabel = "Switch",
+    trackColors,
+    thumbColor,
 }: SwitchProps) => {
     const theme = useTheme();
 
@@ -37,7 +43,10 @@ export const Switch = ({
         const color = interpolateColor(
             value.value! ? 1 : 0,
             [0, 1],
-            [theme.current.colors.error, theme.current.colors.success],
+            [
+                trackColors?.off ?? theme.current.colors.error,
+                trackColors?.on ?? theme.current.colors.success,
+            ],
         );
         const colorValue = withTiming(color, { duration });
 
@@ -81,7 +90,13 @@ export const Switch = ({
     };
 
     return (
-        <Pressable onPress={onSwitchPressed} style={orientationStyle}>
+        <Pressable
+            accessibilityRole="switch"
+            accessibilityLabel={accessibilityLabel}
+            accessibilityState={{ checked: value.value, disabled }}
+            disabled={disabled}
+            onPress={onSwitchPressed}
+            style={[{ minWidth: 48, minHeight: 48, justifyContent: "center" }, orientationStyle]}>
             <Animated.View
                 onLayout={(e) => {
                     height.value = e.nativeEvent.layout.height;
@@ -95,8 +110,8 @@ export const Switch = ({
                         padding: 5,
                         borderRadius: 128,
                     },
-                    style,
                     trackAnimatedStyle,
+                    style,
                 ]}>
                 <Animated.View
                     style={[
@@ -106,7 +121,7 @@ export const Switch = ({
                             borderRadius: 128,
                         },
                         thumbAnimatedStyle,
-                        { backgroundColor: theme.current.colors.secondary },
+                        { backgroundColor: thumbColor ?? theme.current.colors.secondary },
                     ]}></Animated.View>
             </Animated.View>
         </Pressable>

@@ -33,6 +33,7 @@ export interface Home {
     name: string;
     icon: string;
     isOwner: boolean;
+    canManage?: boolean;
 
     dataSource: HomeDataSource;
     location: Location;

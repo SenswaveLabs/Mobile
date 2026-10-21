@@ -1,59 +1,73 @@
-import Button from "@/components/common/Button";
-import RoomForm, { RoomFormHandle } from "@/components/room/RoomForm";
+import Loading from "@/components/common/Loading";
+import RoomForm, { RoomFormValues } from "@/components/room/RoomForm";
 import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useToast } from "@/contexts/ToastProvider";
-import { useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
-import { View } from "react-native";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { FC, useCallback, useRef } from "react";
+import { AccessibilityInfo } from "react-native";
 
-function Add() {
+const Add: FC = () => {
     const router = useRouter();
     const homes = useHomes();
     const httpClient = useHttpClient();
-    const toast = useToast();
-    const formRef = useRef<RoomFormHandle>(null);
-    const [loading, setLoading] = useState(false);
-    const [isFormValid, setIsFormValid] = useState(false);
+    const active = useRef(true);
+    const pending = useRef(false);
+    const created = useRef<string | undefined>(undefined);
+    const home = homes.current;
+    const homeRef = useRef(home);
+    homeRef.current = home;
+    const homeId = home?.id;
+    const canManage = home?.isOwner === true || home?.canManage === true;
 
-    const addClicked = async (values: any) => {
-        setLoading(true);
+    useFocusEffect(
+        useCallback(() => {
+            active.current = true;
+            if (!homeId && !homes.loading) router.replace("/home/list");
+            else if (homeId && !canManage) router.replace("/home/details");
+            else if (homeId && created.current === homeId) {
+                if (router.canGoBack()) router.back();
+                else router.replace("/home/details");
+            }
+            return () => {
+                active.current = false;
+            };
+        }, [homeId, canManage, homes.loading, router]),
+    );
 
-        const response = await httpClient.post(`v1/homes/${homes.current?.id}/rooms`, values);
-
-        if (response.isSuccess) {
-            toast.success("Room added successfully.");
-            homes.refreshRooms();
-            router.back();
-        } else {
-            toast.error("Failed to add room.");
-            const data = await response.response?.text();
-            console.error(data);
+    const addClicked = async (values: RoomFormValues) => {
+        const current = homeRef.current;
+        if (
+            !homeId ||
+            current?.id !== homeId ||
+            (!current.isOwner && !current.canManage) ||
+            pending.current ||
+            created.current === homeId ||
+            !active.current
+        )
+            return;
+        pending.current = true;
+        try {
+            const response = await httpClient.post(`v1/homes/${homeId}/rooms`, values);
+            if (!response.isSuccess) throw new Error("Couldn't create this room. Try again.");
+            created.current = homeId;
+            if (homeRef.current?.id !== homeId) return;
+            try {
+                await homes.refreshRooms({ silent: true });
+            } catch {
+                // Creation already succeeded; the parent can reload its rooms.
+            }
+            if (!active.current || homeRef.current?.id !== homeId) return;
+            AccessibilityInfo.announceForAccessibility("Room created.");
+            if (router.canGoBack()) router.back();
+            else router.replace("/home/details");
+        } finally {
+            pending.current = false;
         }
-
-        setLoading(false);
     };
 
-    return (
-        <View style={{ flex: 1 }}>
-            <RoomForm
-                ref={formRef}
-                edit={false}
-                onSubmit={addClicked}
-                onValidChange={setIsFormValid}
-            />
+    if (!home || !canManage) return <Loading activityColor="textOnBackground" />;
 
-            <KeyboardStickyView style={{ paddingHorizontal: 15, paddingVertical: 12 }}>
-                <Button
-                    name="Create Room"
-                    loading={loading}
-                    onPress={() => formRef.current?.triggerSave()}
-                    style={!isFormValid ? { opacity: 0.4 } : undefined}
-                />
-            </KeyboardStickyView>
-        </View>
-    );
-}
+    return <RoomForm key={home.id} homeName={home.name} onSubmit={addClicked} />;
+};
 
 export default Add;

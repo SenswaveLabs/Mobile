@@ -16,7 +16,7 @@ export const executeTimeout = async (
     const controller = new AbortController();
     const overrideOptions = { ...options, signal: controller.signal };
 
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
     const timeoutPromise = new Promise<HttpResponse>((resolve) => {
         timeoutId = setTimeout(() => {

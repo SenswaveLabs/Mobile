@@ -1,0 +1,31 @@
+diff --git a/android/src/debug/java/expo/modules/devlauncher/launcher/errors/DevLauncherErrorActivity.kt b/android/src/debug/java/expo/modules/devlauncher/launcher/errors/DevLauncherErrorActivity.kt
+index 9493cdf38778b74d0b1dbdeb67196ad9efa36668..dff27f4a9e1931a567c09844e20d9f0afeacbd1e 100644
+--- a/android/src/debug/java/expo/modules/devlauncher/launcher/errors/DevLauncherErrorActivity.kt
++++ b/android/src/debug/java/expo/modules/devlauncher/launcher/errors/DevLauncherErrorActivity.kt
+@@ -9,11 +9,17 @@ import androidx.activity.compose.setContent
+ import androidx.activity.viewModels
+ import androidx.appcompat.app.AppCompatActivity
+ import androidx.core.view.WindowCompat
++import expo.modules.devlauncher.DevLauncherController
+ import expo.modules.devlauncher.compose.models.ErrorViewModel
+ import expo.modules.devlauncher.compose.screens.ErrorScreen
++import expo.modules.devlauncher.koin.DevLauncherKoinComponent
++import expo.modules.devlauncher.launcher.DevLauncherControllerInterface
++import expo.modules.devlauncher.services.DependencyInjection
+ import java.lang.ref.WeakReference
++import org.koin.core.component.inject
+ 
+-class DevLauncherErrorActivity : AppCompatActivity() {
++class DevLauncherErrorActivity : AppCompatActivity(), DevLauncherKoinComponent {
++  private val controller: DevLauncherControllerInterface by inject()
+   val viewModel by viewModels<ErrorViewModel>()
+ 
+   override fun onCreate(savedInstanceState: Bundle?) {
+@@ -36,6 +42,7 @@ class DevLauncherErrorActivity : AppCompatActivity() {
+       return
+     }
+ 
++    DependencyInjection.init(this, controller as DevLauncherController)
+     viewModel.setError(error)
+ 
+     setContent {

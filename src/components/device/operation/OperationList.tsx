@@ -2,7 +2,7 @@ import Loading from "@/components/common/Loading";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useToast } from "@/contexts/ToastProvider";
 import { ListResponse } from "@/utils/httpClient";
-import React, { useCallback, useState } from "react";
+import React, { FC, useCallback, useState } from "react";
 import { FlatList, RefreshControl, View } from "react-native";
 import Text from "@/components/common/Text";
 import { useFocusEffect } from "expo-router";
@@ -10,7 +10,7 @@ import { useDevice } from "@/contexts/custom/DeviceProvider";
 import { OperationListDto } from "@/contexts/custom/DeviceListProvider";
 import OperationTile from "./OperationTile";
 
-function OperationList() {
+const OperationList: FC = () => {
     const device = useDevice();
     const toast = useToast();
     const httpClient = useHttpClient();
@@ -76,9 +76,15 @@ function OperationList() {
             <FlatList
                 data={oprations}
                 keyExtractor={(item, index) => index.toString()}
-                style={{ paddingHorizontal: 15, flex: 1 }}
-                renderItem={({ item }) => (
-                    <OperationTile id={item.id} name={item.name} type={item.type} />
+                style={{ flex: 1, width: "100%" }}
+                renderItem={({ item, index }) => (
+                    <OperationTile
+                        id={item.id}
+                        name={item.name}
+                        type={item.type}
+                        variant="list"
+                        separator={index < oprations.length - 1}
+                    />
                 )}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 ListEmptyComponent={
@@ -88,12 +94,11 @@ function OperationList() {
                         </Text>
                     </View>
                 }
-                ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-                contentContainerStyle={{ paddingVertical: 10, paddingBottom: 150, gap: 10 }}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 150 }}
                 removeClippedSubviews={false}
             />
         </View>
     );
-}
+};
 
 export default OperationList;

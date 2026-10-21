@@ -46,6 +46,7 @@ const ImageButton: FC<ImageButtonProps> = ({
 
     return (
         <Pressable
+            cssInterop={false}
             style={({ pressed }) => [
                 buttonStyles,
                 pressed && styles.buttonPressed,

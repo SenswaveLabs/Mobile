@@ -1,92 +1,153 @@
-import React, { FC, useRef } from "react";
-import { View, TextInput, StyleSheet } from "react-native";
+import React, { FC, useRef, useState } from "react";
+import { Platform, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
+import { InputProps } from "@/components/common/Input";
+import { Input } from "@/components/ui/input";
+import { Text } from "@/components/ui/text";
 import { useTheme } from "@/contexts/ThemeProvider";
-import Text from "@/components/common/Text";
-import { shadowStyles } from "@/styles/shadowStyles";
 
-interface HomeCodeInputProps {
+interface HomeCodeInputProps extends Pick<
+    InputProps,
+    "setValue" | "error" | "inputRef" | "editable" | "onSubmitEditing"
+> {
     value: string;
-    onChange: (value: string) => void;
-    error?: boolean;
 }
 
-const CODE_LENGTH = 8;
-
-const HomeCodeInput: FC<HomeCodeInputProps> = ({ value, onChange, error = false }) => {
-    const theme = useTheme();
-    const inputRefs = useRef<(TextInput | null)[]>([]);
-
-    const chars = value.split("").concat(Array(CODE_LENGTH).fill("")).slice(0, CODE_LENGTH);
-
-    const handleChange = (text: string, index: number) => {
-        if (text === "") {
-            const newChars = chars.map((c, i) => (i === index ? "" : c));
-            onChange(newChars.join(""));
-            if (index > 0) {
-                inputRefs.current[index - 1]?.focus();
-            }
-            return;
-        }
-
-        const char = text.slice(-1).toUpperCase();
-        const newChars = chars.map((c, i) => (i === index ? char : c));
-        onChange(newChars.join(""));
-
-        if (index < CODE_LENGTH - 1) {
-            inputRefs.current[index + 1]?.focus();
-        }
+const HomeCodeInput: FC<HomeCodeInputProps> = ({
+    value,
+    setValue,
+    error,
+    inputRef,
+    editable = true,
+    onSubmitEditing,
+}) => {
+    const { colors } = useTheme().current;
+    const { fontScale } = useWindowDimensions();
+    const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+    const inputs = useRef<(TextInput | null)[]>([]);
+    const code = useRef({ prop: value, current: value });
+    if (code.current.prop !== value) code.current = { prop: value, current: value };
+    const groupWidth = 4 * Math.max(48, 20 * fontScale + 8) + 3;
+    const focus = (index: number) => inputs.current[Math.max(0, Math.min(index, 7))]?.focus();
+    const updateCode = (next: string) => {
+        code.current.current = next;
+        setValue(next);
     };
 
-    const handleKeyPress = (key: string, index: number) => {
-        if (key === "Backspace" && !chars[index] && index > 0) {
-            const newChars = chars.map((c, i) => (i === index - 1 ? "" : c));
-            onChange(newChars.join(""));
-            inputRefs.current[index - 1]?.focus();
-        }
+    const changeCharacter = (index: number, text: string) => {
+        const entered = text.replace(/\s+/g, "").toUpperCase();
+        const current = code.current.current;
+        // Full-code paste/autofill replaces the invitation, regardless of the focused cell.
+        // Preserve overlong pastes so the form can reject them instead of silently truncating.
+        const next =
+            entered.length >= 8
+                ? entered
+                : current.slice(0, index) +
+                  entered +
+                  current.slice(index + Math.max(1, entered.length));
+        updateCode(next);
+        focus(entered ? index + entered.length : index - 1);
     };
 
     return (
-        <View style={styles.wrapper}>
-            <View style={styles.row}>
-                {Array.from({ length: CODE_LENGTH }).map((_, index) => (
-                    <View
-                        key={index}
-                        style={[
-                            styles.box,
-                            {
-                                backgroundColor: theme.current.colors.primary,
-                                borderWidth: 1,
-                                borderColor: chars[index]
-                                    ? theme.current.colors.complementary
-                                    : error
-                                      ? theme.current.colors.error
-                                      : "transparent",
-                            },
-                            shadowStyles.default,
-                        ]}>
-                        <TextInput
-                            ref={(ref) => {
-                                inputRefs.current[index] = ref;
-                            }}
-                            value={chars[index]}
-                            onChangeText={(text) => handleChange(text, index)}
-                            onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
-                            maxLength={2}
-                            autoCapitalize="characters"
-                            autoCorrect={false}
-                            style={[
-                                styles.textInput,
-                                { color: theme.current.colors.textOnPrimary },
-                            ]}
-                        />
+        <View style={styles.field}>
+            <Text style={[styles.label, { color: colors.authForeground }]}>Invite code</Text>
+            <View style={styles.groups}>
+                {[0, 4].map((start) => (
+                    <View key={start} style={[styles.group, { width: groupWidth }]}>
+                        {[0, 1, 2, 3].map((offset) => {
+                            const index = start + offset;
+                            const focused = editable && focusedIndex === index;
+                            return (
+                                <Input
+                                    key={index}
+                                    className="w-auto rounded-none border-0 bg-transparent p-0 opacity-100 shadow-none dark:bg-transparent"
+                                    ref={(input) => {
+                                        inputs.current[index] = input;
+                                        if (index === 0) {
+                                            if (typeof inputRef === "function") inputRef(input);
+                                            else if (inputRef) inputRef.current = input;
+                                        }
+                                    }}
+                                    value={value[index] || ""}
+                                    onChangeText={(text) => changeCharacter(index, text)}
+                                    onFocus={() => {
+                                        const next = Math.min(
+                                            index,
+                                            code.current.current.length,
+                                            7,
+                                        );
+                                        if (next !== index) focus(next);
+                                        else setFocusedIndex(index);
+                                    }}
+                                    onBlur={() =>
+                                        setFocusedIndex((current) =>
+                                            current === index ? null : current,
+                                        )
+                                    }
+                                    onKeyPress={({ nativeEvent }) => {
+                                        if (
+                                            nativeEvent.key === "Backspace" &&
+                                            !code.current.current[index] &&
+                                            index > 0
+                                        ) {
+                                            updateCode(
+                                                code.current.current.slice(0, index - 1) +
+                                                    code.current.current.slice(index),
+                                            );
+                                            focus(index - 1);
+                                        }
+                                    }}
+                                    onSubmitEditing={(event) => {
+                                        if (index < 7) focus(index + 1);
+                                        else onSubmitEditing?.(event);
+                                    }}
+                                    accessibilityLabel={`Invite code, character ${index + 1} of 8`}
+                                    accessibilityHint={
+                                        error || "8 letters or numbers from the home owner."
+                                    }
+                                    accessibilityState={{ disabled: !editable }}
+                                    editable={editable}
+                                    autoCapitalize="characters"
+                                    autoCorrect={false}
+                                    spellCheck={false}
+                                    autoComplete={index === 0 ? "one-time-code" : "off"}
+                                    selectTextOnFocus
+                                    selection={
+                                        focused
+                                            ? { start: 0, end: value[index] ? 1 : 0 }
+                                            : undefined
+                                    }
+                                    caretHidden
+                                    maxLength={64}
+                                    returnKeyType={index === 7 ? "go" : "next"}
+                                    submitBehavior="submit"
+                                    selectionColor="transparent"
+                                    selectionHandleColor="transparent"
+                                    style={[
+                                        styles.slot,
+                                        {
+                                            color: colors.authForeground,
+                                            backgroundColor: colors.authFieldBackground,
+                                            borderColor: focused
+                                                ? colors.authFocus
+                                                : error
+                                                  ? colors.error
+                                                  : colors.authBorder,
+                                        },
+                                    ]}
+                                />
+                            );
+                        })}
                     </View>
                 ))}
             </View>
-
-            <Text size="small" color="onBackground" style={styles.hint}>
-                To join an existing home, enter the 8-character invite code provided by the home
-                owner. Remember that invitation expires within 15 minutes.
-            </Text>
+            {!!error && (
+                <Text
+                    accessibilityLiveRegion="polite"
+                    style={[styles.error, { color: colors.error }]}>
+                    {error}
+                </Text>
+            )}
         </View>
     );
 };
@@ -94,35 +155,27 @@ const HomeCodeInput: FC<HomeCodeInputProps> = ({ value, onChange, error = false 
 export default HomeCodeInput;
 
 const styles = StyleSheet.create({
-    wrapper: {
-        alignItems: "center",
-        width: "100%",
-    },
-    title: {
-        marginBottom: 24,
-    },
-    row: {
+    field: { width: "100%", gap: 12 },
+    label: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
+    groups: {
         flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "center",
         gap: 8,
     },
-    box: {
-        width: 38,
-        height: 50,
-        borderRadius: 10,
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    textInput: {
-        width: "100%",
-        height: "100%",
-        textAlign: "center",
+    group: { flexDirection: "row", gap: 1 },
+    slot: {
+        flex: 1,
+        minHeight: 56,
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 4,
+        paddingVertical: 12,
         fontSize: 20,
-        fontWeight: "bold",
-        padding: 0,
-    },
-    hint: {
-        marginTop: 14,
+        lineHeight: 28,
         textAlign: "center",
-        opacity: 0.7,
+        textAlignVertical: "center",
+        fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }),
     },
+    error: { fontSize: 14, lineHeight: 20 },
 });

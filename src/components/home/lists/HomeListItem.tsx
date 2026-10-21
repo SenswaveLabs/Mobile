@@ -1,84 +1,105 @@
-import React from "react";
-import { Pressable, View, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import React, { FC } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text as NativeText, View } from "react-native";
 import { useTheme } from "@/contexts/ThemeProvider";
 import Icon from "@/components/common/Icon";
-import { useHomes } from "@/contexts/domain/HomeProvider";
-import Text from "@/components/common/Text";
-import { shadowStyles } from "@/styles/shadowStyles";
-import { useToast } from "@/contexts/ToastProvider";
+import ListRow from "@/components/common/ListRow";
 import { Home } from "@/types/HomeTypes";
 
 interface HomeListItemProps {
     home: Home;
+    onPress: () => void;
+    selected?: boolean;
+    disabled?: boolean;
+    loading?: boolean;
+    error?: string;
+    onDetails?: () => void;
+    separator?: boolean;
 }
 
-function HomeListItem({ home }: HomeListItemProps) {
-    const theme = useTheme();
-    const toast = useToast();
-    const router = useRouter();
-    const homes = useHomes();
-
-    const homeClicked = () => {
-        homes.setCurrent(home.id);
-        router.back();
-    };
-
-    const settingsClicked = () => {
-        toast.info("Switch to this home first before updating it.");
-    };
-
+const HomeListItem: FC<HomeListItemProps> = ({
+    home,
+    onPress,
+    selected = false,
+    disabled = false,
+    loading = false,
+    error,
+    onDetails,
+    separator = false,
+}) => {
+    const { colors } = useTheme().current;
     return (
-        <Pressable
-            onPress={homeClicked}
-            onLongPress={settingsClicked}
-            style={[
-                shadowStyles.default,
-                styles.currentHome,
-                { backgroundColor: theme.current.colors.primary },
-            ]}>
-            <View style={styles.dataContainer}>
-                <Icon icon={home.icon} size={26} color={"onPrimary"} />
-
-                <View style={styles.textInDataContainer}>
-                    <Text size={"large"} color={"onPrimary"}>
-                        {home.name}
-                    </Text>
+        <ListRow
+            title={home.name}
+            separator={separator}
+            description={home.isOwner ? "Owned by you" : "Shared with you"}
+            leading={<Icon icon={home.icon} resource="homes" size={24} color="brand" />}
+            trailing={
+                <View style={styles.trailing}>
+                    {onDetails && (
+                        <Pressable
+                            cssInterop={false}
+                            accessibilityRole="button"
+                            accessibilityLabel="Home details"
+                            accessibilityState={{ disabled }}
+                            disabled={disabled}
+                            onPress={onDetails}
+                            android_ripple={{ color: colors.authBorder }}
+                            style={({ pressed }) => [styles.details, pressed && styles.pressed]}>
+                            <NativeText
+                                style={[styles.detailsText, { color: colors.authForeground }]}>
+                                Details
+                            </NativeText>
+                        </Pressable>
+                    )}
+                    {loading ? (
+                        <ActivityIndicator accessible={false} color={colors.authForeground} />
+                    ) : (
+                        <Icon
+                            icon={selected ? "checkmark-outline" : "chevron-forward-outline"}
+                            size={20}
+                            color="brand"
+                        />
+                    )}
                 </View>
-
-                <View style={styles.keyContainer}>
-                    {home.isOwner && <Icon icon="key-outline" size={18} color="onPrimary" />}
-                    {!home.isOwner && <Icon icon="people-outline" size={18} color="onPrimary" />}
-                </View>
-            </View>
-        </Pressable>
+            }
+            accessibilityLabel={`${home.name}, ${home.isOwner ? "owned by you" : "shared with you"}${selected ? ", current home" : ""}`}
+            accessibilityHint={
+                error ||
+                (selected ? "Return to this home's dashboard" : "Switch to this home's dashboard")
+            }
+            onPress={onPress}
+            disabled={disabled}
+            selected={selected}
+            loading={loading}>
+            {!!error && (
+                <NativeText
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite"
+                    style={[styles.error, { color: colors.error }]}>
+                    {error}
+                </NativeText>
+            )}
+        </ListRow>
     );
-}
+};
 
 export default HomeListItem;
 
 const styles = StyleSheet.create({
-    currentHome: {
-        borderRadius: 16,
+    trailing: {
         flexDirection: "row",
-        padding: 10,
+        alignItems: "center",
+        gap: 4,
     },
-    dataContainer: {
-        marginLeft: 15,
-        alignSelf: "center",
-        flexDirection: "row",
-    },
-    textInDataContainer: {
-        alignSelf: "center",
-        marginLeft: 20,
-        flex: 1,
-    },
-    text: {
-        fontSize: 18,
-    },
-    keyContainer: {
-        alignSelf: "center",
+    details: {
+        minWidth: 48,
+        minHeight: 48,
+        alignItems: "center",
         justifyContent: "center",
-        marginHorizontal: 10,
+        paddingHorizontal: 8,
+        borderRadius: 8,
     },
+    detailsText: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
+    error: { fontSize: 14, lineHeight: 20 },
+    pressed: { opacity: 0.72 },
 });

@@ -1,8 +1,21 @@
-import React, { createContext, useContext, FC, PropsWithChildren } from "react";
+import React, { createContext, useContext, useEffect, useRef, FC, PropsWithChildren } from "react";
 import RootToast from "react-native-root-toast";
 import { useTheme } from "./ThemeProvider";
 import { HttpResponse } from "@/utils/httpClient";
 import { Keyboard } from "react-native";
+import { usePathname } from "expo-router";
+import { isAuthSurface } from "@/components/auth/authTypes";
+
+const usesInlineFeedback = (pathname: string) =>
+    isAuthSurface(pathname) ||
+    [
+        "/home/list",
+        "/home/join",
+        "/home/add",
+        "/home/details",
+        "/home/room/add",
+        "/home/room/details",
+    ].includes(pathname);
 
 interface ToastContextType {
     success: (message: string) => void;
@@ -44,30 +57,39 @@ export const useToast = () => useContext(ToastContext);
 
 export const ToastProvider: FC<PropsWithChildren> = ({ children }) => {
     const theme = useTheme();
+    const pathname = usePathname();
+    const currentPath = useRef(pathname);
+    currentPath.current = pathname;
+    const activeToast = useRef<ReturnType<typeof RootToast.show> | null>(null);
 
-    const success = (message: string) => {
+    useEffect(() => {
+        if (usesInlineFeedback(pathname) && activeToast.current) {
+            RootToast.hide(activeToast.current);
+            activeToast.current = null;
+        }
+    }, [pathname]);
+
+    const show = (message: string, backgroundColor: string, textColor: string) => {
+        if (usesInlineFeedback(currentPath.current)) return;
         Keyboard.dismiss();
-        RootToast.show(message, {
+        if (activeToast.current) RootToast.hide(activeToast.current);
+        activeToast.current = RootToast.show(message, {
             position: RootToast.positions.BOTTOM,
             duration: 4000,
-            backgroundColor: theme.current.colors.success,
-            textColor: theme.current.colors.secondary,
+            backgroundColor,
+            textColor,
             shadow: true,
         });
     };
 
-    const error = (message: string) => {
-        Keyboard.dismiss();
-        RootToast.show(message, {
-            position: RootToast.positions.BOTTOM,
-            duration: 4000,
-            backgroundColor: theme.current.colors.error,
-            textColor: theme.current.colors.secondary,
-            shadow: true,
-        });
-    };
+    const success = (message: string) =>
+        show(message, theme.current.colors.success, theme.current.colors.secondary);
+
+    const error = (message: string) =>
+        show(message, theme.current.colors.error, theme.current.colors.secondary);
 
     const httpError = async (httpResponse: HttpResponse) => {
+        if (usesInlineFeedback(currentPath.current)) return;
         if (httpResponse.statusCode === 401) return;
 
         if (httpResponse.response === null) {
@@ -108,16 +130,8 @@ export const ToastProvider: FC<PropsWithChildren> = ({ children }) => {
         }
     };
 
-    const info = (message: string) => {
-        Keyboard.dismiss();
-        RootToast.show(message, {
-            position: RootToast.positions.BOTTOM,
-            duration: 4000,
-            backgroundColor: theme.current.colors.info,
-            textColor: theme.current.colors.primary,
-            shadow: true,
-        });
-    };
+    const info = (message: string) =>
+        show(message, theme.current.colors.info, theme.current.colors.primary);
 
     return (
         <ToastContext.Provider value={{ success, info, error, httpError }}>

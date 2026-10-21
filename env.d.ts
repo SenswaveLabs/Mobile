@@ -1,3 +1,5 @@
+/// <reference types="expo/types/metro-require" />
+
 declare namespace NodeJS {
     interface ProcessEnv {
         EXPO_PUBLIC_ENVIRONMENT: string;

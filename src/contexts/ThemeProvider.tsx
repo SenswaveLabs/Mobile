@@ -13,6 +13,17 @@ type ThemeColors = {
     primary: string;
     secondary: string;
     background: string;
+    authBackground: string;
+    authForeground: string;
+    authMuted: string;
+    authFieldBackground: string;
+    authBorder: string;
+    deviceTileSurface: string;
+    deviceTileBorder: string;
+    deviceTileSubtle: string;
+    authFocus: string;
+    authPrimary: string;
+    authOnPrimary: string;
     complementary: string;
     textOnPrimary: string;
     textOnSecondary: string;
@@ -21,26 +32,58 @@ type ThemeColors = {
     success: string;
     warning: string;
     info: string;
+    dataSourceStatus: Record<
+        "positive" | "warning" | "critical" | "neutral",
+        { foreground: string; background: string; border: string }
+    >;
 };
 
 const LightMode: ThemeColors = {
     primary: "#F5F5F5",
     secondary: "#33363F",
-    background: "#DFE6F8",
+    background: "#F9F7F1",
+    authBackground: "#F9F7F1",
+    authForeground: "#1B1610",
+    authMuted: "#615A50",
+    authFieldBackground: "#F9F7F1",
+    authBorder: "#8C857A",
+    deviceTileSurface: "#FFFEFA",
+    deviceTileBorder: "#D8D2C7",
+    deviceTileSubtle: "#F0ECE3",
+    authFocus: "#009286",
+    authPrimary: "#F7B817",
+    authOnPrimary: "#321A03",
     complementary: "#d69b12",
     textOnPrimary: "#33363F",
     textOnSecondary: "#F5F5F5",
     textOnBackground: "#33363F",
-    error: "#DE7171",
+    error: "#B42318",
     success: "#81C784",
     warning: "#FFB74D",
     info: "#1E88E5",
+    dataSourceStatus: {
+        positive: { foreground: "#00362B", background: "#CAF2E5", border: "#74B7A4" },
+        warning: { foreground: "#532E04", background: "#FFECC5", border: "#D9B577" },
+        critical: { foreground: "#830001", background: "#FFE2DC", border: "#E99489" },
+        neutral: { foreground: "#403A30", background: "#EBE7E1", border: "#BCB7AD" },
+    },
 };
 
 const DarkMode: ThemeColors = {
     primary: "#1E1E1E",
     secondary: "#2A2A2A",
-    background: "#121212",
+    background: "#100D08",
+    authBackground: "#100D08",
+    authForeground: "#EEEBE5",
+    authMuted: "#AAA498",
+    authFieldBackground: "#211D16",
+    authBorder: "#847C70",
+    deviceTileSurface: "#211D16",
+    deviceTileBorder: "#484136",
+    deviceTileSubtle: "#211D16",
+    authFocus: "#47BAAC",
+    authPrimary: "#FBC031",
+    authOnPrimary: "#321A03",
     complementary: "#a2750e",
     textOnPrimary: "#F5F5F5",
     textOnSecondary: "#E0E0E0",
@@ -49,6 +92,12 @@ const DarkMode: ThemeColors = {
     success: "#81C784",
     warning: "#FFB74D",
     info: "#1E88E5",
+    dataSourceStatus: {
+        positive: { foreground: "#A4E4D1", background: "#082D25", border: "#256B5A" },
+        warning: { foreground: "#FADA99", background: "#3B270C", border: "#7C5D2F" },
+        critical: { foreground: "#FFBFB8", background: "#431F1D", border: "#904D49" },
+        neutral: { foreground: "#CFCAC2", background: "#2A2620", border: "#585148" },
+    },
 };
 
 type Theme = {

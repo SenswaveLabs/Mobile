@@ -1,43 +1,23 @@
-import CurrentHome from "@/components/home/lists/CurrentHome";
 import HomeList from "@/components/home/lists/HomeList";
-import FAB from "@/components/common/FAB";
-import { useHomes } from "@/contexts/domain/HomeProvider";
+import { useTheme } from "@/contexts/ThemeProvider";
 import { useRouter } from "expo-router";
-import { View } from "react-native";
+import React, { FC } from "react";
+import { StyleSheet, View } from "react-native";
 
-function Homes() {
+const Homes: FC = () => {
     const router = useRouter();
-    const homes = useHomes();
-
-    if (!homes.current) {
-        router.replace("/");
-        return null;
-    }
-
-    const fabActions = [
-        {
-            icon: "log-in-outline",
-            label: "Join",
-            onPress: () => router.push("home/join"),
-        },
-        {
-            icon: "home-outline",
-            label: "Create",
-            onPress: () => router.push("home/add"),
-        },
-    ];
+    const { colors } = useTheme().current;
 
     return (
-        <View style={{ flex: 1 }}>
-            <View style={{ paddingHorizontal: 15 }}>
-                <CurrentHome />
-            </View>
-
-            <HomeList />
-
-            <FAB actions={fabActions} />
+        <View style={[styles.container, { backgroundColor: colors.authBackground }]}>
+            <HomeList
+                onCreateHome={() => router.push("home/add")}
+                onJoinHome={() => router.push("home/join")}
+            />
         </View>
     );
-}
+};
 
 export default Homes;
+
+const styles = StyleSheet.create({ container: { flex: 1 } });

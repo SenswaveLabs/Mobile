@@ -1,215 +1,343 @@
-import Loading from "@/components/common/Loading";
+import Button from "@/components/common/Button";
+import ContentSection from "@/components/common/ContentSection";
+import DataSourceState from "@/components/dataSource/state/DataSourceState";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { useToast } from "@/contexts/ToastProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import React from "react";
-import { useCallback, useEffect, useState } from "react";
-import { View, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
-import DataSourceStateGet from "../state/DataSourceStateGet";
-import Icon from "@/components/common/Icon";
-import Text from "@/components/common/Text";
-import { useHomes } from "@/contexts/domain/HomeProvider";
+import { useFocusEffect, useRouter } from "expo-router";
+import { CircleAlert, Info } from "lucide-react-native";
+import React, { FC, useCallback, useEffect, useRef, useState } from "react";
+import { StyleSheet, Text as NativeText, View } from "react-native";
+
+interface BrokerClientProps {
+    id: string;
+}
+
+type ConnectionStatus =
+    | "NotStarted"
+    | "Working"
+    | "Restarting"
+    | "Stopped"
+    | "Connecting"
+    | "Connected"
+    | "Disconnected"
+    | "Error";
 
 type ClientDto = {
-    connectionStatus: "NotStarted" | "Working" | "Restarting" | "Stopped";
-    latestSessionId: string;
+    connectionStatus: ConnectionStatus;
+    latestSessionId?: string;
 };
 
-function ClientsDetailsView() {
-    const router = useRouter();
-    const toast = useToast();
-    const homes = useHomes();
+const isConnectionStatus = (value: unknown): value is ConnectionStatus =>
+    typeof value === "string" &&
+    [
+        "NotStarted",
+        "Working",
+        "Restarting",
+        "Stopped",
+        "Connecting",
+        "Connected",
+        "Disconnected",
+        "Error",
+    ].includes(value);
+
+const isActive = (status: ConnectionStatus) =>
+    status === "Working" ||
+    status === "Connected" ||
+    status === "Restarting" ||
+    status === "Connecting";
+
+const canStart = (status: ConnectionStatus) =>
+    status === "NotStarted" ||
+    status === "Stopped" ||
+    status === "Disconnected" ||
+    status === "Error";
+
+const canRestart = (status: ConnectionStatus) =>
+    status !== "Working" &&
+    status !== "Connected" &&
+    status !== "NotStarted" &&
+    status !== "Stopped";
+
+const BrokerClient: FC<BrokerClientProps> = ({ id }) => {
     const httpClient = useHttpClient();
-    const theme = useTheme();
-
-    const { id } = useLocalSearchParams();
-    const [loading, setLoading] = useState<boolean>(false);
+    const { colors } = useTheme().current;
+    const homes = useHomes();
+    const router = useRouter();
     const [client, setClient] = useState<ClientDto | null>(null);
-
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
+    const [actionError, setActionError] = useState("");
+    const [actionNotice, setActionNotice] = useState("");
     const [refresh, setRefresh] = useState(0);
+    const [busy, setBusy] = useState<"stop" | "restart" | null>(null);
+    const request = useRef(false);
+    const readSequence = useRef(0);
+    const mutation = useRef(false);
+    const navigating = useRef(false);
+    const firstFocus = useRef(true);
+    const active = useRef(true);
+
+    const readClient = async (): Promise<ClientDto> => {
+        const result = await httpClient.get(`v1/datasources/brokers/${id}/clients`);
+        if (!result.isSuccess || !result.response) {
+            if (result.response?.status === 404)
+                throw new Error("This broker client is no longer available.");
+            throw new Error("Couldn't load broker status. Check your connection and try again.");
+        }
+        const content = (await result.response.json()) as Partial<ClientDto>;
+        if (!isConnectionStatus(content.connectionStatus))
+            throw new Error("Broker status is unavailable. Retry to refresh it.");
+        return content as ClientDto;
+    };
 
     useEffect(() => {
-        const loadDetails = async () => {
-            setLoading(true);
+        let current = true;
+        const sequence = ++readSequence.current;
+        active.current = true;
+        request.current = true;
+        setLoading(true);
+        setLoadError("");
 
+        const load = async () => {
             try {
-                const result = await httpClient.get(`v1/datasources/brokers/${id}/clients`);
-
-                if (result.isSuccess) {
-                    const content = (await result.response?.json()) as ClientDto;
-                    setClient(content);
-                } else {
-                    const response = await result.response?.text();
-                    console.error(response);
-
-                    console.error("Failed to load broker details.");
-                    toast.error("Failed to load broker client details.");
-                }
+                const content = await readClient();
+                if (current && sequence === readSequence.current) setClient(content);
             } catch (error) {
-                console.error(error);
+                if (current && sequence === readSequence.current) {
+                    setClient(null);
+                    setLoadError(
+                        error instanceof Error &&
+                            (error.message === "This broker client is no longer available." ||
+                                error.message ===
+                                    "Broker status is unavailable. Retry to refresh it.")
+                            ? error.message
+                            : "Couldn't load broker status. Check your connection and try again.",
+                    );
+                }
             } finally {
-                setLoading(false);
+                if (current && sequence === readSequence.current) {
+                    request.current = false;
+                    setLoading(false);
+                }
             }
         };
 
-        if (refresh > 0) {
-            loadDetails();
-        }
-
+        void load();
+        return () => {
+            current = false;
+            active.current = false;
+        };
+        // The HTTP client binding changes identity during provider renders; reload only for id/refresh.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [refresh]);
+    }, [id, refresh]);
 
     useFocusEffect(
         useCallback(() => {
-            setRefresh((prev) => prev + 1);
+            if (firstFocus.current) {
+                firstFocus.current = false;
+                return;
+            }
+            navigating.current = false;
+            readSequence.current++;
+            request.current = true;
+            setRefresh((value) => value + 1);
         }, []),
     );
 
-    if (loading) return <Loading size={64} />;
+    const retryLoad = () => {
+        if (request.current || mutation.current) return;
+        readSequence.current++;
+        request.current = true;
+        setRefresh((value) => value + 1);
+    };
 
-    const onStop = async () => {
-        if (client?.connectionStatus === "Stopped" || client?.connectionStatus === "NotStarted") {
-            toast.info("Broker client is currently offline.");
-            return;
-        }
-
+    const start = () => {
+        if (!client || !canStart(client.connectionStatus) || navigating.current) return;
+        navigating.current = true;
+        setActionError("");
         try {
-            setLoading(true);
-
-            const result = await httpClient.delete(`v1/datasources/brokers/${id}/clients`);
-            if (result.isSuccess) {
-                console.info("[Client Details] Stopped broker client.");
-                toast.success("Broker client stopped successfully.");
-                await homes.refreshCurrent();
-            } else {
-                console.error("[Client Details] Failed to stop broker client.");
-                toast.error("Failed to stop broker client.");
-            }
-        } catch (error) {
-            console.error("Failed to stop broker client", error);
-        } finally {
-            setRefresh((prev) => prev + 1);
-            setLoading(false);
+            router.push({
+                pathname: "dataSource/brokers/startBrokerClient",
+                params: { brokerId: id },
+            });
+        } catch {
+            setActionError("Couldn't open the start form. Try again.");
+            navigating.current = false;
         }
     };
 
-    const onStart = async () => {
-        if (client?.connectionStatus === "Restarting" || client?.connectionStatus === "Working") {
-            toast.info("Broker client is still running.");
-            return;
-        }
+    const runAction = async (action: "stop" | "restart") => {
+        if (!client || mutation.current || busy) return;
+        const status = client.connectionStatus;
+        if (action === "stop" && !isActive(status)) return;
+        if (action === "restart" && !canRestart(status)) return;
 
-        router.push({
-            pathname: "dataSource/brokers/startBrokerClient",
-            params: {
-                brokerId: id,
-            },
-        });
-    };
-
-    const onRestart = async () => {
-        if (
-            client?.connectionStatus === "Restarting" ||
-            client?.connectionStatus === "NotStarted"
-        ) {
-            toast.info("Broker client cannot be restarted in its current state.");
-            return;
-        }
-
+        mutation.current = true;
+        readSequence.current++;
+        setBusy(action);
+        setActionError("");
+        setActionNotice("");
         try {
-            setLoading(true);
-
-            const result = await httpClient.patch(
-                `v1/datasources/brokers/${id}/clients/restart`,
-                {},
-            );
-            if (result.isSuccess) {
-                console.info("[Client Details] Restart broker client.");
-                toast.success("Broker client restarted successfully.");
-                await homes.refreshCurrent();
-            } else {
-                toast.error("Failed to restart broker client.");
+            try {
+                const result =
+                    action === "stop"
+                        ? await httpClient.delete(`v1/datasources/brokers/${id}/clients`)
+                        : await httpClient.patch(
+                              `v1/datasources/brokers/${id}/clients/restart`,
+                              {},
+                          );
+                if (!result.isSuccess) {
+                    throw new Error(
+                        result.response?.status === 404
+                            ? "Broker status changed before the action completed."
+                            : action === "stop"
+                              ? "Couldn't stop the broker client. Check your connection and try again."
+                              : "Couldn't restart the broker client. Check your connection and try again.",
+                    );
+                }
+                if (active.current)
+                    setActionNotice(
+                        action === "stop" ? "Stop request accepted." : "Restart request accepted.",
+                    );
+                try {
+                    await homes.refreshCurrent();
+                } catch {
+                    // The client action succeeded; home refresh failure does not undo it.
+                }
+            } catch (error) {
+                const fallback =
+                    action === "stop"
+                        ? "Couldn't stop the broker client. Check your connection and try again."
+                        : "Couldn't restart the broker client. Check your connection and try again.";
+                if (active.current)
+                    setActionError(
+                        error instanceof Error &&
+                            error.message === "Broker status changed before the action completed."
+                            ? "Broker status changed before the action completed."
+                            : fallback,
+                    );
             }
-        } catch (error) {
-            console.error("Failed to restart broker client", error);
+
+            if (active.current) {
+                setClient(null);
+                setLoadError("");
+                setLoading(true);
+                request.current = true;
+                const sequence = ++readSequence.current;
+                try {
+                    const updated = await readClient();
+                    if (sequence === readSequence.current) setClient(updated);
+                } catch (error) {
+                    if (sequence === readSequence.current) {
+                        setClient(null);
+                        setLoadError(
+                            error instanceof Error &&
+                                error.message === "This broker client is no longer available."
+                                ? error.message
+                                : "Couldn't refresh broker status. Retry to see its current state.",
+                        );
+                    }
+                } finally {
+                    if (sequence === readSequence.current) {
+                        request.current = false;
+                        if (active.current) setLoading(false);
+                    }
+                }
+            }
         } finally {
-            setRefresh((prev) => prev + 1);
-            setLoading(false);
+            mutation.current = false;
+            if (active.current) setBusy(null);
         }
     };
+
+    const status = client?.connectionStatus;
+    const known = !!client;
+    const startAllowed = known && canStart(status!);
+    const stopAllowed = known && isActive(status!);
+    const restartAllowed = known && canRestart(status!);
 
     return (
-        <View style={styles.container}>
-            <ScrollView
-                style={styles.inlineContainer}
-                horizontal={true}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContentContainer}>
-                <View style={{ ...styles.tile, backgroundColor: theme.current.colors.primary }}>
-                    <DataSourceStateGet id={id as string} />
-                </View>
-            </ScrollView>
-            <ScrollView
-                style={styles.inlineContainer}
-                horizontal={true}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContentContainer}>
-                <View style={{ ...styles.tile, backgroundColor: theme.current.colors.success }}>
-                    <TouchableOpacity style={styles.centetTileContent} onPress={onStart}>
-                        <Icon icon={"cloud-done-outline"} size={28} color="onSecondary" />
-                        <Text size={"medium"} color={"onSecondary"}>
-                            Start
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-                <View style={{ ...styles.tile, backgroundColor: theme.current.colors.error }}>
-                    <TouchableOpacity style={styles.centetTileContent} onPress={onStop}>
-                        <Icon icon={"cloud-offline-outline"} size={28} color="onSecondary" />
-                        <Text size={"medium"} color={"onSecondary"}>
-                            Stop
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-                <View style={{ ...styles.tile, backgroundColor: theme.current.colors.warning }}>
-                    <TouchableOpacity style={styles.centetTileContent} onPress={onRestart}>
-                        <Icon icon={"refresh-outline"} size={28} color="onSecondary" />
-                        <Text size={"medium"} color="onSecondary">
-                            Restart
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            </ScrollView>
-        </View>
-    );
-}
+        <ContentSection
+            title="Broker client"
+            separated
+            headerAction={
+                loading ? (
+                    <NativeText style={[styles.status, { color: colors.authMuted }]}>
+                        Loading status…
+                    </NativeText>
+                ) : client ? (
+                    <DataSourceState connectionStatus={client.connectionStatus} />
+                ) : (
+                    <NativeText style={[styles.status, { color: colors.error }]}>
+                        Status unavailable
+                    </NativeText>
+                )
+            }>
+            <View style={styles.body}>
+                {!!loadError && (
+                    <View style={styles.feedback}>
+                        <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
+                            <AlertDescription>{loadError}</AlertDescription>
+                        </Alert>
+                        <Button
+                            name="Retry"
+                            type="brand-outline"
+                            loading={loading}
+                            disabled={request.current}
+                            onPress={retryLoad}
+                        />
+                    </View>
+                )}
+                {!!actionError && (
+                    <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
+                        <AlertDescription>{actionError}</AlertDescription>
+                    </Alert>
+                )}
+                {!!actionNotice && (
+                    <Alert accessibilityLiveRegion="polite" icon={Info}>
+                        <AlertDescription>{actionNotice}</AlertDescription>
+                    </Alert>
+                )}
 
-export default ClientsDetailsView;
+                <View style={styles.actions}>
+                    <Button
+                        name="Start"
+                        type="auth"
+                        loading={false}
+                        disabled={!startAllowed || loading || !!busy}
+                        onPress={start}
+                        style={styles.actionButton}
+                    />
+                    <Button
+                        name="Stop"
+                        type="brand-destructive"
+                        loading={busy === "stop"}
+                        disabled={!stopAllowed || loading || !!busy}
+                        onPress={() => runAction("stop")}
+                        style={styles.actionButton}
+                    />
+                    <Button
+                        name="Restart"
+                        type="brand-outline"
+                        loading={busy === "restart"}
+                        disabled={!restartAllowed || loading || !!busy}
+                        onPress={() => runAction("restart")}
+                        style={styles.actionButton}
+                    />
+                </View>
+            </View>
+        </ContentSection>
+    );
+};
+
+export default BrokerClient;
 
 const styles = StyleSheet.create({
-    container: {
-        padding: 0,
-        paddingTop: 0,
-    },
-    inlineContainer: {
-        flexDirection: "row",
-    },
-    scrollContentContainer: {
-        justifyContent: "flex-start",
-        alignItems: "flex-start",
-        padding: 5,
-        paddingLeft: 15,
-        paddingBottom: 15,
-    },
-    tile: {
-        ...shadowStyles.default,
-        borderRadius: 12,
-        padding: 20,
-        marginRight: 10,
-    },
-    centetTileContent: {
-        justifyContent: "center",
-        alignItems: "center",
-    },
+    status: { fontSize: 14, lineHeight: 20, flexShrink: 1 },
+    body: { gap: 16 },
+    feedback: { gap: 16 },
+    actions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+    actionButton: { width: "auto", flexGrow: 1, flexBasis: 104 },
 });

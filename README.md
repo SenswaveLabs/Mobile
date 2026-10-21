@@ -22,7 +22,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white&style=flat)
 ![Expo](https://img.shields.io/badge/Expo-54-000020?logo=expo&logoColor=white&style=flat)
 ![Expo Router](https://img.shields.io/badge/Expo_Router-6-000020?logo=expo&logoColor=white&style=flat)
-![React Native Paper](https://img.shields.io/badge/React_Native_Paper-5-6200EE?logo=react&logoColor=white&style=flat)
+![React Native Reusables](https://img.shields.io/badge/UI-React_Native_Reusables-111111?logo=react&logoColor=white&style=flat)
 ![SignalR](https://img.shields.io/badge/SignalR-8-5C2D91?logo=dotnet&logoColor=white&style=flat)
 
 ## What is Senswave?
@@ -56,9 +56,9 @@ Temperature, humidity, or any numeric sensor streams to a Display widget on your
 
 ### Prerequisites
 
-- Node.js + npm
+- Node.js 26.10.0 (see `.nvmrc`) + pnpm 12.8.1 (see `packageManager`)
 - Android Studio + Java 17
-- Expo CLI
+- Expo CLI is provided by the project dependencies
 
 ### Setup
 
@@ -66,18 +66,24 @@ Temperature, humidity, or any numeric sensor streams to a Display widget on your
 2. Install dependencies and build:
 
 ```bash
-npm i
-npx expo run:android   # first build — compiles native code
-npm start              # subsequent runs
+pnpm install --frozen-lockfile
+pnpm android           # first build — compiles native code
+pnpm start --dev-client # subsequent runs
 ```
 
-See [`AGENTS.md`](AGENTS.md) for full architecture reference, environment variables, and development conventions.
+Welcome, login, registration, forgot password and development server selection
+use [native React Native Reusables UI](docs/native-auth-ui.md), alongside the home picker.
+
+See [`AGENTS.md`](AGENTS.md) for the guide index and the relevant architecture,
+tooling and validation rules. The [mobile UI policy](docs/agent-guide/interface.md)
+defines MD3 interaction principles with Senswave's shadcn-based visual language.
 
 ## Contributing
 
 Pull requests are welcome.
 
-- Read [`AGENTS.md`](AGENTS.md) for architecture concepts and development conventions before writing code.
+- Read [`AGENTS.md`](AGENTS.md) and the guide relevant to your task before writing code.
+- Use `next-dev` for new UI changes; keep it separate from `main` for now. PRs get GitHub-hosted ARM64 Android verification. After a push to `next-dev`, CI requests a version PR in private Next-Infra; a human merge starts the VPS build and APK hosting. See [Tooling](docs/agent-guide/tooling.md). Production releases are manual.
 - Report bugs using the **Bug report** issue template.
 - Propose features using the **Feature request** issue template.
 

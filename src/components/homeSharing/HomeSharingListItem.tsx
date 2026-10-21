@@ -1,126 +1,193 @@
-import ConfirmDialog from "@/components/common/ConfirmDialog";
-import ImageButton from "@/components/common/ImageButton";
+import React, { FC, useCallback, useId, useRef, useState } from "react";
+import {
+    ActivityIndicator,
+    Modal as NativeModal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
+import { useFocusEffect } from "expo-router";
+import { PortalHost } from "@rn-primitives/portal";
+import { CircleAlert, Trash2 } from "lucide-react-native";
+import Button from "@/components/common/Button";
+import ListRow from "@/components/common/ListRow";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { useToast } from "@/contexts/ToastProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
 import { HomeRolesToName } from "@/types/HomeTypes";
-import React, { useState } from "react";
-import { View, StyleSheet } from "react-native";
-import Text from "../common/Text";
 
 interface HomeSharingListItemProps {
     id: string;
     email: string;
     type: string;
     onRemove: () => void;
+    disabled?: boolean;
+    separator?: boolean;
 }
 
-function HomeSharingListItem({ id, email, type, onRemove }: HomeSharingListItemProps) {
-    const theme = useTheme();
+const HomeSharingListItem: FC<HomeSharingListItemProps> = ({
+    id,
+    email,
+    type,
+    onRemove,
+    disabled = false,
+    separator = false,
+}) => {
+    const { colors } = useTheme().current;
     const httpClient = useHttpClient();
-    const toast = useToast();
     const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+    const dialogHost = useId();
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const pending = useRef(false);
+    const active = useRef(true);
+
+    useFocusEffect(
+        useCallback(() => {
+            active.current = true;
+            return () => {
+                active.current = false;
+            };
+        }, []),
+    );
 
     const removeSharing = async () => {
+        if (pending.current || disabled || !active.current) return;
+        pending.current = true;
+        setLoading(true);
+        setError("");
+        setShowRemoveDialog(false);
         try {
-            const result = await httpClient.delete(`/v1/homes/sharings/${id}`);
-            if (result.isSuccess) {
-                toast.success("Home sharing removed.");
-                onRemove();
-            } else {
-                toast.httpError(result);
-            }
-        } catch (error) {
-            console.error("Failed to remove sharing", error);
-            toast.error("Failed to remove home sharing.");
+            const response = await httpClient.delete("/v1/homes/sharings/" + id);
+            if (!response.isSuccess) throw new Error();
+            if (active.current) onRemove();
+        } catch {
+            if (active.current) setError("Couldn't remove access. Try again.");
+        } finally {
+            pending.current = false;
+            setLoading(false);
         }
     };
 
-    const removalAlert = () => {
-        setShowRemoveDialog(true);
-    };
-
     return (
-        <View style={styles.container}>
-            <ConfirmDialog
-                visible={showRemoveDialog}
-                title="Remove Access"
-                content={`${email} will lose access to this home and all its devices. This action cannot be undone.`}
-                onConfirm={() => {
-                    setShowRemoveDialog(false);
-                    removeSharing();
-                }}
-                onCancel={() => setShowRemoveDialog(false)}
-            />
-            <View
-                style={[
-                    styles.itemContainer,
-                    { backgroundColor: theme.current.colors.primary },
-                    shadowStyles.default,
-                ]}>
-                <Text size={"medium"} color={"onPrimary"} bold>
-                    {email}
-                </Text>
-                <Text size={"small"} color={"onPrimary"}>
-                    {HomeRolesToName.get(type) ?? "Role not found"}
-                </Text>
-            </View>
-            <View style={styles.iconContainer}>
-                <ImageButton
-                    onPress={removalAlert}
-                    icon={"person-remove-outline"}
-                    size={24}
-                    style={styles.buttonStyles}
+        <AlertDialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog} asChild>
+            <View style={styles.container}>
+                <NativeModal
+                    visible={showRemoveDialog}
+                    transparent
+                    statusBarTranslucent
+                    navigationBarTranslucent
+                    accessibilityViewIsModal
+                    onRequestClose={() => setShowRemoveDialog(false)}>
+                    <PortalHost name={dialogHost} />
+                </NativeModal>
+                <AlertDialogContent
+                    portalHost={dialogHost}
+                    accessibilityViewIsModal
+                    className="max-w-md"
+                    style={styles.dialogContent}>
+                    <ScrollView style={styles.dialogBody}>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Remove access</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                {email +
+                                    " will lose access to this home and all its devices. This action cannot be undone."}
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                    </ScrollView>
+                    <AlertDialogFooter className="flex-col">
+                        <AlertDialogCancel asChild>
+                            <Button
+                                name="Cancel"
+                                type="brand-outline"
+                                loading={false}
+                                onPress={() => setShowRemoveDialog(false)}
+                            />
+                        </AlertDialogCancel>
+                        <AlertDialogAction asChild>
+                            <Button
+                                name="Remove"
+                                type="brand-destructive"
+                                loading={false}
+                                disabled={disabled || loading}
+                                onPress={() => void removeSharing()}
+                            />
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+                <ListRow
+                    title={email}
+                    description={HomeRolesToName.get(type) || "Unknown role"}
+                    separator={separator}
+                    children={
+                        error ? (
+                            <Alert
+                                icon={CircleAlert}
+                                variant="destructive"
+                                accessibilityRole="alert"
+                                accessibilityLiveRegion="polite">
+                                <AlertDescription>{error}</AlertDescription>
+                            </Alert>
+                        ) : undefined
+                    }
+                    trailing={
+                        <AlertDialogTrigger asChild disabled={disabled || loading}>
+                            <Pressable
+                                cssInterop={false}
+                                accessibilityRole="button"
+                                accessibilityLabel={"Remove access for " + email}
+                                accessibilityState={{
+                                    disabled: disabled || loading,
+                                    busy: loading,
+                                }}
+                                disabled={disabled || loading}
+                                onPress={() => {
+                                    setError("");
+                                    setShowRemoveDialog(true);
+                                }}
+                                android_ripple={{ color: colors.authBorder }}
+                                style={({ pressed }) => [
+                                    styles.removeAction,
+                                    pressed && styles.pressed,
+                                ]}>
+                                {loading ? (
+                                    <ActivityIndicator size="small" color={colors.error} />
+                                ) : (
+                                    <Trash2 size={20} color={colors.error} accessible={false} />
+                                )}
+                            </Pressable>
+                        </AlertDialogTrigger>
+                    }
                 />
             </View>
-        </View>
+        </AlertDialog>
     );
-}
+};
 
 export default HomeSharingListItem;
 
 const styles = StyleSheet.create({
-    buttonStyles: {
-        height: "100%",
-        alignContent: "center",
-        justifyContent: "center",
-        paddingHorizontal: 10,
-    },
-    icon: {
-        borderRadius: 8,
+    container: {},
+    removeAction: {
+        width: 48,
+        height: 48,
         alignItems: "center",
         justifyContent: "center",
-        padding: 6,
-        paddingHorizontal: 12,
-    },
-    container: {
-        width: "100%",
-        flexDirection: "row",
-        display: "flex",
-        flex: 1,
-    },
-    itemContainer: {
-        alignItems: "flex-start",
         borderRadius: 8,
-        padding: 8,
-        paddingHorizontal: 12,
-        flex: 1,
     },
-    textAndIconContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        width: "100%",
-    },
-    iconContainer: {
-        marginLeft: 10,
-    },
-    emailText: {
-        fontSize: 18,
-        fontWeight: "bold",
-    },
-    typeText: {
-        fontSize: 14,
-    },
+    pressed: { opacity: 0.72 },
+    dialogContent: { maxHeight: "90%" },
+    dialogBody: { flexShrink: 1 },
 });

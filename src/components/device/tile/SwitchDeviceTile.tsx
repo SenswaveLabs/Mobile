@@ -1,130 +1,97 @@
-import { View, StyleSheet } from "react-native";
-import React, { useEffect, useState } from "react";
-import { useToast } from "@/contexts/ToastProvider";
-import { useHomes } from "@/contexts/domain/HomeProvider";
-import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useLiveUpdate } from "@/contexts/domain/LiveUpdateProvider";
-import { Device, useDeviceList } from "@/contexts/custom/DeviceListProvider";
-import Icon from "@/components/common/Icon";
+import React, { FC } from "react";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { CircleAlert } from "lucide-react-native";
 import { Switch } from "@/components/common/Switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useDeviceTileAction } from "@/hooks/useDeviceTileAction";
+import { useTheme } from "@/contexts/ThemeProvider";
+import { DeviceLayout } from "@/hooks/useDeviceLayout";
 
 interface SwitchDeviceTileProps {
-    deviceId: string;
-    icon: string;
-    tile: any;
+    name: string;
+    action: ReturnType<typeof useDeviceTileAction>;
     disablePress: boolean;
+    inactive?: boolean;
+    layout?: DeviceLayout;
 }
 
-function SwitchDeviceTile({ deviceId, icon, tile, disablePress }: SwitchDeviceTileProps) {
-    const toast = useToast();
-    const homes = useHomes();
-    const devices = useDeviceList();
-    const httpClient = useHttpClient();
-    const liveUpdate = useLiveUpdate();
-    const [processing, setProcessing] = useState(false);
-
-    const [isOn, setIsOn] = useState(tile.value === true);
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const updateCallback = async (message: string) => {
-        try {
-            const result = await httpClient.get(`v1/devices/${deviceId}/display`);
-
-            if (result.isSuccess) {
-                const response = (await result.response!.json()) as Device;
-
-                const value = response.tile.value === true;
-                setIsOn(value);
-                console.debug("[Switch Device Tile] Device tile updated.");
-                devices.updateDeviceOperation(response);
-            } else if (result.statusCode === 404) {
-                toast.error("Failed to update device tile. Please refresh.");
-            }
-        } catch (error) {
-            console.error("[Switch Device Tile] Failed to update device tile.", error);
-            toast.error("Failed to update device tile.");
-        }
-    };
-
-    useEffect(() => {
-        liveUpdate.addDeviceTileCallback(deviceId, updateCallback);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [homes.current]);
-
-    const switchClicked = async () => {
-        if (disablePress) {
-            toast.info("Device tile update is disabled.");
-            return;
-        }
-
-        if (processing) {
-            console.debug("[Switch Device Tile] Already processing");
-            return;
-        }
-
-        try {
-            setProcessing(true);
-
-            const payload = {
-                value: !isOn,
-            };
-
-            const result = await httpClient.post(`v1/devices/${deviceId}/tile/action`, payload);
-
-            if (result.isSuccess) {
-                console.debug(
-                    "[Switch Device Tile] Device state updated on server. Event should arrive to refresh device status.",
-                );
-            } else {
-                toast.httpError(result);
-            }
-        } catch {
-            console.error("[Switch Device Tile] Failed to update device state.");
-            toast.error("Unexpected error occurred while updating device state.");
-        } finally {
-            setProcessing(false);
-        }
-    };
-
+const SwitchDeviceTile: FC<SwitchDeviceTileProps> = ({
+    name,
+    action,
+    disablePress,
+    inactive = false,
+    layout = "grid",
+}) => {
+    const { colors } = useTheme().current;
+    const isOn = action.value === true;
     return (
-        <View style={styles.actionContainer}>
-            <View style={styles.iconContainer}>
-                <Icon icon={icon} size={64} color={"onPrimary"} />
+        <View style={styles.content}>
+            <View style={styles.row}>
+                {!inactive && (
+                    <View style={styles.progress} accessibilityLiveRegion="polite">
+                        {action.feedback === "spinner" && (
+                            <ActivityIndicator
+                                size="small"
+                                color={colors.authForeground}
+                                accessible
+                                accessibilityRole="progressbar"
+                                accessibilityLabel={`Saving change to ${name}`}
+                            />
+                        )}
+                    </View>
+                )}
+                <Text
+                    style={[
+                        styles.label,
+                        layout === "list" && styles.listLabel,
+                        { color: inactive ? colors.authMuted : colors.authForeground },
+                    ]}>
+                    {inactive
+                        ? "—"
+                        : action.value === true
+                          ? "On"
+                          : action.value === false
+                            ? "Off"
+                            : "—"}
+                </Text>
+                {!inactive && (
+                    <>
+                        <Switch
+                            value={{ value: isOn }}
+                            onPress={() => action.send(!isOn)}
+                            orientation="horizontal"
+                            accessibilityLabel={name}
+                            disabled={disablePress || action.pending}
+                            trackColors={{ on: colors.authPrimary, off: colors.authBorder }}
+                            thumbColor={isOn ? colors.authOnPrimary : colors.authFieldBackground}
+                            style={{ width: 52, height: 32 }}
+                        />
+                    </>
+                )}
             </View>
-            <View style={styles.switchContainer}>
-                <Switch
-                    value={{ value: isOn }}
-                    onPress={switchClicked}
-                    style={styles.switch}
-                    orientation="vertical"
-                />
-            </View>
+            {!!action.error && (
+                <Alert
+                    icon={CircleAlert}
+                    variant="destructive"
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite">
+                    <AlertDescription>{action.error}</AlertDescription>
+                </Alert>
+            )}
         </View>
     );
-}
-
+};
 export default SwitchDeviceTile;
-
 const styles = StyleSheet.create({
-    actionContainer: {
-        width: "100%",
-        height: "60%",
+    content: { gap: 4 },
+    row: {
+        minHeight: 48,
         flexDirection: "row",
-    },
-    iconContainer: {
-        justifyContent: "center",
         alignItems: "center",
-        width: "60%",
-        height: "100%",
+        justifyContent: "space-between",
+        gap: 8,
     },
-    switchContainer: {
-        justifyContent: "center",
-        alignItems: "center",
-        width: "40%",
-        height: "100%",
-    },
-    switch: {
-        width: 64,
-        height: 34,
-    },
+    label: { flex: 1, textAlign: "right", fontSize: 22, lineHeight: 28, fontWeight: "500" },
+    listLabel: { fontSize: 17, lineHeight: 24 },
+    progress: { width: 20, height: 20, alignItems: "center", justifyContent: "center" },
 });

@@ -1,24 +1,32 @@
 name: Discord notifications
 
 on:
-  workflow_run:
-    workflows:
-      - "Mobile CI and Next Dev Proposal"
-      - "Build Android"
-    types: [completed]
+  workflow_call:
+    inputs:
+      result:
+        required: true
+        type: string
+    secrets:
+      DISCORD_WEBHOOK_URL:
+        required: true
 
-permissions: {}
+permissions:
+  actions: read
 
 jobs:
   notify:
     name: Notify Discord
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    continue-on-error: true
     steps:
       - name: Send workflow result
         shell: bash
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_RESULT: ${{ inputs.result }}
         run: |
           set -euo pipefail
           if [ -z "$DISCORD_WEBHOOK_URL" ]; then
@@ -29,19 +37,24 @@ jobs:
           python3 - <<'PY' > "$RUNNER_TEMP/discord-notification.json"
           import json
           import os
-          from datetime import datetime
-          from pathlib import Path
+          from datetime import datetime, timezone
+          from urllib.request import Request, urlopen
 
-          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
-          run = event["workflow_run"]
+          request = Request(
+              f"{os.environ['GITHUB_API_URL']}/repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+              headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json"},
+          )
+          with urlopen(request, timeout=10) as response:
+              run = json.load(response)
+          run["conclusion"] = os.environ["WORKFLOW_RESULT"]
           icon = {"success": "✅", "failure": "❌", "cancelled": "⏹️"}.get(run["conclusion"], "⚠️")
           started = datetime.fromisoformat(run.get("run_started_at") or run["created_at"])
-          finished = datetime.fromisoformat(run["updated_at"])
+          finished = datetime.now(timezone.utc)
           minutes, seconds = divmod(max(0, int((finished - started).total_seconds())), 60)
           actor = (run.get("triggering_actor") or run["actor"])["login"]
           branch = run.get("head_branch") or run["head_sha"][:12]
           content = "\n".join([
-              f"{icon} **{event['repository']['full_name']} — {run['name'][:160]}**",
+              f"{icon} **{run['repository']['full_name']} — {run['name'][:160]}**",
               f"Status: {run['conclusion']} · Branch: {branch[:120]}",
               f"Commit: `{run['head_sha'][:12]}` · Triggered by: {actor}",
               f"Duration: {minutes}m {seconds}s · Attempt: {run['run_attempt']}",

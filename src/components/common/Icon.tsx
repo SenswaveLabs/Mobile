@@ -1,7 +1,8 @@
 import React, { FC } from "react";
-import { StyleProp, StyleSheet, ViewProps } from "react-native";
+import { StyleProp, StyleSheet, ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/contexts/ThemeProvider";
+import { getResourceIcon, IconResource } from "@/utils/resourceIcons";
 
 export const AllIcons = [
     "accessibility-outline",
@@ -325,6 +326,7 @@ export const AllIcons = [
 ];
 
 export type IconColor =
+    | "brand"
     | "onPrimary"
     | "error"
     | "warning"
@@ -337,16 +339,19 @@ export type IconColor =
 
 interface IconProps {
     icon: string;
+    resource?: IconResource;
     size: number;
     color?: IconColor;
-    style?: StyleProp<ViewProps>;
+    style?: StyleProp<ViewStyle>;
 }
 
-const Icon: FC<IconProps> = ({ icon, size, color = "textOnPrimary", style }) => {
+const Icon: FC<IconProps> = ({ icon, resource, size, color = "textOnPrimary", style }) => {
     const theme = useTheme();
 
     const calculateIconColor = (color: string) => {
         switch (color) {
+            case "brand":
+                return theme.current.colors.authForeground;
             case "onPrimary":
                 return theme.current.colors.textOnPrimary;
             case "error":
@@ -375,6 +380,18 @@ const Icon: FC<IconProps> = ({ icon, size, color = "textOnPrimary", style }) => 
             : icon.endsWith("-sharp")
               ? icon.replace(/-sharp$/, "-outline")
               : `${icon}-outline`;
+
+    if (resource) {
+        const ResourceIcon = getResourceIcon(icon, resource).component;
+        return (
+            <ResourceIcon
+                size={size}
+                strokeWidth={2}
+                style={[styles.icon, style]}
+                color={calculateIconColor(color)}
+            />
+        );
+    }
 
     return (
         <Ionicons
