@@ -138,3 +138,14 @@ jobs:
                     --ref main -f source_run_id="$SOURCE_RUN_ID"
                   printf 'Requested infrastructure PR for [Mobile CI](%s).\n' \
                     "https://github.com/SenswaveLabs/Mobile/actions/runs/$SOURCE_RUN_ID" >> "$GITHUB_STEP_SUMMARY"
+
+    notify-discord:
+      if: always()
+      needs: [quality, build, propose-infra]
+      permissions:
+        actions: read
+      uses: ./.github/workflows/notify-discord.yaml
+      with:
+        result: ${{ contains(needs.*.result, 'cancelled') && 'cancelled' || contains(needs.*.result, 'failure') && 'failure' || contains(needs.*.result, 'success') && 'success' || 'skipped' }}
+      secrets:
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

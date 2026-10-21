@@ -9,6 +9,7 @@ Authentication, home selection, home/room creation and settings use local React 
 - New UI work belongs on `next-dev`. Keep it separate from `main` until integration is explicitly requested.
 - Never merge PRs autonomously. Notify on test failure and wait for human. Commit/PR titles start with `fix:`, `feat:` or `chore:`.
 - Production releases are manual only, with strict versioning. Public CI verifies PRs with an ARM64 Android build and requests a release PR in private `Next-Infra`; a human merges that PR before the VPS builds and hosts the next-dev APK. Never give public `Mobile` a self-hosted runner or infrastructure write token. See [Tooling](docs/agent-guide/tooling.md).
+- Build completion notifications call the local reusable `notify-discord.yaml` workflow with the repository `DISCORD_WEBHOOK_URL` Actions secret. See [Tooling](docs/agent-guide/tooling.md).
 - Android CI checks compile ARM64 debug, export production JavaScript and upload Gradle profiles. Pushes and manual runs on `next-dev` seed Gradle cache for PRs. Validate release tasks and all supported ABIs before releases.
 - Never call `fetch` outside `src/utils/httpClient.tsx`; use `useHttpClient()`.
 - Home and Device icon choices come from backend catalogs. Keep opaque keys unchanged; see [Domain and API contracts](docs/agent-guide/api-and-data.md).

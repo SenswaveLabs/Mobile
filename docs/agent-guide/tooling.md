@@ -83,6 +83,15 @@ traffic beyond normal interactive use. Expo web shows a fallback and retains GPS
 | Workflow | Trigger |
 |----------|---------|
 | `build.yaml` | PRs to `next-dev`: lint, types, auth/build tests, production Android JS export and ARM64 debug compilation on GitHub-hosted runners. Pushes or manual runs on `next-dev`: quality checks, then the same Android build to seed cache and an independent infrastructure release PR request. |
+| `notify-discord.yaml` | Reusable notification job called after Mobile CI and Next Dev Proposal, including failures and cancellations. |
+
+Configure `DISCORD_WEBHOOK_URL` as a repository Actions secret. The notification
+workflow is called locally by `build.yaml` and works on `next-dev` and pull request
+branches. It uses a GitHub-hosted runner with no checkout and only `actions: read`
+to fetch run metadata. Messages include status, branch, workflow commit, actor,
+duration, attempt and the original run link; mentions are disabled. The notification
+job allows delivery failure. The signed next-dev APK build and deployment send
+their own notification from `Next-Infra`.
 
 New UI changes live on `next-dev`. Verification jobs read Node from `.nvmrc` and pnpm from
 `packageManager`; installs use the frozen lockfile. The build job creates `.env`
