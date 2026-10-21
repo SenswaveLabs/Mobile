@@ -1,10 +1,10 @@
-import React, { useEffect } from "react";
-import { Pressable, View } from "react-native";
+import React, { FC, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Slider from "@/components/common/Slider";
 import { CalculatedWidget } from "../../dashboards/DashboardView";
-import Text from "@/components/common/Text";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useToast } from "@/contexts/ToastProvider";
+import { useTheme } from "@/contexts/ThemeProvider";
 
 interface SliderWidgetProps {
     operations: () => void;
@@ -12,77 +12,75 @@ interface SliderWidgetProps {
     disabled: boolean;
 }
 
-const SliderWidget: React.FC<SliderWidgetProps> = ({ operations, widget, disabled = false }) => {
+const SliderWidget: FC<SliderWidgetProps> = ({ operations, widget, disabled = false }) => {
     const { min = 0, max = 100 } = widget?.configuration?.range || {};
     const { step = 1 } = widget?.configuration || {};
-    const [initialValue, setInitialValue] = React.useState(
-        widget?.configuration?.runtime?.value || min,
-    );
-
-    const [loading, setLoading] = React.useState(false);
+    const reportedValue = widget?.configuration?.runtime?.value ?? min;
+    const [displayValue, setDisplayValue] = useState(reportedValue);
+    const [loading, setLoading] = useState(false);
+    const submitting = useRef(false);
     const httpClient = useHttpClient();
     const toast = useToast();
+    const { colors } = useTheme().current;
 
     const handleValueChange = async (val: number) => {
-        if (disabled) {
-            return;
-        }
-
-        if (loading) {
-            console.warn("[Button Widget] Action already in progress.");
-            return;
-        }
-
+        if (disabled || submitting.current) return;
+        submitting.current = true;
         setLoading(true);
-
-        const result = await httpClient.post(`v1/devices/widgets/${widget.id}/action`, {
-            value: val,
-        });
-
-        if (result.isSuccess) {
-            console.info("[Button Widget] Action sent successfully.");
-        } else {
-            toast.httpError(result);
+        try {
+            const result = await httpClient.post("v1/devices/widgets/" + widget.id + "/action", {
+                value: val,
+            });
+            if (!result.isSuccess) toast.httpError(result);
+        } catch {
+            toast.error("Couldn't change this value. Try again.");
+        } finally {
+            submitting.current = false;
+            setLoading(false);
         }
-
-        setLoading(false);
     };
 
     useEffect(() => {
-        setInitialValue(widget?.configuration?.runtime?.value || min);
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [widget?.configuration?.runtime?.value]);
+        if (!loading) setDisplayValue(reportedValue);
+    }, [reportedValue, loading]);
 
     return (
-        <Pressable
-            onLongPress={operations}
-            style={{
-                width: "100%",
-                height: "100%",
-                justifyContent: "center",
-                alignItems: "center",
-                flexDirection: "column",
-                paddingHorizontal: 3,
-            }}>
-            <View style={{ paddingVertical: 6, width: "100%", alignContent: "flex-start" }}>
-                <Text size={"medium"} color={"onPrimary"}>
-                    {widget.name}
-                </Text>
+        <Pressable onLongPress={operations} style={styles.container}>
+            <View style={styles.header}>
+                <Text style={[styles.name, { color: colors.authForeground }]}>{widget.name}</Text>
+                <View style={styles.value} accessibilityLiveRegion="polite">
+                    {loading && <ActivityIndicator size="small" color={colors.authForeground} />}
+                    <Text style={[styles.readout, { color: colors.authForeground }]}>
+                        {loading ? "Sending…" : String(displayValue)}
+                    </Text>
+                </View>
             </View>
-
-            <View style={{ flex: 1, width: "100%", maxHeight: 50, paddingBottom: 6 }}>
-                <Slider
-                    min={min}
-                    max={max}
-                    step={step}
-                    initialValue={initialValue}
-                    onValueSlided={handleValueChange}
-                    disabled={disabled}
-                />
-            </View>
+            <Slider
+                min={min}
+                max={max}
+                step={step}
+                initialValue={reportedValue}
+                onValueSlided={handleValueChange}
+                onValueChange={setDisplayValue}
+                accessibilityLabel={widget.name}
+                disabled={disabled || loading}
+            />
         </Pressable>
     );
 };
 
 export default SliderWidget;
+
+const styles = StyleSheet.create({
+    container: { width: "100%", height: "100%", justifyContent: "center", paddingHorizontal: 3 },
+    header: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: 8,
+        paddingVertical: 6,
+    },
+    name: { flex: 1, fontSize: 16, lineHeight: 24 },
+    value: { flexDirection: "row", alignItems: "center", gap: 8 },
+    readout: { fontSize: 14, lineHeight: 20, fontWeight: "600", fontVariant: ["tabular-nums"] },
+});

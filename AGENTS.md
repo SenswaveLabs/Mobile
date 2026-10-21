@@ -26,9 +26,9 @@ Read the relevant guide before acting; do not load the whole guide for a small, 
 | --- | --- |
 | Product users, goals, priorities or platform scope | [Product context](PRODUCT.md) |
 | Structure, imports, types, components, naming or dependencies | [Repository and conventions](docs/agent-guide/repository.md) |
-| UI, MD3, React Native Reusables, navigation, forms, theming or accessibility | [Mobile UI design policy](docs/agent-guide/interface.md) |
+| UI, home dashboard, MD3, React Native Reusables, navigation, forms, theming or accessibility | [Mobile UI design policy](docs/agent-guide/interface.md) |
 | Domain entities, API contracts, authentication, contexts or SignalR | [Domain and API contracts](docs/agent-guide/api-and-data.md) |
-| Node, pnpm, environment variables, Android, CI or releases | [Tooling, builds and releases](docs/agent-guide/tooling.md) |
+| Node, pnpm, TypeScript configuration, environment variables, Android, CI or releases | [Tooling, builds and releases](docs/agent-guide/tooling.md) |
 | Tests, runtime checks or completion criteria | [Validation](docs/agent-guide/validation.md) |
 
 ## UI direction

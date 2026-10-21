@@ -1,169 +1,126 @@
+import React, { FC, useEffect, useRef, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import NativeSlider from "@react-native-community/slider";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
-import React, { useEffect, useState } from "react";
-import { View, LayoutChangeEvent } from "react-native";
-import { TextInput } from "react-native-gesture-handler";
-import { GestureDetector, Gesture } from "react-native-gesture-handler";
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    useAnimatedProps,
-    runOnJS,
-} from "react-native-reanimated";
 
-const MIN_WIDTH = 36;
-const PADDING = 3;
+// Version 5.0.1 types a web-only ref, but Android forwards the native control.
+const NativeSliderControl = NativeSlider as unknown as React.ForwardRefExoticComponent<
+    Omit<React.ComponentProps<typeof NativeSlider>, "ref"> & React.RefAttributes<NativeSlider>
+>;
 
-const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
-
-interface ResizableSliderBoxProps {
+interface SliderProps {
     min: number;
     max: number;
     step: number;
     initialValue: number;
     onValueSlided?: (value: number) => void;
+    onValueChange?: (value: number) => void;
+    accessibilityLabel?: string;
     disabled?: boolean;
 }
 
-const Slider: React.FC<ResizableSliderBoxProps> = ({
+const Slider: FC<SliderProps> = ({
     min,
     max,
     step,
     initialValue,
     onValueSlided,
+    onValueChange,
+    accessibilityLabel = "Value",
     disabled = false,
 }) => {
-    const theme = useTheme();
-
-    const offset = useSharedValue(0);
-    const startOffset = useSharedValue(0);
-    const maxOffset = useSharedValue(0);
-    const [containerWidth, setContainerWidth] = useState(0);
-
-    const previousValue = useSharedValue(initialValue);
-    const currentValue = useSharedValue(initialValue);
-
-    const pan = Gesture.Pan()
-        .onBegin(() => {
-            if (disabled) return;
-            startOffset.value = offset.value; // store start position
-        })
-        .onChange((event) => {
-            if (disabled) return;
-            const totalOffset = startOffset.value + event.translationX;
-            const clampedOffset = Math.max(0, Math.min(totalOffset, maxOffset.value));
-            const rawValue = min + (clampedOffset / maxOffset.value) * (max - min);
-            const steppedValue = Math.round((rawValue - min) / step) * step + min;
-            const finalValue = Math.max(min, Math.min(max, steppedValue));
-
-            currentValue.value = finalValue;
-            offset.value = ((finalValue - min) / (max - min)) * maxOffset.value;
-        })
-        .onEnd(() => {
-            if (disabled) return;
-            if (previousValue.value !== currentValue.value) {
-                console.info("[Slider] Slider value changed:", currentValue.value);
-                previousValue.value = currentValue.value;
-
-                if (onValueSlided) {
-                    runOnJS(onValueSlided)(currentValue.value);
-                }
-            } else {
-                console.info("[Slider] No change in value, not updating.");
-            }
-        });
-
-    const sliderStyle = useAnimatedStyle(() => ({
-        width: MIN_WIDTH + offset.value,
-    }));
-
-    const getStepPrecision = (step: number) => {
-        const stepStr = step.toString();
-        if (stepStr.indexOf(".") >= 0) {
-            return Math.min(stepStr.split(".")[1].length, 4);
-        }
-
-        return 4;
-    };
-    const stepPrecision = getStepPrecision(step);
-
-    const animatedProps = useAnimatedProps(() => ({
-        text: Number(currentValue.value.toFixed(stepPrecision)).toString(),
-        defaultValue: Number(currentValue.value.toFixed(stepPrecision)).toString(),
-    }));
+    const { colors } = useTheme().current;
+    // shortcut: slider 5.0.1 allocates an entry per step; revisit this cap after upgrading it.
+    const validRange =
+        [min, max, step, max - min].every(Number.isFinite) &&
+        max > min &&
+        step >= 0 &&
+        step <= max - min &&
+        (step === 0 || (max - min) / step <= 10000);
+    const reportedValue = validRange
+        ? Math.max(min, Math.min(max, Number.isFinite(initialValue) ? initialValue : min))
+        : 0;
+    const [value, setValue] = useState(reportedValue);
+    const previousValue = useRef(reportedValue);
+    const dragging = useRef(false);
+    const control = useRef<NativeSlider>(null);
 
     useEffect(() => {
-        if (containerWidth <= 0) return;
+        setValue(reportedValue);
+        previousValue.current = reportedValue;
+        if (disabled) dragging.current = false;
+    }, [reportedValue, disabled, min, max, step]);
 
-        const tmpMaxOffset = containerWidth - MIN_WIDTH - 2 * PADDING;
-        maxOffset.value = tmpMaxOffset;
-
-        const clampedInitial = Math.max(min, Math.min(max, initialValue));
-        const initialOffset = ((clampedInitial - min) / (max - min)) * tmpMaxOffset;
-
-        offset.value = initialOffset;
-        currentValue.value = clampedInitial;
-        previousValue.value = clampedInitial;
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [containerWidth, initialValue, min, max]);
-
-    const onLayout = (event: LayoutChangeEvent) => {
-        const { width } = event.nativeEvent.layout;
-        setContainerWidth(width);
+    const commit = (next: number) => {
+        if (disabled || !Number.isFinite(next)) return;
+        const bounded = Math.max(min, Math.min(max, next));
+        if (previousValue.current === bounded) return;
+        previousValue.current = bounded;
+        setValue(bounded);
+        onValueSlided?.(bounded);
     };
 
+    if (!validRange) {
+        return (
+            <Text accessibilityRole="alert" style={[styles.unavailable, { color: colors.error }]}>
+                Slider unavailable. Check its range and step.
+            </Text>
+        );
+    }
+
     return (
-        <View
-            onLayout={onLayout}
-            style={{
-                width: "100%",
-                height: "100%",
-                justifyContent: "center",
-                alignItems: "center",
-            }}>
+        <View style={styles.control}>
+            {/* Android dims its native rail, so render the themed rail at full contrast. */}
             <View
-                style={{
-                    width: containerWidth,
-                    height: "100%",
-                    backgroundColor: theme.current.colors.primary,
-                    borderRadius: 12,
-                    justifyContent: "center",
-                    padding: PADDING,
-                    ...shadowStyles.default,
-                }}>
-                <GestureDetector gesture={pan}>
-                    <Animated.View
-                        style={[
-                            {
-                                height: "100%",
-                                backgroundColor: theme.current.colors.success,
-                                opacity: 0.8,
-                                borderRadius: 12,
-                                position: "absolute",
-                                left: 3,
-                                justifyContent: "center",
-                                alignItems: "flex-end",
-                                paddingRight: 4,
-                            },
-                            sliderStyle,
-                        ]}>
-                        <AnimatedTextInput
-                            animatedProps={animatedProps}
-                            style={[
-                                {
-                                    textAlign: "center",
-                                    fontSize: 14,
-                                    color: theme.current.colors.textOnPrimary,
-                                },
-                            ]}
-                            editable={false}
-                        />
-                    </Animated.View>
-                </GestureDetector>
-            </View>
+                pointerEvents="none"
+                style={[styles.rail, { backgroundColor: colors.authBorder }]}
+            />
+            <NativeSliderControl
+                ref={control}
+                style={styles.control}
+                onLayout={() => {
+                    // The dependency applies style to its wrapper, not the native SeekBar.
+                    control.current?.setNativeProps({ style: { height: 48 } });
+                }}
+                minimumValue={min}
+                maximumValue={max}
+                step={step}
+                value={value}
+                disabled={disabled}
+                accessibilityLabel={accessibilityLabel}
+                accessibilityRole="adjustable"
+                minimumTrackTintColor={colors.authForeground}
+                maximumTrackTintColor="transparent"
+                thumbTintColor={colors.authForeground}
+                onSlidingStart={() => {
+                    dragging.current = true;
+                }}
+                onValueChange={(next) => {
+                    if (disabled || !Number.isFinite(next)) return;
+                    onValueChange?.(next);
+                    if (!dragging.current) commit(next);
+                }}
+                onSlidingComplete={(next) => {
+                    dragging.current = false;
+                    commit(next);
+                }}
+            />
         </View>
     );
 };
 
 export default Slider;
+
+const styles = StyleSheet.create({
+    control: { width: "100%", minWidth: 48, minHeight: 48 },
+    rail: {
+        position: "absolute",
+        top: "50%",
+        marginTop: -2,
+        left: 16,
+        right: 16,
+        height: 4,
+        borderRadius: 2,
+    },
+    unavailable: { minHeight: 48, fontSize: 14, lineHeight: 20 },
+});

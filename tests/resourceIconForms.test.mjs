@@ -54,6 +54,9 @@ function mountForm(config, props = {}, catalogOverrides = {}) {
             "../common/LocalizationSelector": "LocalizationSelector",
             "./lists/CurrentHome": "CurrentHome",
             "./tile/DeviceTile": "DeviceTile",
+            "@/contexts/HttpClientProvider": {
+                useHttpClient: () => ({ get: async () => ({ isSuccess: false }) }),
+            },
             "../common/Divider": "Divider",
             "../common/Dropdown": "Dropdown",
             "../common/Expander": "Expander",

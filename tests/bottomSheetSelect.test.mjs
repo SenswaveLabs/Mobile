@@ -16,6 +16,7 @@ const theme = {
             authPrimary: "#F7B817",
             authOnPrimary: "#321A03",
             authBackground: "#F9F7F1",
+            deviceTileSubtle: "#F0ECE3",
         },
     },
 };
@@ -26,6 +27,8 @@ function mountSelect({
     platform = "android",
     deferAnimations = false,
     onClosed,
+    variant,
+    busy,
 } = {}) {
     const animations = [];
     const options = choices ?? [
@@ -39,10 +42,13 @@ function mountSelect({
             options,
             disabled,
             onClosed,
+            variant,
+            busy,
         },
         modules: {
             "react-native": {
                 Modal: "Modal",
+                ActivityIndicator: "ActivityIndicator",
                 Pressable: "Pressable",
                 ScrollView: "ScrollView",
                 StyleSheet: { create: (styles) => styles },
@@ -81,6 +87,8 @@ function mountSelect({
                 Check: "Check",
                 ChevronDown: "ChevronDown",
                 X: "X",
+                Circle: "Circle",
+                CircleDot: "CircleDot",
             },
             "@/contexts/ThemeProvider": { useTheme: () => theme },
         },
@@ -117,6 +125,70 @@ function scrim(form) {
         (node) => node.type === "Pressable" && !node.props?.accessibilityLabel,
     );
 }
+
+test("tile selector keeps a 48 dp target, wrapping value and single-choice sheet", () => {
+    const form = mountSelect({ variant: "tile" });
+    const control = trigger(form);
+    const style = Object.assign({}, ...control.props.style({ pressed: false }));
+    assert.equal(style.minHeight, 48);
+    assert.equal(style.minWidth, 48);
+    assert.equal(style.borderWidth, 0);
+    const value = elements(form, control).find((node) => node.type === "NativeText");
+    assert.equal(value.props.numberOfLines, undefined);
+    assert.ok(elements(form, control).some((node) => node.type === "ChevronDown"));
+    open(form);
+    assert.equal(radios(form).filter((node) => node.props.accessibilityState.checked).length, 1);
+    assert.equal(elements(form).filter((node) => node.type === "CircleDot").length, 1);
+    assert.equal(elements(form).filter((node) => node.type === "Circle").length, 1);
+});
+
+test("tile selector exposes expansion and shows focus without changing its target", () => {
+    const form = mountSelect({ variant: "tile" });
+    const baseline = Object.assign({}, ...trigger(form).props.style({ pressed: false }));
+    const icon = () =>
+        elements(form, trigger(form)).find(
+            (node) =>
+                node.type === "View" &&
+                Array.isArray(node.props.style) &&
+                Object.assign({}, ...node.props.style).backgroundColor ===
+                    theme.current.colors.deviceTileSubtle,
+        );
+    assert.equal(trigger(form).props.accessibilityState.expanded, false);
+    trigger(form).props.onFocus();
+    form.render();
+    assert.equal(
+        Object.assign({}, ...icon().props.style).borderColor,
+        theme.current.colors.authFocus,
+    );
+    assert.deepEqual(Object.assign({}, ...trigger(form).props.style({ pressed: false })), {
+        ...baseline,
+        borderColor: theme.current.colors.authFocus,
+    });
+    open(form);
+    assert.equal(trigger(form).props.accessibilityState.expanded, true);
+    modal(form).props.onRequestClose();
+    trigger(form).props.onBlur();
+    form.render();
+    assert.equal(trigger(form).props.accessibilityState.expanded, false);
+    assert.equal(Object.assign({}, ...icon().props.style).borderColor, "transparent");
+});
+
+test("busy tile selector swaps its fixed icon slot without changing value or trigger geometry", () => {
+    const idle = mountSelect({ variant: "tile" });
+    const pending = mountSelect({ variant: "tile", busy: true, disabled: true });
+    const idleStyle = Object.assign({}, ...trigger(idle).props.style({ pressed: false }));
+    const pendingStyle = Object.assign({}, ...trigger(pending).props.style({ pressed: false }));
+    assert.equal(JSON.stringify(idleStyle), JSON.stringify(pendingStyle));
+    assert.equal(trigger(pending).props.accessibilityState.busy, true);
+    assert.ok(
+        elements(pending, trigger(pending)).some((node) => node.type === "ActivityIndicator"),
+    );
+    assert.equal(
+        elements(idle, trigger(idle)).find((node) => node.type === "NativeText").props.children[0],
+        elements(pending, trigger(pending)).find((node) => node.type === "NativeText").props
+            .children[0],
+    );
+});
 
 test("opens after dismissing keyboard and marks current option visually and semantically", () => {
     const selected = [];

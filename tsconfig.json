@@ -11,5 +11,5 @@
     "esModuleInterop": true
   },
   "extends": "./node_modules/expo/tsconfig.base",
-  "include": ["**/*.ts", "**/*.tsx", "env.d.ts", "nativewind-env.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "env.d.ts", "nativewind-env.d.ts"]
 }

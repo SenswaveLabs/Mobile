@@ -18,6 +18,9 @@ type ThemeColors = {
     authMuted: string;
     authFieldBackground: string;
     authBorder: string;
+    deviceTileSurface: string;
+    deviceTileBorder: string;
+    deviceTileSubtle: string;
     authFocus: string;
     authPrimary: string;
     authOnPrimary: string;
@@ -44,6 +47,9 @@ const LightMode: ThemeColors = {
     authMuted: "#615A50",
     authFieldBackground: "#F9F7F1",
     authBorder: "#8C857A",
+    deviceTileSurface: "#FFFEFA",
+    deviceTileBorder: "#D8D2C7",
+    deviceTileSubtle: "#F0ECE3",
     authFocus: "#009286",
     authPrimary: "#F7B817",
     authOnPrimary: "#321A03",
@@ -72,6 +78,9 @@ const DarkMode: ThemeColors = {
     authMuted: "#AAA498",
     authFieldBackground: "#211D16",
     authBorder: "#847C70",
+    deviceTileSurface: "#211D16",
+    deviceTileBorder: "#484136",
+    deviceTileSubtle: "#211D16",
     authFocus: "#47BAAC",
     authPrimary: "#FBC031",
     authOnPrimary: "#321A03",

@@ -1,5 +1,6 @@
 import Button from "@/components/common/Button";
 import ContentSection from "@/components/common/ContentSection";
+import SectionHeaderAction from "@/components/common/SectionHeaderAction";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import ListRow from "@/components/common/ListRow";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -158,26 +159,18 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
                 helper="Topics this broker client listens to."
                 separated
                 headerAction={
-                    <Pressable
-                        cssInterop={false}
-                        accessibilityRole="button"
+                    <SectionHeaderAction
+                        label="Add"
                         accessibilityLabel="Add subscription"
                         onPress={addSubscription}
-                        android_ripple={{ color: theme.current.colors.authBorder }}
-                        style={({ pressed }) => [styles.addAction, pressed && styles.pressed]}>
-                        <Plus
-                            size={18}
-                            color={theme.current.colors.authForeground}
-                            accessible={false}
-                        />
-                        <NativeText
-                            style={[
-                                styles.addLabel,
-                                { color: theme.current.colors.authForeground },
-                            ]}>
-                            Add
-                        </NativeText>
-                    </Pressable>
+                        icon={
+                            <Plus
+                                size={18}
+                                color={theme.current.colors.authForeground}
+                                accessible={false}
+                            />
+                        }
+                    />
                 }>
                 <View style={styles.body}>
                     {!!loadError && (
@@ -286,17 +279,6 @@ export default BrokerSubscriptions;
 
 const styles = StyleSheet.create({
     body: { gap: 16 },
-    addAction: {
-        minWidth: 48,
-        minHeight: 48,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
-        paddingHorizontal: 8,
-        borderRadius: 8,
-    },
-    addLabel: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
     pressed: { opacity: 0.72 },
     loadState: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 10 },
     empty: { paddingVertical: 10 },

@@ -1,50 +1,53 @@
 import { useUser } from "@/contexts/domain/UserProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
 import { useRouter } from "expo-router";
-import React from "react";
-import { Pressable } from "react-native";
-import Text from "../common/Text";
+import React, { FC } from "react";
+import { Pressable, StyleSheet, Text } from "react-native";
 
 interface UserProfileImageProps {
     enableNavigation?: boolean;
     size?: number;
 }
 
-function UserProfileImage({ enableNavigation = false, size = 64 }: UserProfileImageProps) {
+const UserProfileImage: FC<UserProfileImageProps> = ({ enableNavigation = false, size = 64 }) => {
     const router = useRouter();
     const user = useUser();
-    const theme = useTheme();
-
-    const openProfile = () => {
-        if (!enableNavigation) {
-            console.debug("[User Profile Component] Navigation is disabled");
-            return;
-        }
-        router.push("user/profile");
-    };
+    const { colors } = useTheme().current;
 
     const firstLetter = user.data?.name?.charAt(0) ?? "";
 
     return (
         <Pressable
-            style={[
+            cssInterop={false}
+            accessibilityRole={enableNavigation ? "button" : "image"}
+            accessibilityLabel={enableNavigation ? "My profile" : user.data?.name || "Profile"}
+            style={({ pressed }) => [
+                styles.avatar,
                 {
                     height: size,
                     width: size,
-                    backgroundColor: theme.current.colors.primary,
+                    backgroundColor: colors.authFieldBackground,
+                    borderColor: colors.authBorder,
                     borderRadius: size,
-                    alignItems: "center",
-                    justifyContent: "center",
                 },
-                shadowStyles.default,
+                enableNavigation && pressed && styles.pressed,
             ]}
-            onPress={openProfile}>
-            <Text bold={true} size={size >= 64 ? "title" : "large"} color={"complementary"}>
+            onPress={enableNavigation ? () => router.push("user/profile") : undefined}>
+            <Text
+                style={[
+                    styles.initial,
+                    { color: colors.authForeground, fontSize: size >= 64 ? 30 : 20 },
+                ]}>
                 {firstLetter}
             </Text>
         </Pressable>
     );
-}
+};
 
 export default UserProfileImage;
+
+const styles = StyleSheet.create({
+    avatar: { borderWidth: 1, alignItems: "center", justifyContent: "center" },
+    initial: { fontWeight: "bold" },
+    pressed: { opacity: 0.72 },
+});

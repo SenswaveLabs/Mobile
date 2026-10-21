@@ -13,6 +13,7 @@ pnpm hooks:install            # enable local pre-commit formatting
 pnpm test:poc                 # native auth validation, submissions, route boundaries and reset behavior
 pnpm test:data-sources        # broker details, settings and subscription actions
 pnpm test:homes               # home selection, joining, creation, settings, maps and recovery
+pnpm test:dashboard           # home dashboard filtering, recovery and device-tile controls
 pnpm test:build               # separate next-dev identity and Android version-code validation
 pnpm test:icons               # Home/Device catalogs, selectors, glyphs and submission keys
 ```
@@ -22,6 +23,9 @@ pnpm test:icons               # Home/Device catalogs, selectors, glyphs and subm
 - Dev URL override: `ConfigurationProvider.overrideUrl(url)` — only when `EXPO_PUBLIC_ENVIRONMENT=Development`.
 - Prereqs: Node.js **26.10.0** (`.nvmrc`), **pnpm 12.8.1** (`packageManager`), Android Studio + Java 17. Expo CLI comes from project dependencies.
 
+TypeScript checks `src/**/*.ts`, `src/**/*.tsx` and the root environment declarations.
+Generated analysis snapshots such as `graphify-out/` stay outside that scope.
+
 Oxlint and Oxfmt ignore the generated `android/**` directory so production
 bundles are not re-linted after a native build. Source files remain covered by
 `pnpm lint`.
@@ -30,6 +34,18 @@ The pre-commit hook runs `pnpm fix` across the whole repository. Run
 Launch backgrounds in `app.json` match the shared canvas: light `#F9F7F1`, dark
 `#100D08`. Splash/adaptive-icon changes require prebuild and a new native build;
 a JavaScript reload updates in-app colors but not an installed splash screen.
+
+The JavaScript entry is `index.js`, not `expo-router/entry`. It registers
+`src/App.tsx`, which supplies Expo Router's route context, `Head.Provider` and the
+root optimistic-action wrapper. Keep that path in local and production exports;
+entry-point changes require restarting Metro and reloading the app. This wrapper
+uses existing React/Expo APIs and does not add a native-module build requirement.
+See [Repository and conventions](repository.md) for its Suspense placement.
+
+When changing shared mobile/backend contracts, build `Senswave.sln`. If the mobile
+development app uses the Docker API, rebuild and recreate that API service after
+backend changes; restarting the existing image does not include source changes.
+Verify the running service is healthy before checking the mobile flow.
 
 Home maps use `@maplibre/maplibre-react-native` 11 and its Expo plugin in `app.json`.
 Adding or updating this module requires prebuild and a new development client:

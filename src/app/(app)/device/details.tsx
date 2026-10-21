@@ -174,10 +174,11 @@ function Details() {
                 initTileOperationId={device.tile.operationId}
                 initTileDisplayableOperationId={device.tile.displayableOperationId}
                 initTileUnit={device.tile.configuration?.unit}
+                initTileStep={device.tile.configuration?.step}
+                initTileLabel={device.tile.configuration?.label}
+                initTileReadings={device.tile.configuration?.readings}
                 initPresenceType={device.presence?.type}
-                initPresenceOperationId={device.presence?.operationId}
-            />
-            <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+                initPresenceOperationId={device.presence?.operationId}>
                 <ContentSection title="Operations & Widgets" separated>
                     <ListRow
                         title="Manage operations and widgets"
@@ -190,14 +191,16 @@ function Details() {
                         disabled={mutationPending || hasChanges}
                     />
                 </ContentSection>
-                <Button
-                    name="Delete device"
-                    type="brand-destructive"
-                    loading={false}
-                    disabled={mutationPending || hasChanges}
-                    onPress={() => setShowDeleteDialog(true)}
-                />
-            </View>
+                <ContentSection title="Delete device" separated>
+                    <Button
+                        name="Delete device"
+                        type="brand-destructive"
+                        loading={false}
+                        disabled={mutationPending || hasChanges}
+                        onPress={() => setShowDeleteDialog(true)}
+                    />
+                </ContentSection>
+            </DeviceForm>
         </View>
     );
 }

@@ -10,7 +10,7 @@
 | State | Context API + custom hooks |
 | Real-time | SignalR (`@microsoft/signalr` 8.x) |
 | Auth storage | `expo-secure-store` |
-| UI | Local React Native Reusables primitives in `src/components/ui`, including AlertDialog with a named `@rn-primitives/portal` host in a native Modal, NativeWind 4 + Tailwind CSS 3. Existing `common` wrappers preserve their native APIs and appearance. Support libs: `reanimated-color-picker`, `@react-native-community/slider`, `react-native-markdown-display` |
+| UI | Local React Native Reusables primitives in `src/components/ui`, including Toggle/ToggleGroup for native single-choice controls and AlertDialog with a named `@rn-primitives/portal` host in a native Modal, NativeWind 4 + Tailwind CSS 3. Existing `common` wrappers preserve their native APIs and appearance. Support libs: `reanimated-color-picker`, `@react-native-community/slider`, `react-native-markdown-display` |
 | Auth, home and room UI | Welcome, login, registration, forgot password and development server selection render native `auth/AuthPanel`. Home selection, joining, creation and settings use the same local primitives; `home/HomeForm` and `room/RoomForm` own their fields and save actions. Session actions, Google OAuth and storage use the existing providers. See [native auth and home UI](../native-auth-ui.md). |
 | Home location | MapLibre React Native 11 with OpenStreetMap raster tiles; native modal picker and optional Expo Location GPS/address lookup. Expo web keeps a native-control fallback without importing the map SDK. |
 | Backend | .NET Minimal API — modular monolith (`Senswave.sln`) |
@@ -23,6 +23,7 @@ see [Tooling](tooling.md).
 
 ```
 src/
+  App.tsx                   # ExpoRoot, Head.Provider and optimistic-action wrapper
   app/                      # Expo Router routes (file-based)
     (auth)/                 # native auth Stack; start, login, register,
                             #   forgotPassword, server (URL paths unchanged)
@@ -46,12 +47,14 @@ src/
     SessionProvider         # auth state + all auth flows
     HttpClientProvider      # HTTP client, auto token refresh
     SignalRProvider         # SignalR hub connection
+    OptimisticActionProvider # home tile action values above route Suspense
     ThemeProvider MenuProvider ModalProvider ToastProvider
     custom/                 # feature providers: AutomationList, Automation, DeviceList,
                             #   Device, OperationForm, WidgetDetails
     domain/                 # entity providers: Home, User, LiveUpdate, Legal
-  hooks/                    # shared custom hooks, including native useGoogleSignIn
+  hooks/                    # shared custom hooks, including native useGoogleSignIn and persisted useDeviceLayout
                             # useIconCatalog: Home/Device metadata, derived keys and scoped cache
+                            # useDeviceTileAction: home control commands, live reads and recovery
   types/
     DeviceTypes.tsx         # OperationType, WidgetType, OperationDto, WidgetDto
     HomeTypes.tsx           # Home, Room, Location, HomeSharingDto, HomeRolesToName
@@ -66,6 +69,17 @@ src/
   lib/utils.ts              # class merging for React Native Reusables
   styles/                   # shared style helpers
 ```
+
+`package.json` points to `index.js`, which imports Expo's Metro runtime and registers
+`src/App.tsx` through `registerRootComponent`. `App` preserves `Head.Provider` and
+passes the `require.context("./app")` routes and `OptimisticActionProvider` wrapper
+to `ExpoRoot`. Keep `useOptimistic` in that wrapper, above route Suspense
+boundaries. With the installed Fabric 0.81 renderer, a suspended route render can
+call `completeRoot` and mount an uncommitted fallback, briefly blanking the home
+list when optimism lives inside a route. The root placement keeps action values
+available without replacing the route content. Keep the per-device action and
+live-update lifecycle in `useDeviceTileAction`; do not move API/session providers
+or route behavior into the entry point.
 
 ## Naming
 
