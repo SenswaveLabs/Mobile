@@ -129,7 +129,9 @@ function InternalLayout() {
                 name="device/add"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Add" titleSuffix="Device" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Add" titleSuffix="Device" variant="brand" />
+                    ),
                 }}
             />
 
@@ -223,7 +225,9 @@ function InternalLayout() {
             <Stack.Screen
                 name="dataSource/add"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Add Data" titleSuffix="Source" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Data" titleSuffix="Source" variant="brand" />
+                    ),
                 }}
             />
 

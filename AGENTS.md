@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Senswave mobile is a DIY Smart Home app built with React Native, Expo and TypeScript.
-Authentication, home selection, home/room creation and settings use local React Native Reusables components; the app renders native React Native UI.
+Authentication, home selection, home/room/device creation and settings use local React Native Reusables components; the app renders native React Native UI.
 
 ## Rules
 
@@ -39,6 +39,7 @@ Use `next-frontend/apps/web` as a brand reference; choose hierarchy and behavior
 App components use `FC` and interface props; copied React Native Reusables primitives keep upstream signatures.
 Editable details forms use `common/FormSection` for headings, field spacing and save actions.
 Native styling uses `StyleSheet.create()` and `useTheme()` colors; all screens share the themed background. React Native Reusables primitives use NativeWind and tokens derived from the same theme.
+Data-source creation uses one keyboard-aware page with inline feedback; see the [mobile UI design policy](docs/agent-guide/interface.md) for its validation and navigation behavior.
 Home location uses a native MapLibre picker with OpenStreetMap. See [Tooling](docs/agent-guide/tooling.md) for its development-client rebuild requirement.
 
 ## Finish the work

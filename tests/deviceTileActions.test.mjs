@@ -15,6 +15,67 @@ const tile = (type) => ({
     },
 });
 
+const alertModules = {
+    "@/components/ui/icon": { Icon: "Icon" },
+    "@/components/ui/text": {
+        Text: "Text",
+        TextClassContext: { Provider: "TextClassProvider", value: "text-destructive" },
+    },
+    "@/lib/utils": { cn: (...classes) => classes.filter(Boolean).join(" ") },
+};
+
+test("compact device alerts use flowing text while omitted compact keeps card layout", () => {
+    const renderAlert = (props = {}) =>
+        mountNativeComponent("src/components/ui/alert.tsx", {
+            exportName: "Alert",
+            props: { icon: "CircleAlert", variant: "destructive", ...props, children: "Failed" },
+            modules: alertModules,
+        }).output();
+    const compact = renderAlert({ compact: true }).props.children[0];
+    const regular = renderAlert().props.children[0];
+    const explicitDefault = renderAlert({ compact: false }).props.children[0];
+    const compactChildren = compact.props.children;
+    const regularChildren = regular.props.children;
+    const explicitDefaultChildren = explicitDefault.props.children;
+
+    assert.match(compact.props.className, /flex-row/);
+    assert.doesNotMatch(compact.props.className, /bg-card|border|rounded|px-|pb-|pt-/);
+    assert.doesNotMatch(compact.props.className, /w-full/);
+    assert.match(compactChildren[0].props.className, /mt-0\.5/);
+    assert.doesNotMatch(compactChildren[0].props.className, /absolute/);
+    assert.equal(compact.props.role, "alert");
+    assert.equal(compact.props.children[0].props.children[0].type, "Icon");
+
+    assert.match(regular.props.className, /bg-card.*border.*rounded-lg/);
+    assert.match(regularChildren[0].props.className, /absolute/);
+    assert.equal(regular.props.className, explicitDefault.props.className);
+    assert.equal(regularChildren[0].props.className, explicitDefaultChildren[0].props.className);
+});
+
+test("compact alert description wraps at 14/20 while omitted compact keeps default styling", () => {
+    const renderDescription = (props = {}) =>
+        mountNativeComponent("src/components/ui/alert.tsx", {
+            exportName: "AlertDescription",
+            props: {
+                ...props,
+                children: "Couldn't change this device. Previous value restored. Try again.",
+            },
+            modules: alertModules,
+        }).output();
+    const description = renderDescription({ compact: true });
+    const regular = renderDescription();
+    const explicitDefault = renderDescription({ compact: false });
+
+    assert.match(description.props.className, /min-w-0.*flex-1/);
+    assert.match(description.props.className, /text-sm.*leading-5/);
+    assert.doesNotMatch(description.props.className, /pl-6|pb-1\.5/);
+    assert.doesNotMatch(description.props.className, /text-destructive\/90/);
+    assert.equal(description.props.numberOfLines, undefined);
+    assert.match(regular.props.className, /text-muted-foreground.*ml-0\.5.*pb-1\.5.*pl-6/);
+    assert.match(regular.props.className, /text-destructive\/90/);
+    assert.equal(regular.props.className, explicitDefault.props.className);
+});
+
 const mountActions = () =>
     mountNativeComponent("src/contexts/OptimisticActionProvider.tsx", {
         exportName: "OptimisticActionProvider",
@@ -204,69 +265,89 @@ for (const type of ["Switch", "Slider", "Options"]) {
         assert.equal(action.callbacks.length, 0);
     });
 
-    test(
-        type + " control keeps its layout slots while pending and uses an Alert after rollback",
-        () => {
-            const action = {
-                value: initial[type],
-                pending: false,
-                feedback: "none",
-                error: "",
-                send() {},
-            };
-            const props = {
-                name: "Living room device",
-                tile: tile(type),
-                action,
-                disablePress: false,
-            };
-            const component = mountNativeComponent(
-                "src/components/device/tile/" +
-                    (type === "Switch" ? "Switch" : "Control") +
-                    "DeviceTile.tsx",
-                {
-                    props,
-                    modules: {
-                        "@/components/common/Switch": { Switch: "Switch" },
-                        "@/components/common/Slider": "Slider",
-                        "@/components/common/BottomSheetSelect": "BottomSheetSelect",
-                    },
+    test(type + " control keeps layout slots and compact error feedback after rollback", () => {
+        const action = {
+            value: initial[type],
+            pending: false,
+            feedback: "none",
+            error: "",
+            send() {},
+        };
+        const props = {
+            name: "Living room device",
+            tile: tile(type),
+            action,
+            disablePress: false,
+        };
+        const component = mountNativeComponent(
+            "src/components/device/tile/" +
+                (type === "Switch" ? "Switch" : "Control") +
+                "DeviceTile.tsx",
+            {
+                props,
+                modules: {
+                    "@/components/common/Switch": { Switch: "Switch" },
+                    "@/components/common/Slider": "Slider",
+                    "@/components/common/BottomSheetSelect": "BottomSheetSelect",
                 },
+            },
+        );
+        const flow = () =>
+            JSON.stringify(
+                component
+                    .elements()
+                    .filter((node) => ["View", "Text"].includes(node.type))
+                    .map((node) => [node.type, node.props.style]),
             );
-            const flow = () =>
-                JSON.stringify(
-                    component
-                        .elements()
-                        .filter((node) => ["View", "Text"].includes(node.type))
-                        .map((node) => [node.type, node.props.style]),
-                );
-            const baseline = flow();
-            for (const feedback of ["none", "spinner"]) {
-                action.pending = true;
-                action.feedback = feedback;
-                component.render();
-                assert.equal(flow(), baseline);
-                assert.equal(
-                    component.elements().some((node) => node.type === "ActivityIndicator"),
-                    type !== "Options" && feedback === "spinner",
-                );
-                if (type === "Options")
-                    assert.equal(
-                        component.elements().find((node) => node.type === "BottomSheetSelect").props
-                            .busy,
-                        feedback === "spinner",
-                    );
-            }
-            action.pending = false;
-            action.error = "Previous value restored. Try again.";
+        const baseline = flow();
+        for (const feedback of ["none", "spinner"]) {
+            action.pending = true;
+            action.feedback = feedback;
             component.render();
+            assert.equal(flow(), baseline);
             assert.equal(
-                component.elements().find((node) => node.type === "Alert").props.variant,
-                "destructive",
+                component.elements().some((node) => node.type === "ActivityIndicator"),
+                type !== "Options" && feedback === "spinner",
+            );
+            if (type === "Options")
+                assert.equal(
+                    component.elements().find((node) => node.type === "BottomSheetSelect").props
+                        .busy,
+                    feedback === "spinner",
+                );
+        }
+        action.pending = false;
+        action.error = "Previous value restored. Try again.";
+        for (const layout of ["grid", "list"]) {
+            props.layout = layout;
+            component.render(props);
+            const alert = component.elements().find((node) => node.type === "Alert");
+            const description = component
+                .elements()
+                .find((node) => node.type === "AlertDescription");
+            const alertStyles = Array.isArray(alert.props.style)
+                ? alert.props.style
+                : [alert.props.style];
+
+            assert.equal(alert.props.variant, "destructive");
+            assert.equal(alert.props.compact, true, `${type} compact alert in ${layout}`);
+            assert.equal(
+                description.props.compact,
+                true,
+                `${type} compact description in ${layout}`,
+            );
+            assert.ok(
+                alertStyles.some((style) => style?.marginTop === 12),
+                `${type} alert keeps 12 dp control separation in ${layout}`,
+            );
+            assert.equal(
+                alertStyles.some((style) => style?.marginHorizontal === 12),
+                type === "Slider",
+                `${type} alert keeps its 12 dp horizontal inset in ${layout}`,
             );
             assert.match(component.text(), /Previous value restored/);
-        },
-    );
+        }
+    });
 }
 
 test("a completed command after unmount cannot update another screen's cache", async () => {

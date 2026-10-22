@@ -180,6 +180,8 @@ test("redesigned forms and home selection suppress legacy overlays without dismi
         "/home/details",
         "/home/room/add",
         "/home/room/details",
+        "/device/add",
+        "/dataSource/add",
     ]) {
         provider.navigate(route);
         lateCallback.error("Legacy error");
@@ -200,7 +202,7 @@ test("entering an inline flow hides the existing toast and other screens retain 
     provider.feedback().info("Profile information");
     assert.equal(provider.shown.length, 2);
     assert.equal(provider.dismissed(), 2);
-    provider.navigate("/home/join");
+    provider.navigate("/device/add");
     assert.deepEqual(provider.hidden, provider.shown, "No earlier overlapping toast can remain");
     provider.navigate("/profile");
     provider.feedback().success("Saved");

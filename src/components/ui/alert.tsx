@@ -11,12 +11,14 @@ function Alert({
     children,
     icon,
     iconClassName,
+    compact = false,
     ...props
 }: React.ComponentProps<typeof View> &
     React.RefAttributes<View> & {
         icon: LucideIcon;
         variant?: "default" | "destructive";
         iconClassName?: string;
+        compact?: boolean;
     }) {
     return (
         <TextClassContext.Provider
@@ -28,11 +30,13 @@ function Alert({
             <View
                 role="alert"
                 className={cn(
-                    "bg-card border-border relative w-full rounded-lg border px-4 pb-2 pt-3.5",
+                    compact
+                        ? "flex-row items-start gap-2"
+                        : "bg-card border-border relative w-full rounded-lg border px-4 pb-2 pt-3.5",
                     className,
                 )}
                 {...props}>
-                <View className="absolute left-3.5 top-4">
+                <View className={cn(compact ? "mt-0.5" : "absolute left-3.5 top-4")}>
                     <Icon
                         as={icon}
                         className={cn(
@@ -60,13 +64,19 @@ function AlertTitle({ className, ...props }: React.ComponentProps<typeof Text>) 
     );
 }
 
-function AlertDescription({ className, ...props }: React.ComponentProps<typeof Text>) {
+function AlertDescription({
+    className,
+    compact = false,
+    ...props
+}: React.ComponentProps<typeof Text> & { compact?: boolean }) {
     const textClass = React.useContext(TextClassContext);
     return (
         <Text
             className={cn(
-                "text-muted-foreground ml-0.5 pb-1.5 pl-6 text-sm leading-relaxed",
-                textClass?.includes("text-destructive") && "text-destructive/90",
+                compact
+                    ? "ml-0 min-w-0 flex-1 pb-0 pl-0 text-sm leading-5"
+                    : "text-muted-foreground ml-0.5 pb-1.5 pl-6 text-sm leading-relaxed",
+                textClass?.includes("text-destructive") && !compact && "text-destructive/90",
                 className,
             )}
             {...props}

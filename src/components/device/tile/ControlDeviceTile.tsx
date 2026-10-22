@@ -128,10 +128,12 @@ const ControlDeviceTile: FC<ControlDeviceTileProps> = ({
             {!!action.error && (
                 <Alert
                     icon={CircleAlert}
+                    compact
                     variant="destructive"
+                    style={[styles.actionError, slider && styles.sliderActionError]}
                     accessibilityRole="alert"
                     accessibilityLiveRegion="polite">
-                    <AlertDescription>{action.error}</AlertDescription>
+                    <AlertDescription compact>{action.error}</AlertDescription>
                 </Alert>
             )}
         </View>
@@ -140,6 +142,8 @@ const ControlDeviceTile: FC<ControlDeviceTileProps> = ({
 export default ControlDeviceTile;
 const styles = StyleSheet.create({
     content: { gap: 0 },
+    actionError: { marginTop: 12 },
+    sliderActionError: { marginHorizontal: 12 },
     sliderHeader: { flexDirection: "row", alignItems: "flex-end", gap: 12 },
     slider: { minWidth: 48, paddingHorizontal: 22 },
     listSlider: { paddingLeft: 32, paddingRight: 8 },

@@ -20,11 +20,13 @@ import Dropdown, { Option } from "../common/Dropdown";
 import OperationSelector from "./operation/OperationSelector";
 import RoomSelector from "../room/RoomSelector";
 import { useToast } from "@/contexts/ToastProvider";
+import { useTheme } from "@/contexts/ThemeProvider";
 import Expander from "../common/Expander";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { keyboardOffset } from "@/styles/defaultStyles";
 import { useIconCatalog } from "@/hooks/useIconCatalog";
 import Text from "../common/Text";
+import { Text as UiText } from "@/components/ui/text";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const DefaultDeviceIcon = "bulb-outline";
@@ -106,6 +108,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
     const toast = useToast();
     const httpClient = useHttpClient();
     const catalog = useIconCatalog("devices");
+    const { colors } = useTheme().current;
     const initial: DeviceValues = {
         name: initName ?? "",
         icon: initIcon ?? DefaultDeviceIcon,
@@ -135,7 +138,6 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
         (edit && icon === initial.icon) ||
         (!catalog.loading && !catalog.error && catalog.keys.includes(icon));
     const [roomId, setRoomId] = useState(initial.roomId);
-    const [roomOptions, setRoomOptions] = useState<Option[]>([{ value: "None", name: "None" }]);
     const [tileType, setTileType] = useState(initial.tileType);
     const [tileOperationId, setTileOperationId] = useState(initial.tileOperationId);
     const [tileDisplayableOperationId, setTileDisplayableOperationId] = useState(
@@ -357,13 +359,6 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tileOperationId, tileDisplayableOperationId, tileType]);
     useEffect(() => {
-        const roomOptions = (homes.current?.rooms ?? []).map((room) => ({
-            value: room.id,
-            name: room.name,
-        }));
-        setRoomOptions([...roomOptions, { value: "None", name: "None" }]);
-    }, [homes.current?.rooms]);
-    useEffect(() => {
         setNameError(
             name && name.length < 3
                 ? "Name is too short."
@@ -447,6 +442,8 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                 variant="auth"
                 setValue={onNameChange}
                 editable={!loading}
+                returnKeyType={!edit ? "done" : undefined}
+                onSubmitEditing={!edit ? save : undefined}
             />
             <IconSelector
                 defaultIcon={icon}
@@ -464,23 +461,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                     Select an available icon.
                 </Text>
             )}
-            {edit ? (
-                <RoomSelector
-                    initialRoomId={roomId}
-                    onSelected={onRoomSelected}
-                    disabled={loading}
-                />
-            ) : (
-                <Dropdown
-                    selectedValue={roomId}
-                    title="Room"
-                    options={roomOptions}
-                    onSelected={onRoomSelected}
-                    disablePress={loading}
-                />
-            )}
-
-            {!edit && tilePreview}
+            <RoomSelector initialRoomId={roomId} onSelected={onRoomSelected} disabled={loading} />
 
             {edit && (
                 <Expander
@@ -728,42 +709,48 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
             )}
         </>
     );
-    const actions = (
+    const submitAlert = !!submitError && (
+        <Alert
+            icon={CircleAlert}
+            variant="destructive"
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite">
+            <AlertDescription>{submitError}</AlertDescription>
+        </Alert>
+    );
+    const actions = edit ? (
         <>
-            {!!submitError && (
-                <Alert
-                    icon={CircleAlert}
-                    variant="destructive"
-                    accessibilityRole="alert"
-                    accessibilityLiveRegion="polite">
-                    <AlertDescription>{submitError}</AlertDescription>
-                </Alert>
-            )}
-            {edit ? (
-                <View style={styles.actions}>
+            {submitAlert}
+            <View style={styles.actions}>
+                <Button
+                    name="Save changes"
+                    type="auth"
+                    loading={loading}
+                    disabled={!dirty || !isIconValid}
+                    onPress={save}
+                />
+                {dirty && (
                     <Button
-                        name="Save changes"
-                        type="auth"
-                        loading={loading}
-                        disabled={!dirty || !isIconValid}
-                        onPress={save}
+                        name="Reset"
+                        type="brand-ghost"
+                        loading={false}
+                        disabled={loading}
+                        onPress={reset}
                     />
-                    {dirty && (
-                        <Button
-                            name="Reset"
-                            type="brand-ghost"
-                            loading={false}
-                            disabled={loading}
-                            onPress={reset}
-                        />
-                    )}
-                </View>
-            ) : dirty ? (
-                <View style={styles.createButton}>
-                    <Button name="Add Device" loading={loading} onPress={save} />
-                </View>
-            ) : null}
+                )}
+            </View>
         </>
+    ) : (
+        <View style={styles.createActions}>
+            {submitAlert}
+            <Button
+                name="Create device"
+                type="auth"
+                loading={loading}
+                disabled={!isIconValid}
+                onPress={save}
+            />
+        </View>
     );
 
     return (
@@ -782,7 +769,19 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                     </FormSection>
                 ) : (
                     <>
-                        {fields}
+                        <View style={styles.fields}>
+                            <View style={styles.intro}>
+                                <UiText
+                                    accessibilityRole="header"
+                                    style={[styles.title, { color: colors.authForeground }]}>
+                                    Create device
+                                </UiText>
+                                <UiText style={[styles.helper, { color: colors.authMuted }]}>
+                                    Add a device to “{homes.current?.name ?? "your home"}”.
+                                </UiText>
+                            </View>
+                            {fields}
+                        </View>
                         {actions}
                     </>
                 )}
@@ -795,15 +794,28 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
 const styles = StyleSheet.create({
     container: { flex: 1 },
     scrollContainer: { flex: 1 },
-    content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20, gap: 16 },
+    content: {
+        flexGrow: 1,
+        width: "100%",
+        maxWidth: 448,
+        alignSelf: "center",
+        paddingHorizontal: 24,
+        paddingTop: 24,
+        paddingBottom: 16,
+    },
     editContent: {
         width: "100%",
         maxWidth: 448,
         alignSelf: "center",
+        paddingHorizontal: 16,
         paddingTop: 24,
         paddingBottom: 16,
         gap: 0,
     },
+    fields: { gap: 24 },
+    intro: { gap: 8 },
+    title: { fontSize: 30, lineHeight: 36, fontWeight: "600" },
+    helper: { fontSize: 16, lineHeight: 24 },
     disclosureField: { paddingTop: 12 },
     tilePreview: {
         justifyContent: "center",
@@ -814,7 +826,7 @@ const styles = StyleSheet.create({
         marginTop: 12,
     },
     actions: { gap: 12 },
-    createButton: { alignItems: "center", paddingTop: 8 },
+    createActions: { paddingTop: 32, gap: 12, marginTop: "auto" },
 });
 
 export default DeviceForm;
