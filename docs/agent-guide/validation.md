@@ -11,7 +11,8 @@ or rerun an expensive build for an unrelated documentation edit.
 - Auth validation, route boundaries or submission behavior: run `pnpm test:poc`.
   Auth and reset checks execute their real forms with `tests/nativeComponentHarness.mjs`.
   Feedback checks distinguish field validation from action failures and verify
-  legacy toasts cannot overlay redesigned routes, including after late responses.
+  legacy toasts cannot overlay redesigned routes, including data-source creation
+  and late responses.
   Dialog action checks execute the real label styling against both theme palettes,
   requiring at least 4.5:1 text contrast for Delete, Leave and Cancel in idle and pressed states.
   Data-source badge checks cover backend-state labels, updates after state changes,
@@ -59,14 +60,18 @@ or rerun an expensive build for an unrelated documentation edit.
   actions. Presentation checks retain the same layout slots while pending; mixed
   grid rows preserve order and give Slider a complete row. These checks do not establish
   native layout, touch ordering, screen-reader behavior or hardware command delivery.
-- Device tile settings: run `pnpm test:device-details`. It covers multiple Display readings, Boolean read-only selection, duplicate-reference validation, metadata stripping and reset baselines, plus Slider/Options
+- Device creation and tile settings: run `pnpm test:device-details`. Create checks cover home/name/icon/room payloads, shared keyboard/button submission locks, inline POST failure without a legacy toast, accepted creation through refresh failure, late completion after blur, refocus recovery, empty-history navigation fallback and duplicate-POST prevention. Tile checks cover multiple Display readings, Boolean read-only selection, duplicate-reference validation, metadata stripping and reset baselines, plus Slider/Options
   operation filtering, retained step/unit drafts and partial edit payloads, plus
   the tile selector's fixed busy icon slot, current-choice guard, changed-choice
   submission, cancellation and focus callbacks. The handler adapter cannot prove
   native slider targets, sheet focus or rendering during a React async action.
-- Data-source details and broker/subscription actions: run `pnpm test:data-sources`.
-  It executes the real settings form, details route and overview panel handlers,
-  covering failed-save draft retention, successful saved baseline without a Reset action, duplicate
+- Data-source creation, details and broker/subscription actions: run `pnpm test:data-sources`.
+  It executes the real create form/route, settings form, details route and overview panel handlers.
+  Create checks cover exact payload fields and MQTT/TLS values, required field
+  errors after submit, malformed ports, shared keyboard/button pending locks,
+  failed-save draft retention, stale error clearing, accepted-create duplicate
+  prevention and blur/refocus recovery. Details checks cover failed-save draft
+  retention, successful saved baseline without a Reset action, duplicate
   save/client-action locks, detail and client retries, mounted tab state, client
   status updates, exact TLS/MQTT selector values, bottom-sheet choice/cancellation/disabled state/focus callbacks,
   dismissal completion and repeated-choice guards, and subscription removal cancellation/failure/recovery. These

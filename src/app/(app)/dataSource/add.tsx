@@ -1,56 +1,58 @@
-import Button from "@/components/common/Button";
-import { DataSourceForm, DataSourceFormHandle } from "@/components/dataSource/DataSourceForm";
+import { DataSourceForm, DataSourceFormValues } from "@/components/dataSource/DataSourceForm";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useToast } from "@/contexts/ToastProvider";
-import { useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
-import { View } from "react-native";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useRef } from "react";
+import { AccessibilityInfo } from "react-native";
 
 function AddPage() {
     const httpClient = useHttpClient();
-    const toast = useToast();
     const router = useRouter();
-    const formRef = useRef<DataSourceFormHandle>(null);
-    const [loading, setLoading] = useState(false);
-    const [isFormValid, setIsFormValid] = useState(false);
+    const active = useRef(false);
+    const pending = useRef(false);
+    const created = useRef(false);
 
-    const addClicked = async (values: any) => {
-        setLoading(true);
+    const returnToList = useCallback(() => {
+        if (router.canGoBack()) router.back();
+        else router.replace("/dataSource/list");
+    }, [router]);
 
-        const response = await httpClient.post("v1/datasources/brokers", values);
+    useFocusEffect(
+        useCallback(() => {
+            active.current = true;
+            if (created.current) {
+                AccessibilityInfo.announceForAccessibility("Data source created.");
+                returnToList();
+            }
+            return () => {
+                active.current = false;
+            };
+        }, [returnToList]),
+    );
 
-        if (response.isSuccess) {
-            toast.success("Data source added successfully.");
-            router.back();
-        } else {
-            toast.error("Failed to add data source.");
-            const data = await response.response?.text();
-            console.error(data);
+    const addClicked = async (values: DataSourceFormValues) => {
+        if (pending.current || created.current || !active.current) return;
+        pending.current = true;
+
+        try {
+            let response;
+            try {
+                response = await httpClient.post("v1/datasources/brokers", values);
+            } catch {
+                throw new Error("Couldn't create this data source. Try again.");
+            }
+            if (!response.isSuccess)
+                throw new Error("Couldn't create this data source. Try again.");
+
+            created.current = true;
+            if (!active.current) return;
+            AccessibilityInfo.announceForAccessibility("Data source created.");
+            returnToList();
+        } finally {
+            pending.current = false;
         }
-
-        setLoading(false);
     };
 
-    return (
-        <View style={{ flex: 1 }}>
-            <DataSourceForm
-                ref={formRef}
-                edit={false}
-                onClick={addClicked}
-                onValidChange={setIsFormValid}
-            />
-
-            <KeyboardStickyView style={{ paddingHorizontal: 15, paddingVertical: 12 }}>
-                <Button
-                    name="Create Data Source"
-                    loading={loading}
-                    onPress={() => formRef.current?.triggerSave()}
-                    style={!isFormValid ? { opacity: 0.4 } : undefined}
-                />
-            </KeyboardStickyView>
-        </View>
-    );
+    return <DataSourceForm edit={false} onClick={addClicked} />;
 }
 
 export default AddPage;

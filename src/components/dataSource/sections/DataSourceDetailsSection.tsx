@@ -147,7 +147,6 @@ const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
                 <DataSourceForm
                     edit
                     header={header}
-                    id={dataSource.id}
                     initServer={dataSource.url}
                     initName={dataSource.name}
                     initClientName={dataSource.clientName}

@@ -72,10 +72,12 @@ const SwitchDeviceTile: FC<SwitchDeviceTileProps> = ({
             {!!action.error && (
                 <Alert
                     icon={CircleAlert}
+                    compact
                     variant="destructive"
+                    style={styles.actionError}
                     accessibilityRole="alert"
                     accessibilityLiveRegion="polite">
-                    <AlertDescription>{action.error}</AlertDescription>
+                    <AlertDescription compact>{action.error}</AlertDescription>
                 </Alert>
             )}
         </View>
@@ -83,7 +85,8 @@ const SwitchDeviceTile: FC<SwitchDeviceTileProps> = ({
 };
 export default SwitchDeviceTile;
 const styles = StyleSheet.create({
-    content: { gap: 4 },
+    content: { gap: 0 },
+    actionError: { marginTop: 12 },
     row: {
         minHeight: 48,
         flexDirection: "row",

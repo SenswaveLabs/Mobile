@@ -383,17 +383,163 @@ test("device creation keeps home, null room, name and catalog icon payload", asy
     form.render();
     const add = form
         .elements()
-        .find((node) => node.type === "Button" && node.props.name === "Add Device");
+        .find((node) => node.type === "Button" && node.props.name === "Create device");
     await add.props.onPress();
     assert.deepEqual(Object.keys(request).sort(), ["homeId", "icon", "name", "roomId"]);
     assert.equal(request.homeId, "home-1");
     assert.equal(request.roomId, null);
     assert.equal(request.name, "Desk lamp");
     assert.equal(request.icon, "bulb-outline");
-    assert.ok(
-        form.elements().some((node) => node.type === "DeviceTile"),
-        "Create form previews tile",
+});
+
+test("device create button and keyboard submission share one synchronous lock", async () => {
+    const requests = [];
+    let finish;
+    const form = mountForm(
+        async (values) => {
+            requests.push(values);
+            await new Promise((resolve) => (finish = resolve));
+        },
+        { edit: false, initName: undefined, initIcon: undefined, initRoomId: undefined },
     );
+    const input = form.elements().find((node) => node.type === "Input");
+    input.props.setValue("Desk lamp");
+    form.render();
+    const button = form
+        .elements()
+        .find((node) => node.type === "Button" && node.props.name === "Create device");
+
+    const pending = button.props.onPress();
+    const duplicate = input.props.onSubmitEditing();
+
+    assert.equal(requests.length, 1);
+    finish();
+    await Promise.all([pending, duplicate]);
+});
+
+test("accepted device creation survives list refresh failure and cannot repeat POST", async () => {
+    let posts = 0;
+    let refreshes = 0;
+    let backs = 0;
+    const route = mountNativeComponent("src/app/(app)/device/add.tsx", {
+        modules: {
+            "@/components/device/DeviceForm": "DeviceForm",
+            "@/contexts/custom/DeviceListProvider": {
+                useDeviceList: () => ({
+                    refresh: async () => {
+                        refreshes++;
+                        throw new Error("offline");
+                    },
+                }),
+            },
+            "@/contexts/HttpClientProvider": {
+                useHttpClient: () => ({
+                    post: async () => {
+                        posts++;
+                        return { isSuccess: true };
+                    },
+                }),
+            },
+            "@/contexts/ToastProvider": {
+                useToast: () => ({ success() {}, error() {} }),
+            },
+            "expo-router": {
+                useFocusEffect() {},
+                useRouter: () => ({
+                    canGoBack: () => true,
+                    back: () => backs++,
+                    replace() {},
+                }),
+            },
+        },
+    });
+    const submit = route.elements().find((node) => node.type === "DeviceForm").props.onSubmit;
+
+    await assert.doesNotReject(submit({ name: "Desk lamp" }));
+    await assert.doesNotReject(submit({ name: "Desk lamp" }));
+
+    assert.equal(posts, 1);
+    assert.equal(refreshes, 1);
+    assert.equal(backs, 1);
+});
+
+test("late accepted device creation waits for refocus and uses the brand back fallback", async () => {
+    let focus;
+    let finish;
+    let posts = 0;
+    let refreshes = 0;
+    let backs = 0;
+    const replacements = [];
+    const route = mountNativeComponent("src/app/(app)/device/add.tsx", {
+        modules: {
+            "@/components/device/DeviceForm": "DeviceForm",
+            "@/contexts/custom/DeviceListProvider": {
+                useDeviceList: () => ({ refresh: async () => refreshes++ }),
+            },
+            "@/contexts/HttpClientProvider": {
+                useHttpClient: () => ({
+                    post: () => {
+                        posts++;
+                        return new Promise((resolve) => (finish = resolve));
+                    },
+                }),
+            },
+            "expo-router": {
+                useFocusEffect: (callback) => (focus = callback),
+                useRouter: () => ({
+                    canGoBack: () => false,
+                    back: () => backs++,
+                    replace: (path) => replacements.push(path),
+                }),
+            },
+        },
+    });
+    const blur = focus?.();
+    const submit = route.elements().find((node) => node.type === "DeviceForm").props.onSubmit;
+    const pending = submit({ name: "Desk lamp" });
+    blur?.();
+    finish({ isSuccess: true });
+    await assert.doesNotReject(pending);
+
+    assert.equal(refreshes, 1, "An accepted create must refresh the list even after blur");
+    assert.equal(backs, 0, "A response after leaving the route must not navigate the new screen");
+    assert.deepEqual(replacements, []);
+    focus?.();
+    assert.deepEqual(
+        replacements,
+        ["/"],
+        "Refocus without history follows the brand Back fallback",
+    );
+    await submit({ name: "Desk lamp" });
+    assert.equal(posts, 1, "A successful creation must never POST again");
+    assert.equal(refreshes, 1, "Refocus must not repeat the completed refresh");
+    assert.equal(backs, 0);
+});
+
+test("failed device creation reaches the form as an error without a legacy toast", async () => {
+    let errors = 0;
+    let refreshes = 0;
+    const route = mountNativeComponent("src/app/(app)/device/add.tsx", {
+        modules: {
+            "@/components/device/DeviceForm": "DeviceForm",
+            "@/contexts/custom/DeviceListProvider": {
+                useDeviceList: () => ({ refresh: async () => refreshes++ }),
+            },
+            "@/contexts/HttpClientProvider": {
+                useHttpClient: () => ({ post: async () => ({ isSuccess: false }) }),
+            },
+            "@/contexts/ToastProvider": {
+                useToast: () => ({ success() {}, error: () => errors++ }),
+            },
+            "expo-router": { useFocusEffect() {}, useRouter: () => ({ back() {} }) },
+        },
+    });
+    const submit = route.elements().find((node) => node.type === "DeviceForm").props.onSubmit;
+
+    await assert.rejects(submit({ name: "Desk lamp" }), /Couldn't create this device/);
+
+    assert.equal(errors, 0);
+    assert.equal(refreshes, 0);
 });
 
 test("device details load failure shows retry and recovers on the same device route", async () => {
