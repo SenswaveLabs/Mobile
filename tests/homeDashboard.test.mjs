@@ -644,46 +644,488 @@ test("rooms show full-width filters or a manager-only first-room prompt", () => 
     }
 });
 
-test("only owners can open or select the home's data source", () => {
-    for (const owner of [true, false])
-        for (const source of [true, false]) {
+const mountHomeSourcePresentation = (homes, navigation) => {
+    const colors = {
+        background: "background",
+        authForeground: "foreground",
+        authMuted: "muted",
+        authBorder: "border",
+        authBackground: "auth-background",
+        authPrimary: "auth-primary",
+        authOnPrimary: "auth-on-primary",
+        textOnPrimary: "text-on-primary",
+        primary: "primary",
+        secondary: "secondary",
+        textOnSecondary: "text-on-secondary",
+        error: "error",
+    };
+    const commonModules = {
+        "@/contexts/domain/HomeProvider": { useHomes: () => homes },
+        "@/contexts/ThemeProvider": { useTheme: () => ({ current: { colors } }) },
+        "expo-router": { useRouter: () => ({ push: (route) => navigation.push(route) }) },
+    };
+    const header = mountNativeComponent("src/components/headers/ProfileHeader.tsx", {
+        modules: {
+            ...commonModules,
+            "../common/Icon": "Icon",
+            "../user/UserProfileImage": "UserProfileImage",
+        },
+    });
+    const widget = mountNativeComponent("src/components/home/widgets/HomeStateWidget.tsx", {
+        modules: { ...commonModules, "@/components/common/Icon": "Icon" },
+    });
+    return { header, widget };
+};
+
+const alertCopy = (base, role) =>
+    role === "Owner" ||
+    (!base.startsWith("Data source disconnected.") && !base.startsWith("Data source error."))
+        ? base
+        : `${base} Contact the home owner if this continues.`;
+
+test("home source presentation covers exact backend states and owner permissions", () => {
+    const roles = [
+        { name: "Owner", isOwner: true, canManage: false },
+        { name: "Manage", isOwner: false, canManage: true },
+        { name: "Display", isOwner: false, canManage: false },
+    ];
+    const source = (state) => ({ id: "source-1", name: "Broker", state });
+    const cases = [
+        { name: "Working", dataSource: source("Working"), healthy: true },
+        { name: "Connected", dataSource: source("Connected"), healthy: true },
+        {
+            name: "Connecting",
+            dataSource: source("Connecting"),
+            pending: "Connecting to data source…",
+        },
+        {
+            name: "Restarting",
+            dataSource: source("Restarting"),
+            pending: "Restarting data source…",
+        },
+        {
+            name: "NotStarted",
+            dataSource: source("NotStarted"),
+            copy: "Data source disconnected. Device values may be out of date.",
+            icon: "Unplug",
+            action: "Connection details",
+            route: { pathname: "dataSource/details", params: { id: "source-1" } },
+        },
+        {
+            name: "Stopped",
+            dataSource: source("Stopped"),
+            copy: "Data source disconnected. Device values may be out of date.",
+            icon: "Unplug",
+            action: "Connection details",
+            route: { pathname: "dataSource/details", params: { id: "source-1" } },
+        },
+        {
+            name: "Disconnected",
+            dataSource: source("Disconnected"),
+            copy: "Data source disconnected. Device values may be out of date.",
+            icon: "Unplug",
+            action: "Connection details",
+            route: { pathname: "dataSource/details", params: { id: "source-1" } },
+        },
+        {
+            name: "Error",
+            dataSource: source("Error"),
+            copy: "Data source error. Device values may be out of date.",
+            icon: "CircleAlert",
+            action: "Connection details",
+            route: { pathname: "dataSource/details", params: { id: "source-1" } },
+            destructive: true,
+        },
+        {
+            name: "unknown string",
+            dataSource: source("BrokerStartingSoon"),
+            copy: "Connection status unavailable. Device values may be out of date.",
+            icon: "Info",
+        },
+        {
+            name: "empty string",
+            dataSource: source(""),
+            copy: "Connection status unavailable. Device values may be out of date.",
+            icon: "Info",
+        },
+        {
+            name: "null state",
+            dataSource: source(null),
+            copy: "Connection status unavailable. Device values may be out of date.",
+            icon: "Info",
+        },
+        {
+            name: "omitted state",
+            dataSource: { id: "source-1", name: "Broker" },
+            copy: "Connection status unavailable. Device values may be out of date.",
+            icon: "Info",
+        },
+        {
+            name: "missing source",
+            dataSource: null,
+            copy: "No data source connected.",
+            setup: {
+                Owner: "Connect a data source to add devices.",
+                Manage: "Ask the home owner to connect a data source.",
+                Display: "Ask the home owner to connect a data source.",
+            },
+            icon: "Info",
+            action: "Connect data source",
+            route: { pathname: "home/dataSource/select", params: { homeId: "home-1" } },
+        },
+        {
+            name: "empty source ID with stale Working",
+            dataSource: { id: "", name: "Broker", state: "Working" },
+            copy: "No data source connected.",
+            setup: {
+                Owner: "Connect a data source to add devices.",
+                Manage: "Ask the home owner to connect a data source.",
+                Display: "Ask the home owner to connect a data source.",
+            },
+            icon: "Info",
+            action: "Connect data source",
+            route: { pathname: "home/dataSource/select", params: { homeId: "home-1" } },
+        },
+        ...["Error", "NotStarted", "Stopped", "Disconnected"].map((state) => ({
+            name: `empty source ID with stale ${state}`,
+            dataSource: { id: "", name: "Broker", state },
+            copy: "No data source connected.",
+            setup: {
+                Owner: "Connect a data source to add devices.",
+                Manage: "Ask the home owner to connect a data source.",
+                Display: "Ask the home owner to connect a data source.",
+            },
+            icon: "Info",
+            action: "Connect data source",
+            route: { pathname: "home/dataSource/select", params: { homeId: "home-1" } },
+        })),
+        {
+            name: "omitted source ID with stale Error",
+            dataSource: { name: "Broker", state: "Error" },
+            copy: "No data source connected.",
+            setup: {
+                Owner: "Connect a data source to add devices.",
+                Manage: "Ask the home owner to connect a data source.",
+                Display: "Ask the home owner to connect a data source.",
+            },
+            icon: "Info",
+            action: "Connect data source",
+            route: { pathname: "home/dataSource/select", params: { homeId: "home-1" } },
+        },
+    ];
+
+    for (const role of roles)
+        for (const stateCase of cases) {
+            const homes = {
+                loading: false,
+                current: { ...home(), ...role, dataSource: stateCase.dataSource },
+            };
             const navigation = [];
-            const component = mountNativeComponent(
-                "src/components/home/widgets/HomeStateWidget.tsx",
-                {
-                    modules: {
-                        "@/contexts/domain/HomeProvider": {
-                            useHomes: () => ({
-                                current: {
-                                    ...home(),
-                                    isOwner: owner,
-                                    dataSource: source ? home().dataSource : null,
-                                },
-                            }),
-                        },
-                        "expo-router": {
-                            useRouter: () => ({ push: (route) => navigation.push(route) }),
-                        },
-                    },
-                },
+            const { header, widget } = mountHomeSourcePresentation(homes, navigation);
+            const healthy = Boolean(stateCase.healthy);
+            assert.equal(
+                header.text().includes("Data source connected"),
+                !homes.loading && healthy,
+                `${role.name}/${stateCase.name}: header status`,
             );
-            const control = component.elements().find((node) => node.type === "Pressable");
-            if (owner) {
+            assert.equal(
+                widget.output() === null,
+                healthy,
+                `${role.name}/${stateCase.name}: null widget`,
+            );
+            const alerts = widget.elements().filter((node) => node.type === "Alert");
+            assert.equal(
+                alerts.length,
+                stateCase.copy ? 1 : 0,
+                `${role.name}/${stateCase.name}: alert count`,
+            );
+            assert.equal(
+                widget.elements().some((node) => node.type === "Pressable"),
+                false,
+                `${role.name}/${stateCase.name}: no tappable notice`,
+            );
+            const expectedAction = Boolean(role.isOwner && stateCase.action);
+            const buttons = widget.elements().filter((node) => node.type === "Button");
+            assert.equal(
+                buttons.length,
+                expectedAction ? 1 : 0,
+                `${role.name}/${stateCase.name}: action count`,
+            );
+            assert.equal(
+                widget.text().includes("Broker"),
+                false,
+                `${role.name}/${stateCase.name}: no source name`,
+            );
+            if (
+                !healthy &&
+                !stateCase.pending &&
+                typeof stateCase.dataSource?.state === "string" &&
+                stateCase.dataSource.state
+            )
                 assert.equal(
-                    control.props.accessibilityLabel,
-                    source ? "Data source details: Broker, Connected" : "Select data source",
+                    widget.text().includes(stateCase.dataSource.state),
+                    false,
+                    `${role.name}/${stateCase.name}: no raw state`,
                 );
-                control.props.onPress();
+
+            if (stateCase.pending) {
+                const pendingText = widget.elements().find((node) => node.type === "Text");
+                assert.deepEqual(pendingText.props.children, [stateCase.pending]);
+                assert.equal(alerts.length, 0);
+                assert.equal(buttons.length, 0);
+            }
+            if (stateCase.copy) {
+                const alert = alerts[0];
+                const description = widget
+                    .elements(alert)
+                    .find((node) => node.type === "AlertDescription");
+                const expectedCopy = stateCase.setup
+                    ? `${stateCase.copy} ${stateCase.setup[role.name]}`
+                    : alertCopy(stateCase.copy, role.name);
+                assert.equal(description.props.children.join(""), expectedCopy);
+                assert.equal(alert.props.accessibilityRole, "alert");
+                assert.equal(alert.props.accessibilityLiveRegion, "polite");
                 assert.equal(
-                    navigation[0].pathname,
-                    source ? "dataSource/details" : "home/dataSource/select",
+                    alert.props.variant,
+                    stateCase.destructive ? "destructive" : undefined,
+                );
+                assert.equal(Object.hasOwn(alert.props, "compact"), false);
+                assert.equal(
+                    widget
+                        .elements(alert)
+                        .some((node) => ["Button", "Pressable"].includes(node.type)),
+                    false,
                 );
                 assert.equal(
-                    source ? navigation[0].params.id : navigation[0].params.homeId,
-                    source ? "source-1" : "home-1",
+                    widget
+                        .elements(alert)
+                        .some((node) => node.props?.accessibilityRole === "button"),
+                    false,
                 );
-            } else assert.equal(control, undefined);
+                assert.equal(alert.props.icon, stateCase.icon);
+                assert.equal(navigation.length, 0);
+            }
+            if (expectedAction) {
+                assert.equal(buttons[0].props.name, stateCase.action);
+                assert.equal(buttons[0].props.type, "brand-outline");
+                assert.equal(buttons[0].props.loading, false);
+                buttons[0].props.onPress();
+                assert.deepEqual(JSON.parse(JSON.stringify(navigation)), [stateCase.route]);
+            }
         }
+
+    const homes = { loading: false, current: undefined };
+    const { header, widget } = mountHomeSourcePresentation(homes, []);
+    assert.equal(header.text().includes("Data source connected"), false);
+    assert.equal(widget.output(), null);
+    homes.current = { ...home(), dataSource: source("Working") };
+    homes.loading = true;
+    header.render();
+    widget.render();
+    assert.equal(header.text().includes("Data source connected"), false);
+    assert.equal(widget.output(), null);
+});
+
+test("home source presentation drops stale state and actions across home and role changes", () => {
+    const homes = { loading: false, current: home() };
+    const navigation = [];
+    const { header, widget } = mountHomeSourcePresentation(homes, navigation);
+    const alerts = () => widget.elements().filter((node) => node.type === "Alert");
+    const buttons = () => widget.elements().filter((node) => node.type === "Button");
+    const copy = () =>
+        widget
+            .elements()
+            .find((node) => node.type === "AlertDescription")
+            ?.props.children.join("");
+    const render = () => {
+        header.render();
+        widget.render();
+    };
+
+    assert.equal(widget.output(), null);
+    homes.current.dataSource.state = "Connecting";
+    render();
+    assert.equal(widget.text().includes("Connecting to data source…"), true);
+    assert.equal(alerts().length, 0);
+    assert.equal(buttons().length, 0);
+    homes.current.dataSource.state = "Error";
+    render();
+    assert.equal(copy(), "Data source error. Device values may be out of date.");
+    assert.equal(buttons()[0].props.name, "Connection details");
+    homes.current.dataSource.state = "Working";
+    render();
+    assert.equal(header.text().includes("Data source connected"), true);
+    assert.equal(widget.output(), null);
+    homes.current.dataSource = null;
+    render();
+    assert.equal(copy(), "No data source connected. Connect a data source to add devices.");
+    assert.equal(buttons()[0].props.name, "Connect data source");
+    homes.current.dataSource = { id: "source-1", name: "Broker", state: "UnknownNow" };
+    render();
+    assert.equal(copy(), "Connection status unavailable. Device values may be out of date.");
+    assert.equal(buttons().length, 0);
+
+    homes.current = {
+        ...home("home-2"),
+        name: "Second home",
+        isOwner: true,
+        canManage: false,
+        dataSource: { id: "source-2", name: "Other broker", state: "Error" },
+    };
+    render();
+    assert.equal(copy(), "Data source error. Device values may be out of date.");
+    buttons()[0].props.onPress();
+    assert.deepEqual(JSON.parse(JSON.stringify(navigation)), [
+        { pathname: "dataSource/details", params: { id: "source-2" } },
+    ]);
+
+    homes.current.isOwner = false;
+    homes.current.canManage = true;
+    render();
+    assert.equal(
+        copy(),
+        "Data source error. Device values may be out of date. Contact the home owner if this continues.",
+    );
+    assert.equal(buttons().length, 0);
+    homes.current.canManage = false;
+    render();
+    assert.equal(
+        copy(),
+        "Data source error. Device values may be out of date. Contact the home owner if this continues.",
+    );
+    assert.equal(buttons().length, 0);
+    homes.current.dataSource.state = "Working";
+    render();
+    assert.equal(header.text().includes("Data source connected"), true);
+    assert.equal(widget.output(), null);
+    homes.current.dataSource.state = "Error";
+    render();
+    const persistentCopy = copy();
+    render();
+    assert.equal(copy(), persistentCopy);
+    assert.equal(buttons().length, 0);
+
+    homes.current.isOwner = true;
+    homes.current.canManage = false;
+    homes.current.dataSource = null;
+    render();
+    buttons()[0].props.onPress();
+    assert.deepEqual(JSON.parse(JSON.stringify(navigation.at(-1))), {
+        pathname: "home/dataSource/select",
+        params: { homeId: "home-2" },
+    });
+});
+
+test("home header keeps accessible navigation beside a wrapping connected subtitle", () => {
+    const homes = { loading: false, current: home() };
+    const navigation = [];
+    const { header } = mountHomeSourcePresentation(homes, navigation);
+    const status = () =>
+        header
+            .elements()
+            .find(
+                (node) =>
+                    node.type === "View" &&
+                    node.props.accessibilityLabel === "Data source connected",
+            );
+    const homePicker = () =>
+        header
+            .elements()
+            .find((node) => node.type === "Pressable" && node.props.accessibilityRole === "button");
+    const homeDetails = () =>
+        header
+            .elements()
+            .find(
+                (node) =>
+                    node.type === "Pressable" && node.props.accessibilityLabel === "Home details",
+            );
+    const flatten = (style) => Object.assign({}, ...(Array.isArray(style) ? style : [style]));
+
+    assert.ok(status());
+    assert.equal(status().props.accessible, true);
+    assert.equal(status().props.accessibilityRole, "text");
+    assert.equal(status().props.accessibilityLiveRegion, "polite");
+    assert.equal(
+        header
+            .elements(status())
+            .filter((node) => node.type === "Text")[0]
+            .props.children.join(""),
+        "Data source connected",
+    );
+    const statusIcon = header.elements(status()).find((node) => node.type === "Icon");
+    assert.equal(statusIcon.props.icon, "checkmark-circle-outline");
+    assert.equal(statusIcon.props.color, "brand");
+    const decorativeIcon = header
+        .elements(status())
+        .find((node) => node.type === "View" && node.props.accessible === false);
+    assert.equal(decorativeIcon.props.accessibilityElementsHidden, true);
+    assert.equal(decorativeIcon.props.importantForAccessibility, "no-hide-descendants");
+    assert.equal(
+        header
+            .elements()
+            .filter((node) => node.props?.accessibilityLabel === "Data source connected").length,
+        1,
+    );
+    assert.equal(
+        header.elements().filter((node) => node.props?.accessibilityRole === "button").length,
+        2,
+    );
+
+    const identity = header
+        .elements()
+        .find(
+            (node) =>
+                node.type === "View" &&
+                Array.isArray(node.props.children) &&
+                node.props.children.includes(status()),
+        );
+    assert.ok(identity);
+    assert.equal(
+        identity.props.children[0].props.accessibilityLabel,
+        "Switch home, current home: Home",
+    );
+    assert.equal(
+        identity.props.children.indexOf(status()) >
+            identity.props.children.indexOf(identity.props.children[0]),
+        true,
+    );
+    assert.equal(identity.props.style.flex, 1);
+    assert.equal(identity.props.style.minWidth, 0);
+
+    const pickerStyle = flatten(homePicker().props.style({ pressed: false }));
+    const detailsStyle = flatten(homeDetails().props.style({ pressed: false }));
+    assert.equal(pickerStyle.minHeight, 48);
+    assert.equal(detailsStyle.minHeight, 48);
+    assert.equal(detailsStyle.minWidth, 48);
+    homePicker().props.onPress();
+    homeDetails().props.onPress();
+    assert.deepEqual(navigation, ["home/list", "home/details"]);
+    const avatar = header.elements().find((node) => node.type === "UserProfileImage");
+    assert.equal(avatar.props.size, 48);
+    assert.equal(avatar.props.enableNavigation, true);
+
+    homes.current.name = "A very long home name that needs room to shrink and wrap";
+    header.render();
+    const title = header
+        .elements()
+        .find(
+            (node) => node.type === "Text" && node.props.children.join("") === homes.current.name,
+        );
+    assert.ok(title);
+    assert.equal(flatten(title.props.style).flexShrink, 1);
+    assert.equal(title.props.numberOfLines, undefined);
+    assert.notEqual(title.props.allowFontScaling, false);
+    const subtitleText = header
+        .elements(status())
+        .find(
+            (node) =>
+                node.type === "Text" && node.props.children.join("") === "Data source connected",
+        );
+    assert.ok(subtitleText);
+    assert.equal(flatten(subtitleText.props.style).flexShrink, 1);
+    assert.equal(subtitleText.props.numberOfLines, undefined);
+    assert.notEqual(subtitleText.props.allowFontScaling, false);
+    assert.equal(Object.hasOwn(flatten(subtitleText.props.style), "height"), false);
 });
 
 test("device readouts preserve zero and false and update on refreshed props", () => {

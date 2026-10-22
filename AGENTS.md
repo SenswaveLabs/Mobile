@@ -38,6 +38,7 @@ Material Design 3 guides UX and interaction; Senswave's shadcn-based product def
 Use `next-frontend/apps/web` as a brand reference; choose hierarchy and behavior for mobile tasks. Use React Native Reusables primitives for auth, home selection, creation and settings.
 App components use `FC` and interface props; copied React Native Reusables primitives keep upstream signatures.
 Editable details forms use `common/FormSection` for headings, field spacing and save actions.
+On the home dashboard, only an assigned `Working` or `Connected` source gets a subtitle below the home name; Connecting/Restarting use neutral text and other states use persistent notices. Only known disconnected/Error or missing-source states can expose a separate source action, and only for owners. Settings and details retain their data-source state badges.
 Native styling uses `StyleSheet.create()` and `useTheme()` colors; all screens share the themed background. React Native Reusables primitives use NativeWind and tokens derived from the same theme.
 Data-source creation uses one keyboard-aware page with inline feedback; see the [mobile UI design policy](docs/agent-guide/interface.md) for its validation and navigation behavior.
 Home location uses a native MapLibre picker with OpenStreetMap. See [Tooling](docs/agent-guide/tooling.md) for its development-client rebuild requirement.

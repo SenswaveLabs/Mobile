@@ -60,6 +60,12 @@ or rerun an expensive build for an unrelated documentation edit.
   actions. Presentation checks retain the same layout slots while pending; mixed
   grid rows preserve order and give Slider a complete row. These checks do not establish
   native layout, touch ordering, screen-reader behavior or hardware command delivery.
+  Home-source checks exercise real `ProfileHeader` and `HomeStateWidget` across every
+  exact backend state, missing/empty assignment with stale-state precedence,
+  Owner/Manage/Display permissions,
+  owner navigation targets, and home/role transitions. They also assert accessible
+  notices, wrapping subtitle styles and preserved header targets; they do not prove
+  native fitting or TalkBack behavior.
 - Device creation and tile settings: run `pnpm test:device-details`. Create checks cover home/name/icon/room payloads, shared keyboard/button submission locks, inline POST failure without a legacy toast, accepted creation through refresh failure, late completion after blur, refocus recovery, empty-history navigation fallback and duplicate-POST prevention. Tile checks cover multiple Display readings, Boolean read-only selection, duplicate-reference validation, metadata stripping and reset baselines, plus Slider/Options
   operation filtering, retained step/unit drafts and partial edit payloads, plus
   the tile selector's fixed busy icon slot, current-choice guard, changed-choice
@@ -122,6 +128,14 @@ layouts at their width/text-scale boundaries, wrapping labels/readouts and the
 complete informational footer in both themes. Verify the switch target does not
 open the device dashboard, pending commands cannot repeat, and failure feedback
 can recover; report hardware commands separately from fixture or handler checks.
+Also inspect source status in both themes: connected subtitle with no extra content
+notice; Connecting and Restarting; disconnected, Error, missing and unavailable
+notices; owner-only details/setup routes with Back; no source action for Manage or
+Display; and unchanged Display device controls. Change home and role while notices
+are visible. At normal and 200% text scale, use a long home name in a narrow 320 dp
+window to check subtitle/name wrapping, avatar/settings reachability, 48 dp actions,
+notice wrapping and scrolling. Exercise accessibility order/announcement only with
+native tooling; report TalkBack behavior not exercised.
 For home Switch, Slider and Options actions, observe the immediate selected value
 before the response, then delayed spinner and final value/rollback. Keep an action
 pending beyond four seconds to confirm it retains only the spinner and unchanged
