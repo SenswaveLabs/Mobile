@@ -42,3 +42,5 @@ pnpm-debug.log*
 graphify-out
 .impeccable/*
 !.impeccable/config.json
+
+.idea
