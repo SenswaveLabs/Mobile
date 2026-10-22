@@ -1,75 +1,86 @@
-import Icon from "@/components/common/Icon";
-import DataSourceState, {
-    getDataSourceStateLabel,
-} from "@/components/dataSource/state/DataSourceState";
+import Button from "../../common/Button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { useRouter } from "expo-router";
+import { CircleAlert, Info, Unplug } from "lucide-react-native";
 import React, { FC } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 const HomeStateWidget: FC = () => {
     const { current: home } = useHomes();
     const { colors } = useTheme().current;
     const router = useRouter();
     if (!home) return null;
-    const hasSource = Boolean(home.dataSource?.id);
-    const content = (
-        <>
-            <View style={styles.identity}>
-                <Text style={[styles.label, { color: colors.authMuted }]}>
-                    {hasSource
-                        ? home.dataSource.name
-                        : home.isOwner
-                          ? "Select data source"
-                          : "No data source"}
-                </Text>
-                {!hasSource && (
-                    <Text style={[styles.helper, { color: colors.authMuted }]}>
-                        {home.isOwner
-                            ? "Connect a data source to add devices."
-                            : "Ask the owner to connect this home."}
-                    </Text>
-                )}
-            </View>
-            {hasSource && <DataSourceState connectionStatus={home.dataSource.state} />}
-            {home.isOwner && <Icon icon="chevron-forward-outline" size={16} color="brand" />}
-        </>
-    );
-    if (!home.isOwner) return <View style={styles.row}>{content}</View>;
+
+    const source = home.dataSource;
+    const sourceId = source?.id;
+    const hasSource = Boolean(sourceId);
+    const state = source?.state;
+    if (hasSource && (state === "Working" || state === "Connected")) return null;
+
+    if (hasSource && (state === "Connecting" || state === "Restarting"))
+        return (
+            <Text
+                accessible
+                accessibilityRole="text"
+                accessibilityLiveRegion="polite"
+                style={[styles.pending, { color: colors.authMuted }]}>
+                {state === "Connecting" ? "Connecting to data source…" : "Restarting data source…"}
+            </Text>
+        );
+
+    const missing = !hasSource;
+    const disconnected =
+        hasSource && (state === "NotStarted" || state === "Stopped" || state === "Disconnected");
+    const error = hasSource && state === "Error";
+    const copy = missing
+        ? `No data source connected. ${home.isOwner ? "Connect a data source to add devices." : "Ask the home owner to connect a data source."}`
+        : error
+          ? "Data source error. Device values may be out of date."
+          : disconnected
+            ? "Data source disconnected. Device values may be out of date."
+            : "Connection status unavailable. Device values may be out of date.";
+    const needsOwner = !home.isOwner && (error || disconnected);
+    const message = needsOwner ? `${copy} Contact the home owner if this continues.` : copy;
+    const canAct = home.isOwner && (missing || disconnected || error);
+
     return (
-        <Pressable
-            cssInterop={false}
-            accessibilityRole="button"
-            accessibilityLabel={
-                hasSource
-                    ? `Data source details: ${home.dataSource.name}, ${getDataSourceStateLabel(home.dataSource.state)}`
-                    : "Select data source"
-            }
-            onPress={() =>
-                router.push(
-                    hasSource
-                        ? { pathname: "dataSource/details", params: { id: home.dataSource.id } }
-                        : { pathname: "home/dataSource/select", params: { homeId: home.id } },
-                )
-            }
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-            {content}
-        </Pressable>
+        <View style={styles.feedback}>
+            <Alert
+                variant={error ? "destructive" : undefined}
+                icon={error ? CircleAlert : disconnected ? Unplug : Info}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite">
+                <AlertDescription>{message}</AlertDescription>
+            </Alert>
+            {canAct && (
+                <Button
+                    name={missing ? "Connect data source" : "Connection details"}
+                    type="brand-outline"
+                    loading={false}
+                    onPress={() => {
+                        if (hasSource && sourceId) {
+                            router.push({
+                                pathname: "dataSource/details",
+                                params: { id: sourceId },
+                            });
+                            return;
+                        }
+                        router.push({
+                            pathname: "home/dataSource/select",
+                            params: { homeId: home.id },
+                        });
+                    }}
+                />
+            )}
+        </View>
     );
 };
+
 export default HomeStateWidget;
+
 const styles = StyleSheet.create({
-    row: {
-        minHeight: 48,
-        flexDirection: "row",
-        flexWrap: "wrap",
-        alignItems: "center",
-        gap: 8,
-        paddingVertical: 4,
-    },
-    identity: { flex: 1, minWidth: 120, gap: 4 },
-    label: { fontSize: 14, lineHeight: 20 },
-    helper: { fontSize: 14, lineHeight: 20 },
-    pressed: { opacity: 0.72 },
+    feedback: { gap: 12 },
+    pending: { fontSize: 14, lineHeight: 20 },
 });
