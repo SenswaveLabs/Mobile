@@ -34,7 +34,9 @@ npm run fix              # ESLint auto-fix
 
 - Run `npm run lint` before committing.
 - Dev URL override: `ConfigurationProvider.overrideUrl(url)` — only when `EXPO_PUBLIC_ENVIRONMENT=Development`.
-- Prereqs: Node.js + npm, Android Studio + Java 17, Expo CLI.
+- Prereqs: Node.js **22.23.4** (`.nvmrc`), Android Studio + Java 17, Expo CLI.
+
+Node.js 22.23.4 fixes the Brotli decoder RCE ([CVE-2026-111497](https://nodejs.org/en/blog/release/v22.23.4)). Keep `.nvmrc`, the `package.json` / `package-lock.json` Node minimum and EAS profile versions aligned. CI reads `.nvmrc`; `localpreview` inherits Node from `preview`. Run `nvm install` and `nvm use` after updating, then restart existing Node processes and rebuild images with the patched runtime.
 
 ---
 
