@@ -18,6 +18,7 @@ const usesInlineFeedback = (pathname: string) =>
         "/device/add",
         "/dataSource/add",
         "/dataSource/brokers/startBrokerClient",
+        "/dataSource/brokers/addSubscription",
         "/user/profile",
     ].includes(pathname);
 

@@ -109,6 +109,12 @@ Accessibility and task completion take priority over matching a visual pattern.
   retry/recovery for failures rather than an unexplained blank screen.
 - Keep important errors and recovery actions visible. Auth, reset, home selection
   joining, creation and settings use inline feedback; legacy toast overlays are disabled on these routes.
+- Add subscription uses one keyboard-aware `FormSection` with one Topic field and
+  inline field/action feedback. Require a non-whitespace topic, retain the 256
+  character limit, trim surrounding whitespace only, and preserve case, slash
+  segments, internal spaces and wildcards. Keep the input natively editable while
+  a request is pending, guard draft changes and duplicate submission, then return
+  once after acceptance.
 - Dashboard command errors opt into compact `Alert` and `AlertDescription`; keep
   feedback unboxed and wrapping, 12 dp below controls, with a 12 dp horizontal
   inset for Slider. Leave compact props omitted elsewhere to preserve card alerts.

@@ -337,6 +337,7 @@ test("redesigned forms and home selection suppress legacy overlays without dismi
         "/device/add",
         "/dataSource/add",
         "/dataSource/brokers/startBrokerClient",
+        "/dataSource/brokers/addSubscription",
         "/user/profile",
     ]) {
         provider.navigate(route);
