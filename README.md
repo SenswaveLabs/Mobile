@@ -56,7 +56,7 @@ Temperature, humidity, or any numeric sensor streams to a Display widget on your
 
 ### Prerequisites
 
-- Node.js 26.10.0 (see `.nvmrc`) + pnpm 12.8.1 (see `packageManager`)
+- Node.js 26.12.1 (see `.nvmrc`) + pnpm 12.8.1 (see `packageManager`)
 - Android Studio + Java 17
 - Expo CLI is provided by the project dependencies
 

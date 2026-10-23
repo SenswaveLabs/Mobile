@@ -21,7 +21,9 @@ pnpm test:icons               # Home/Device catalogs, selectors, glyphs and subm
 - Run `pnpm typecheck`, `pnpm lint`, and `pnpm test:poc` before committing.
 - Use pnpm only; commit `pnpm-lock.yaml`. Keep all `dependencies` and `devDependencies` versions in `package.json` exact; `saveExact` applies this to future additions. Project pnpm settings live in `pnpm-workspace.yaml`; keep its existing build approvals. The local `expo-dev-launcher@6.0.21` patch is tracked in `patches/` and initializes error-screen services before actions run.
 - Dev URL override: `ConfigurationProvider.overrideUrl(url)` — only when `EXPO_PUBLIC_ENVIRONMENT=Development`.
-- Prereqs: Node.js **26.10.0** (`.nvmrc`), **pnpm 12.8.1** (`packageManager`), Android Studio + Java 17. Expo CLI comes from project dependencies.
+- Prereqs: Node.js **26.12.1** (`.nvmrc`), **pnpm 12.8.1** (`packageManager`), Android Studio + Java 17. Expo CLI comes from project dependencies.
+
+Node.js 26.12.1 fixes the Brotli decoder RCE ([CVE-2026-111497](https://nodejs.org/en/blog/release/v26.12.1)). Keep `.nvmrc`, the `package.json` Node minimum and `eas.json` Node versions aligned; `localpreview` inherits its version from `preview`. After updating, run `nvm install` and `nvm use` before installing dependencies or starting Metro. CI and the private APK builder read `.nvmrc`; existing Node processes and builder images need restarting or rebuilding with the patched runtime. The installed React Native app does not run Node.js.
 
 TypeScript checks `src/**/*.ts`, `src/**/*.tsx` and the root environment declarations.
 Generated analysis snapshots such as `graphify-out/` stay outside that scope.

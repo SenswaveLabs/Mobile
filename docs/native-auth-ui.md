@@ -7,7 +7,7 @@ DOM component, HTML form or WebView in these flows.
 
 ## Run
 
-Use Node **26.10.0** and **pnpm 12.8.1**. Create `.env` from `.env.template`, then:
+Use Node **26.12.1** (see `.nvmrc`) and **pnpm 12.8.1**. Create `.env` from `.env.template`, then:
 
 ```bash
 pnpm install --frozen-lockfile

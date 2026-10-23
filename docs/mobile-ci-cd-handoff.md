@@ -1,5 +1,11 @@
 # Handoff: Android CI/CD przez Next-Infra i VPS
 
+## Aktualizacja bezpieczeństwa Node (2026-10-23)
+
+Wymagany Node: **26.12.1** lub nowszy z poprawką CVE-2026-111497; patrz
+[Tooling](agent-guide/tooling.md). Wersja 26.10.0 i komenda Docker poniżej to stan
+historyczny. Przy wznowieniu buildu pobierz `NODE_VERSION` z aktualnego `.nvmrc`.
+
 ## Aktualizacja: wydzielenie zmian CI/CD (2026-10-14)
 
 Zmiany zostały wydzielone z niezacommitowanej pracy UI. Mobile używa brancha
