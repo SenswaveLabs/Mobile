@@ -11,8 +11,8 @@ or rerun an expensive build for an unrelated documentation edit.
 - Auth validation, route boundaries or submission behavior: run `pnpm test:poc`.
   Auth and reset checks execute their real forms with `tests/nativeComponentHarness.mjs`.
   Feedback checks distinguish field validation from action failures and verify
-  legacy toasts cannot overlay redesigned routes, including data-source creation
-  and late responses. Profile checks execute the real route and confirmation with
+  legacy toasts cannot overlay redesigned routes, including data-source creation,
+  broker subscription and late responses. Profile checks execute the real route and confirmation with
   fake provider hooks, covering exact theme values, read-only English, synchronous
   mutation locks, inline failures, deletion cancellation, stale feedback after blur,
   navigation and missing-identity recovery. They also check that the decorative
@@ -84,7 +84,7 @@ or rerun an expensive build for an unrelated documentation edit.
   submission, cancellation and focus callbacks. The handler adapter cannot prove
   native slider targets, sheet focus or rendering during a React async action.
 - Data-source creation, details and broker/subscription actions: run `pnpm test:data-sources`.
-  It executes the real create form/route, settings form, details route, overview panel, and broker-client start form/route handlers.
+  It executes the real create form/route, settings form, details route, overview panel, broker-client start form/route and Add subscription form handlers.
   Create checks cover exact payload fields and MQTT/TLS values, required field
   errors after submit, malformed ports, shared keyboard/button pending locks,
   failed-save draft retention, stale error clearing, accepted-create duplicate
@@ -93,6 +93,7 @@ or rerun an expensive build for an unrelated documentation edit.
   save/client-action locks, detail and client retries, mounted tab state, client
   status updates, exact TLS/MQTT selector values, bottom-sheet choice/cancellation/disabled state/focus callbacks,
   dismissal completion and repeated-choice guards, and subscription removal cancellation/failure/recovery. Broker-client start checks cover route ID normalization/recovery, credential restore/read failures and late cleanup, required/length boundaries, exact values and storage order, checkbox draft state, Go/Start locks, deferred storage/POST with busy editable fields that reject draft changes, failed storage/POST recovery and accepted-once navigation after blur. They also inspect restore/accepted field disabling, the 48 dp checkbox target and accessibility state. These checks do not establish native layout, keyboard, system Back or screen-reader behavior.
+  Add subscription checks cover route ID recovery and array normalization, exact topic payloads with the 256-character boundary, required-topic focus, synchronous Go/button locking, editable-but-guarded pending input, rejected/thrown POST recovery, accepted-once navigation and blur/refocus completion. Feedback checks include its legacy-toast suppression. These checks do not establish native keyboard behavior, layout or screen-reader behavior.
 - Before committing: run `pnpm typecheck`, `pnpm lint` and `pnpm test:poc`, plus
   the affected flow checks above.
 - Native auth bundling, routing or asset changes: use the Android export checks in

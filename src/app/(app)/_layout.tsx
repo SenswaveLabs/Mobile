@@ -254,7 +254,9 @@ function InternalLayout() {
             <Stack.Screen
                 name="dataSource/brokers/addSubscription"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Add" titleSuffix="Subscription" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Data" titleSuffix="Source" variant="brand" />
+                    ),
                 }}
             />
             <Stack.Screen
