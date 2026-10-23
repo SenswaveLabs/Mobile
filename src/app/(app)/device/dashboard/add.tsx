@@ -1,59 +1,74 @@
 import Button from "@/components/common/Button";
-import DashboardForm, { DashboardFormHandle } from "@/components/device/dashboards/DashboardForm";
-import { useDevice } from "@/contexts/custom/DeviceProvider";
-import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useToast } from "@/contexts/ToastProvider";
+import { Text } from "@/components/ui/text";
+import AddDashboardForm from "@/components/device/dashboards/AddDashboardForm";
+import { useTheme } from "@/contexts/ThemeProvider";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
-import { View } from "react-native";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
+import React, { FC } from "react";
+import { StyleSheet, View } from "react-native";
 
-function Add() {
-    const toast = useToast();
+const Add: FC = () => {
+    const params = useLocalSearchParams();
     const router = useRouter();
-    const httpClient = useHttpClient();
-    const dashboards = useDevice();
-    const { deviceId } = useLocalSearchParams();
-    const formRef = useRef<DashboardFormHandle>(null);
-    const [loading, setLoading] = useState(false);
-    const [isFormValid, setIsFormValid] = useState(false);
-
-    const addClicked = async (values: any) => {
-        setLoading(true);
-
-        const response = await httpClient.post("v1/devices/dashboards", values);
-
-        if (response.isSuccess) {
-            toast.success("Dashboard added successfully.");
-            await dashboards.refresh(true);
-            router.back();
-        } else {
-            toast.httpError(response);
-        }
-
-        setLoading(false);
-    };
+    const { colors } = useTheme().current;
+    const rawDeviceId = Array.isArray(params.deviceId) ? params.deviceId[0] : params.deviceId;
+    const deviceId = typeof rawDeviceId === "string" ? rawDeviceId : undefined;
 
     return (
-        <View style={{ flex: 1 }}>
-            <DashboardForm
-                ref={formRef}
-                edit={false}
-                onSubmit={addClicked}
-                deviceId={deviceId as string}
-                onValidChange={setIsFormValid}
-            />
-
-            <KeyboardStickyView style={{ paddingHorizontal: 15, paddingVertical: 12 }}>
-                <Button
-                    name="Create Dashboard"
-                    loading={loading}
-                    onPress={() => formRef.current?.triggerSave()}
-                    style={!isFormValid ? { opacity: 0.4 } : undefined}
-                />
-            </KeyboardStickyView>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            {deviceId?.trim() ? (
+                <AddDashboardForm key={deviceId} deviceId={deviceId} />
+            ) : (
+                <View style={styles.recovery}>
+                    <View style={styles.recoveryContent}>
+                        <Text
+                            accessibilityRole="header"
+                            style={[styles.recoveryTitle, { color: colors.authForeground }]}>
+                            Device not found
+                        </Text>
+                        <Text style={[styles.recoveryHelper, { color: colors.authMuted }]}>
+                            Return to your home and choose a device.
+                        </Text>
+                        <Button
+                            name="Return to home"
+                            type="auth"
+                            loading={false}
+                            onPress={() => router.replace("/")}
+                            style={styles.recoveryButton}
+                        />
+                    </View>
+                </View>
+            )}
         </View>
     );
-}
+};
 
 export default Add;
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    recovery: {
+        flex: 1,
+        justifyContent: "center",
+        paddingHorizontal: 16,
+    },
+    recoveryContent: {
+        width: "100%",
+        maxWidth: 448,
+        alignSelf: "center",
+        gap: 12,
+    },
+    recoveryTitle: {
+        fontSize: 24,
+        lineHeight: 32,
+        fontWeight: "600",
+    },
+    recoveryHelper: {
+        fontSize: 14,
+        lineHeight: 20,
+    },
+    recoveryButton: {
+        width: "100%",
+    },
+});
