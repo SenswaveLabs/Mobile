@@ -234,9 +234,10 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
   and actions within the same controlled root. A named portal inside a native
   Modal isolates the covered screen for assistive technology and handles hardware
   Back as cancellation. `common/Button` forwards the native ref so the primitive
-  can restore focus to its trigger. Scroll long confirmation text while keeping
-  actions visible; stack full-width actions at every window width. Retain the
-  existing request lock and inline recovery.
+  can restore focus to its trigger. Its label uses scalable native `Text` so the
+  dialog's text context cannot override button label measurement. Scroll long
+  confirmation text while keeping actions visible; stack full-width actions at
+  every window width. Retain the existing request lock and inline recovery.
 - Auth and reset use 448 dp maximum width, 24 dp side padding, 24 dp field gaps and
   32 dp section gaps. Native fields have a 52 dp minimum height, 1 dp border and
   8 dp radius; submit buttons have a 48 dp minimum height and 8 dp radius.
@@ -317,6 +318,10 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
   changed choices require a loaded matching key. Defaults are validated rather than
   replaced automatically. Dashboard, Radio and Automation retain the global browser.
 
+## Profile and account settings
+
+- `/user/profile` uses one native scroll with the brand `My Profile` header. Keep the identity compact (56 dp avatar, wrapping email, 448 dp maximum width and 16 dp gutters). The avatar initial is decorative and capped to fit its circle; the avatar itself keeps the accessible name. `Preferences` saves `Light`, `Dark` or `System` immediately through `BottomSheetSelect`; English stays read-only while it is the only supported language. `Manage` uses `ListRow` for Data sources and App information, with a separator only between those siblings. Sign out uses `brand-outline`; Delete account has its own separated section, helper copy and `brand-destructive` action. Confirm deletion with a native Modal, named `PortalHost` and local Reusables `AlertDialog`; keep copy scrollable, actions stacked and reachable, and Android Back as cancel. Use `AlertDialogCancel`/`Action` with the shared `common/Button` to retain dialog touch and focus behavior. Dialog action labels scale with system text inside targets at least 48 dp high. Keep theme/delete/retry errors inline, retain the saved theme after failure and block duplicate mutations synchronously. If identity is unavailable, show Retry and block theme/delete. Ignore route feedback from requests that finish after blur; keep provider-owned preference updates and logout. Suppress legacy toast overlays on `/user/profile`.
+
 ## Existing native components
 
 | Component              | Purpose                                                                                                             |
@@ -327,7 +332,6 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
 | `PasswordInput`        | Native secure input + show/hide toggle                                                                              |
 | `SafetyNote`           | Info/warning callout in forms                                                                                       |
 | `Expander`             | Collapsible section (Home details: sharing list, rooms)                                                             |
-| `Dropdown`             | Selection (profile theme, language)                                                                                 |
 | `BottomSheetSelect`    | Selected-value field with a native modal bottom sheet, cancellation and restored accessibility focus                |
 | `Tabs`                 | Local React Native Reusables tabs primitive for related content panels                                              |
 | `HorizontalSelector`   | Tab-style horizontal option picker                                                                                  |

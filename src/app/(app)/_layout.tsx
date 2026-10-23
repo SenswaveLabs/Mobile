@@ -36,7 +36,9 @@ function InternalLayout() {
             <Stack.Screen
                 name="user/profile"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="My" titleSuffix="Profile" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="My" titleSuffix="Profile" variant="brand" />
+                    ),
                 }}
             />
 

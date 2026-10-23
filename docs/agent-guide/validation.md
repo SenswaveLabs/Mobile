@@ -12,7 +12,19 @@ or rerun an expensive build for an unrelated documentation edit.
   Auth and reset checks execute their real forms with `tests/nativeComponentHarness.mjs`.
   Feedback checks distinguish field validation from action failures and verify
   legacy toasts cannot overlay redesigned routes, including data-source creation
-  and late responses.
+  and late responses. Profile checks execute the real route and confirmation with
+  fake provider hooks, covering exact theme values, read-only English, synchronous
+  mutation locks, inline failures, deletion cancellation, stale feedback after blur,
+  navigation and missing-identity recovery. They also check that the decorative
+  avatar initial stays within the fixed circle, that the dialog uses the shared
+  `common/Button`, and that its real label renders as scalable native `Text` with
+  a 48 dp minimum target and preserved accessibility state. A real `UserProvider` check confirms
+  profile mutation failures return `SimpleResult` without emitting global toast feedback.
+  A delayed identity-retry test composes the real `UserProvider` and `ToastProvider`,
+  requiring Profile's silent getter not to toast or dismiss the destination keyboard
+  after navigation, while the default getter retains its legacy toast.
+  The focused profile, feedback and sheet
+  checks are `pnpm exec node --test tests/profile.test.mjs tests/feedback.test.mjs tests/bottomSheetSelect.test.mjs`.
   Dialog action checks execute the real label styling against both theme palettes,
   requiring at least 4.5:1 text contrast for Delete, Leave and Cancel in idle and pressed states.
   Data-source badge checks cover backend-state labels, updates after state changes,
@@ -122,6 +134,13 @@ For user-facing changes, exercise the affected flow in a native development buil
 or emulator when available. Check navigation/Back, keyboard/scrolling, safe areas,
 light/dark mode, text scaling and applicable loading, empty, success and error
 states. Check screen-reader labels, focus order and usable touch targets.
+For Profile, open Theme and verify Light/Dark/System persistence, read-only English,
+Data sources and App information navigation, wrapping for long identity text at
+normal and 200% scale, the avatar initial at 200% scale, and fully visible scalable
+Cancel/Delete account labels in 48 dp minimum targets. Verify deletion cancellation
+with both Cancel and Android Back.
+Verify the dialog returns focus to Delete account; never confirm deletion on a real
+account. Handler checks do not verify native fit, Back handling or focus restoration.
 For the home dashboard, exercise home switching, source/room/device navigation,
 room filtering and selection after pull-to-refresh. Check one/two/three-column
 layouts at their width/text-scale boundaries, wrapping labels/readouts and the

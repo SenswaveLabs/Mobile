@@ -29,7 +29,45 @@ const composite = (foreground, background, opacity) => {
     );
 };
 
+function mountCommonButton(name, type, current) {
+    return mountNativeComponent("src/components/common/Button.tsx", {
+        props: { name, type, loading: false, onPress: () => {} },
+        modules: {
+            "@/contexts/ThemeProvider": { useTheme: () => ({ current }) },
+            "@/styles/shadowStyles": { shadowStyles: { default: {} } },
+            "@/components/ui/button": { Button: "ReusableButton" },
+            "@/components/ui/text": { Text: "NativeWindText" },
+        },
+    });
+}
+
 for (const mode of ["light", "dark"]) {
+    test(`shared Button labels use scalable native text in ${mode} mode`, async () => {
+        const provider = mountNativeComponent("src/contexts/ThemeProvider.tsx", {
+            exportName: "ThemeProvider",
+            modules: {
+                "react-native": { useColorScheme: () => "light" },
+                "expo-secure-store": { setItemAsync: async () => {} },
+            },
+        });
+        await provider.elements()[0].props.value[mode === "dark" ? "darkTheme" : "lightTheme"]();
+        provider.render();
+        const current = provider.elements()[0].props.value.current;
+        const button = mountCommonButton("Delete account", "brand-destructive", current);
+        const target = button.elements().find((node) => node.type === "ReusableButton");
+        const label = button.elements(target).find((node) => node.type === "Text");
+
+        assert.ok(label, "The shared Button should render its label as native Text");
+        assert.equal(label.props.children[0], "Delete account");
+        assert.equal(label.props.allowFontScaling, true);
+        assert.equal(label.props.maxFontSizeMultiplier, undefined);
+        assert.equal(target.props.accessibilityLabel, "Delete account");
+        assert.equal(target.props.accessibilityState.disabled, false);
+        assert.equal(target.props.accessibilityState.busy, false);
+        const buttonStyle = Object.assign({}, ...[].concat(target.props.style).flat());
+        assert.equal(buttonStyle.minHeight, 48);
+    });
+
     test(`dialog actions meet text contrast requirements in ${mode} mode`, async () => {
         const provider = mountNativeComponent("src/contexts/ThemeProvider.tsx", {
             exportName: "ThemeProvider",
@@ -83,6 +121,61 @@ for (const mode of ["light", "dark"]) {
                 assert.ok(
                     ratio >= 4.5,
                     `${action.label} pressed=${pressed}: ${ratio.toFixed(2)}:1 is below 4.5:1`,
+                );
+            }
+        }
+        const accountDialog = mountNativeComponent("src/components/user/RemoveAccountDialog.tsx", {
+            props: { visible: true, onConfirm: () => {}, onCancel: () => {} },
+            modules: {
+                "@/contexts/ThemeProvider": themeModule,
+                "@/components/common/Dialog": { __esModule: true, default: "Dialog" },
+                "@/components/common/Icon": { __esModule: true, default: "Icon" },
+                "@/components/ui/alert-dialog": {
+                    AlertDialogAction: "AlertDialogAction",
+                    AlertDialogCancel: "AlertDialogCancel",
+                    AlertDialogContent: "AlertDialogContent",
+                    AlertDialogDescription: "AlertDialogDescription",
+                    AlertDialogFooter: "AlertDialogFooter",
+                    AlertDialogHeader: "AlertDialogHeader",
+                    AlertDialogTitle: "AlertDialogTitle",
+                },
+                "@rn-primitives/portal": { PortalHost: "PortalHost" },
+            },
+        });
+        for (const [labelText, type, color] of [
+            ["Cancel", "brand-outline", current.colors.authForeground],
+            ["Delete account", "brand-destructive", current.colors.error],
+        ]) {
+            const button = accountDialog
+                .elements()
+                .find((node) => node.type === "Button" && node.props.name === labelText);
+            assert.ok(button, `${labelText} should use the shared Button`);
+            assert.equal(button.props.type, type);
+            assert.equal(button.props.loading, false);
+            const rendered = mountCommonButton(labelText, type, current);
+            const target = rendered.elements().find((node) => node.type === "ReusableButton");
+            const label = rendered.elements(target).find((node) => node.type === "Text");
+            assert.ok(label, `${labelText} should render as native scalable text`);
+            const textStyle = Object.assign({}, ...[].concat(label.props.style).flat());
+            assert.equal(textStyle.color, color);
+            const buttonStyle = Object.assign({}, ...[].concat(target.props.style).flat());
+            assert.equal(buttonStyle.backgroundColor, current.colors.authBackground);
+            assert.ok(buttonStyle.minHeight >= 48);
+            for (const pressed of [false, true]) {
+                const opacity = pressed
+                    ? target.props.className.includes("active:opacity-90")
+                        ? 0.9
+                        : target.props.className.includes("active:opacity-80")
+                          ? 0.8
+                          : 1
+                    : 1;
+                const ratio = contrast(
+                    composite(textStyle.color, current.colors.background, opacity),
+                    composite(buttonStyle.backgroundColor, current.colors.background, opacity),
+                );
+                assert.ok(
+                    ratio >= 4.5,
+                    `${labelText} pressed=${pressed}: ${ratio.toFixed(2)}:1 is below 4.5:1`,
                 );
             }
         }
@@ -164,6 +257,67 @@ function mountFeedback(initialPath = "/profile") {
     };
 }
 
+test("Profile can silence a delayed identity retry without changing the default getter toast", async () => {
+    const feedback = mountFeedback("/user/profile");
+    const pendingRequests = [];
+    const provider = mountNativeComponent("src/contexts/domain/UserProvider.tsx", {
+        exportName: "UserProvider",
+        props: { children: "Profile route" },
+        modules: {
+            "../HttpClientProvider": {
+                useHttpClient: () => ({
+                    get: () => new Promise((resolve) => pendingRequests.push(resolve)),
+                    patch: async () => ({ isSuccess: false, statusCode: 500 }),
+                    delete: async () => ({ isSuccess: false, statusCode: 500 }),
+                }),
+            },
+            "../ToastProvider": { useToast: () => feedback.feedback() },
+            "../ThemeProvider": {
+                useTheme: () => ({
+                    resetTheme: async () => {},
+                    lightTheme: async () => {},
+                    darkTheme: async () => {},
+                }),
+            },
+            "../SessionProvider": {
+                useSession: () => ({ session: { authenticated: false }, logout: () => {} }),
+            },
+        },
+    });
+    provider.flushEffects();
+    const user = provider.elements().find((node) => node.type === "ContextProvider").props.value;
+    const failedResponse = () => ({
+        isSuccess: false,
+        statusCode: 500,
+        response: {
+            url: "/v1/users",
+            text: async () => JSON.stringify({ statusCode: 500, errors: [] }),
+        },
+    });
+
+    const retry = user.getUserData({ silent: true });
+    feedback.navigate("/");
+    pendingRequests[0](failedResponse());
+    const retryResult = await retry;
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.deepEqual(feedback.shown, []);
+    assert.equal(feedback.dismissed(), 0);
+    assert.equal(retryResult.errorMessage, "Failed to load account details.");
+
+    const defaultRead = user.getUserData();
+    pendingRequests[1](failedResponse());
+    const defaultResult = await defaultRead;
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(defaultResult.errorMessage, "Failed to load account details.");
+    assert.deepEqual(
+        feedback.shown.map(({ message }) => message),
+        ["An unexpected error occurred."],
+    );
+    assert.equal(feedback.dismissed(), 1);
+});
+
 test("redesigned forms and home selection suppress legacy overlays without dismissing the keyboard", async () => {
     const provider = mountFeedback();
     const lateCallback = provider.feedback();
@@ -182,6 +336,7 @@ test("redesigned forms and home selection suppress legacy overlays without dismi
         "/home/room/details",
         "/device/add",
         "/dataSource/add",
+        "/user/profile",
     ]) {
         provider.navigate(route);
         lateCallback.error("Legacy error");

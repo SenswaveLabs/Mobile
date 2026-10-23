@@ -17,6 +17,7 @@ const usesInlineFeedback = (pathname: string) =>
         "/home/room/details",
         "/device/add",
         "/dataSource/add",
+        "/user/profile",
     ].includes(pathname);
 
 interface ToastContextType {

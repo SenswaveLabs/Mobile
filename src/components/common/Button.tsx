@@ -2,10 +2,10 @@ import { useTheme } from "@/contexts/ThemeProvider";
 import { shadowStyles } from "@/styles/shadowStyles";
 import React, { FC } from "react";
 import { Button as ReusableButton } from "@/components/ui/button";
-import { Text } from "@/components/ui/text";
 import {
     StyleSheet,
     ActivityIndicator,
+    Text as NativeText,
     StyleProp,
     ViewStyle,
     GestureResponderEvent,
@@ -59,7 +59,7 @@ const Button: FC<ButtonProps> = ({
         <ReusableButton
             ref={ref}
             variant="ghost"
-            className="h-auto rounded-none border-0 p-0 opacity-100 shadow-none active:opacity-80"
+            className={`h-auto rounded-none border-0 p-0 opacity-100 shadow-none ${destructiveBrand ? "active:opacity-90" : "active:opacity-80"}`}
             accessibilityRole="button"
             accessibilityLabel={accessibilityLabel ?? name}
             accessibilityState={{ disabled: unavailable, busy: loading }}
@@ -92,9 +92,11 @@ const Button: FC<ButtonProps> = ({
             ]}
             onPress={onPress}>
             {loading && <ActivityIndicator accessible={false} size="small" color={foreground} />}
-            <Text style={[styles.label, auth && styles.authLabel, { color: foreground }]}>
+            <NativeText
+                allowFontScaling
+                style={[styles.label, auth && styles.authLabel, { color: foreground }]}>
                 {name}
-            </Text>
+            </NativeText>
         </ReusableButton>
     );
 };
