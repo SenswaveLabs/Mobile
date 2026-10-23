@@ -17,7 +17,7 @@ jobs:
       - name: 🏗 Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: '22'
+          node-version-file: .nvmrc
 
       - name: 📦 Install Dependencies
         run: npm install
@@ -36,7 +36,7 @@ jobs:
       - name: 🏗 Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: 22.x
+          node-version-file: .nvmrc
 
       - name: 🏗 Setup EAS
         uses: expo/expo-github-action@v8
