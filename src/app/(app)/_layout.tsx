@@ -205,7 +205,7 @@ function InternalLayout() {
                 name="device/dashboard/add"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Add" titleSuffix="Dashboard" />,
+                    header: () => <DefaultHeader titlePrefix="Dashboard" variant="brand" />,
                 }}
             />
 

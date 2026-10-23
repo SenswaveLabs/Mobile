@@ -43,6 +43,7 @@ Native styling uses `StyleSheet.create()` and `useTheme()` colors; all screens s
 Data-source creation uses one keyboard-aware page with inline feedback; see the [mobile UI design policy](docs/agent-guide/interface.md) for its validation and navigation behavior.
 Broker client start uses one keyboard-aware `FormSection`, local credential restoration, inline feedback and accepted-once return navigation; see the [mobile UI design policy](docs/agent-guide/interface.md).
 Broker subscription creation uses one keyboard-aware `FormSection`, topic validation, inline feedback and accepted-once return navigation; see the [mobile UI design policy](docs/agent-guide/interface.md).
+Dashboard creation uses one keyboard-aware `FormSection`, preserved icon keys, strict string grid bounds and accepted-once return; see the [mobile UI design policy](docs/agent-guide/interface.md).
 Home location uses a native MapLibre picker with OpenStreetMap. See [Tooling](docs/agent-guide/tooling.md) for its development-client rebuild requirement.
 Profile settings use one native scroll, immediate Light/Dark/System theme selection, read-only English, inline recovery, and a confirmed native account-deletion dialog; see the [mobile UI design policy](docs/agent-guide/interface.md).
 

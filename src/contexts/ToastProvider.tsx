@@ -16,6 +16,7 @@ const usesInlineFeedback = (pathname: string) =>
         "/home/room/add",
         "/home/room/details",
         "/device/add",
+        "/device/dashboard/add",
         "/dataSource/add",
         "/dataSource/brokers/startBrokerClient",
         "/dataSource/brokers/addSubscription",

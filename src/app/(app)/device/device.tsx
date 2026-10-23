@@ -126,7 +126,7 @@ function Device() {
         <View style={styles.container}>
             <EnhancedHorizontalSelector
                 options={options}
-                selected={options.find((o) => o.id === dashboards.currentDashboardId)!}
+                selected={options.find((o) => o.id === dashboards.currentDashboardId) ?? options[0]}
                 onSelect={setCurrentDashboard}
                 margin={{ top: 0, left: 15, right: 15, bottom: 15 }}
             />

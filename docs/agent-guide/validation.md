@@ -83,6 +83,7 @@ or rerun an expensive build for an unrelated documentation edit.
   the tile selector's fixed busy icon slot, current-choice guard, changed-choice
   submission, cancellation and focus callbacks. The handler adapter cannot prove
   native slider targets, sheet focus or rendering during a React async action.
+- Dashboard creation is also in `pnpm test:device-details` (`tests/dashboardCreate.test.mjs`). It executes the real form and route handlers for trimmed name and exact grid bounds, preserved global icon keys and payload, shared Go/touch duplicate locking, editable-but-guarded pending fields, draft recovery after POST rejection/throw, accepted-once matching-device refresh/navigation, blur/refocus behavior, navigation-only recovery and missing/array route IDs. A Device route regression checks first-option fallback for empty/stale current IDs and preserves valid non-first selection. These handler checks do not establish native layout, keyboard behavior or screen-reader behavior.
 - Data-source creation, details and broker/subscription actions: run `pnpm test:data-sources`.
   It executes the real create form/route, settings form, details route, overview panel, broker-client start form/route and Add subscription form handlers.
   Create checks cover exact payload fields and MQTT/TLS values, required field
@@ -147,6 +148,11 @@ layouts at their width/text-scale boundaries, wrapping labels/readouts and the
 complete informational footer in both themes. Verify the switch target does not
 open the device dashboard, pending commands cannot repeat, and failure feedback
 can recover; report hardware commands separately from fixture or handler checks.
+For dashboard creation, check both themes, normal and 200% text, a short/narrow
+window, keyboard reachability, icon choice/cancel, Back, field validation, failed
+request draft recovery and one accepted create on isolated local data. Confirm the
+Device selector remains usable while its refreshed current dashboard ID resolves.
+Smoke-test dashboard details without editing or deleting an existing dashboard.
 Also inspect source status in both themes: connected subtitle with no extra content
 notice; Connecting and Restarting; disconnected, Error, missing and unavailable
 notices; owner-only details/setup routes with Back; no source action for Manage or
