@@ -41,6 +41,7 @@ Editable details forms use `common/FormSection` for headings, field spacing and 
 On the home dashboard, only an assigned `Working` or `Connected` source gets a subtitle below the home name; Connecting/Restarting use neutral text and other states use persistent notices. Only known disconnected/Error or missing-source states can expose a separate source action, and only for owners. Settings and details retain their data-source state badges.
 Native styling uses `StyleSheet.create()` and `useTheme()` colors; all screens share the themed background. React Native Reusables primitives use NativeWind and tokens derived from the same theme.
 Data-source creation uses one keyboard-aware page with inline feedback; see the [mobile UI design policy](docs/agent-guide/interface.md) for its validation and navigation behavior.
+Broker client start uses one keyboard-aware `FormSection`, local credential restoration, inline feedback and accepted-once return navigation; see the [mobile UI design policy](docs/agent-guide/interface.md).
 Home location uses a native MapLibre picker with OpenStreetMap. See [Tooling](docs/agent-guide/tooling.md) for its development-client rebuild requirement.
 Profile settings use one native scroll, immediate Light/Dark/System theme selection, read-only English, inline recovery, and a confirmed native account-deletion dialog; see the [mobile UI design policy](docs/agent-guide/interface.md).
 

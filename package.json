@@ -11,7 +11,7 @@
         "hooks:install": "git config core.hooksPath .githooks",
         "typecheck": "tsc --noEmit",
     "test:poc": "node --test tests/authValidation.test.mjs tests/authPanel.test.mjs tests/resetPasswordForm.test.mjs tests/feedback.test.mjs tests/profile.test.mjs",
-        "test:data-sources": "node --test tests/dataSourceCreate.test.mjs tests/dataSourceDetails.test.mjs tests/bottomSheetSelect.test.mjs",
+        "test:data-sources": "node --test tests/dataSourceCreate.test.mjs tests/dataSourceDetails.test.mjs tests/bottomSheetSelect.test.mjs tests/startBrokerClient.test.mjs",
         "test:homes": "node --test tests/homeList.test.mjs tests/joinHomeForm.test.mjs tests/homeForm.test.mjs tests/roomForm.test.mjs tests/locationMapPicker.test.mjs",
         "test:device-details": "node --test tests/deviceDetails.test.mjs tests/roomSelector.test.mjs tests/bottomSheetSelect.test.mjs",
         "test:dashboard": "node --test tests/homeDashboard.test.mjs tests/deviceTileActions.test.mjs",
