@@ -1,6 +1,16 @@
-import React, { FC } from "react";
-import Dialog from "@/components/common/Dialog";
-import Icon from "@/components/common/Icon";
+import React, { type FC } from "react";
+import { Modal as NativeModal, ScrollView, StyleSheet } from "react-native";
+import { PortalHost } from "@rn-primitives/portal";
+import Button from "@/components/common/Button";
+import {
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface RemoveAccountDialogProps {
     visible: boolean;
@@ -8,29 +18,60 @@ interface RemoveAccountDialogProps {
     onCancel: () => void;
 }
 
+const dialogHost = "profile-account-dialog";
+
 const RemoveAccountDialog: FC<RemoveAccountDialogProps> = ({ visible, onConfirm, onCancel }) => {
     return (
-        <Dialog
-            visible={visible}
-            onDismiss={onCancel}
-            title="Remove Account"
-            content="This action is permanent. All your data will be deleted and cannot be recovered."
-            icon={<Icon icon="alert-outline" size={24} color="error" />}
-            actions={[
-                {
-                    label: "Cancel",
-                    onPress: onCancel,
-                    variant: "text",
-                },
-                {
-                    label: "Remove",
-                    onPress: onConfirm,
-                    variant: "filled",
-                    destructive: true,
-                },
-            ]}
-        />
+        <>
+            <NativeModal
+                visible={visible}
+                transparent
+                statusBarTranslucent
+                navigationBarTranslucent
+                accessibilityViewIsModal
+                onRequestClose={onCancel}>
+                <PortalHost name={dialogHost} />
+            </NativeModal>
+            <AlertDialogContent
+                portalHost={dialogHost}
+                accessibilityViewIsModal
+                className="max-w-md"
+                style={styles.content}>
+                <ScrollView style={styles.body}>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete account?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action is permanent. All your data will be deleted and cannot be
+                            recovered.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                </ScrollView>
+                <AlertDialogFooter className="flex-col">
+                    <AlertDialogCancel asChild>
+                        <Button
+                            name="Cancel"
+                            type="brand-outline"
+                            loading={false}
+                            onPress={onCancel}
+                        />
+                    </AlertDialogCancel>
+                    <AlertDialogAction asChild>
+                        <Button
+                            name="Delete account"
+                            type="brand-destructive"
+                            loading={false}
+                            onPress={onConfirm}
+                        />
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </>
     );
 };
 
 export default RemoveAccountDialog;
+
+const styles = StyleSheet.create({
+    content: { maxHeight: "90%" },
+    body: { flexShrink: 1, maxHeight: "75%" },
+});

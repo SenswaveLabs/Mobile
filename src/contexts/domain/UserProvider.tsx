@@ -12,6 +12,10 @@ export enum ThemeMode {
     Default = "default",
 }
 
+interface GetUserDataOptions {
+    silent?: boolean;
+}
+
 type UserResponse = {
     Id: string;
     email: string;
@@ -34,7 +38,7 @@ interface UserProperties {
     updateTheme: (theme: ThemeMode) => Promise<SimpleResult>;
     updateLanguage: (language: string) => Promise<SimpleResult>;
     makeConsents: () => Promise<SimpleResult>;
-    getUserData: () => Promise<Result<UserData>>;
+    getUserData: (options?: GetUserDataOptions) => Promise<Result<UserData>>;
     removeUserAccount: () => Promise<SimpleResult>;
 }
 
@@ -85,7 +89,6 @@ export const UserProvider = ({ children }: any) => {
             updateThemeInternal(internalTheme);
             return SimpleResult.success();
         } else {
-            toast.httpError(result);
             return SimpleResult.failure("Failed to update theme.");
         }
     };
@@ -120,7 +123,7 @@ export const UserProvider = ({ children }: any) => {
         }
     };
 
-    const getUserData = async () => {
+    const getUserData = async ({ silent = false }: GetUserDataOptions = {}) => {
         const response = await httpClient.get("v1/users");
 
         if (response.isSuccess) {
@@ -142,9 +145,9 @@ export const UserProvider = ({ children }: any) => {
 
             return Result.success<UserData>(userData);
         } else {
-            toast.httpError(response);
+            if (!silent) toast.httpError(response);
 
-            return Result.failure<UserData>("Failed to update.");
+            return Result.failure<UserData>("Failed to load account details.");
         }
     };
 
@@ -158,7 +161,6 @@ export const UserProvider = ({ children }: any) => {
                 return SimpleResult.success();
             }
 
-            toast.httpError(response);
             return SimpleResult.failure("Failed to remove account.");
         } catch (error) {
             console.error(`[Session Provider] Unexpected exception when removing account ${error}`);

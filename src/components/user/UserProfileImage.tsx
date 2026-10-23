@@ -34,6 +34,8 @@ const UserProfileImage: FC<UserProfileImageProps> = ({ enableNavigation = false,
             ]}
             onPress={enableNavigation ? () => router.push("user/profile") : undefined}>
             <Text
+                accessible={false}
+                maxFontSizeMultiplier={1}
                 style={[
                     styles.initial,
                     { color: colors.authForeground, fontSize: size >= 64 ? 30 : 20 },
