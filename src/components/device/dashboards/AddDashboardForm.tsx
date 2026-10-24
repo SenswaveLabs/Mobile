@@ -214,37 +214,7 @@ const AddDashboardForm: FC<AddDashboardFormProps> = ({ deviceId }) => {
             <View style={styles.content}>
                 <FormSection
                     title="Create dashboard"
-                    helper="Choose a name, icon and grid size for this device's dashboard."
-                    actions={[
-                        actionFeedback ? (
-                            <Alert
-                                key="feedback"
-                                icon={actionFeedback.variant === "destructive" ? CircleAlert : Info}
-                                variant={actionFeedback.variant}>
-                                <AlertDescription>{actionFeedback.message}</AlertDescription>
-                            </Alert>
-                        ) : null,
-                        actionFeedback?.variant === "default" ? (
-                            <Button
-                                key="return"
-                                name="Return to device"
-                                type="brand-outline"
-                                loading={false}
-                                onPress={returnToDevice}
-                                style={styles.actionButton}
-                            />
-                        ) : (
-                            <Button
-                                key="submit"
-                                name="Create dashboard"
-                                type="auth"
-                                loading={pending}
-                                disabled={pending || accepted.current}
-                                onPress={submit}
-                                style={styles.actionButton}
-                            />
-                        ),
-                    ]}>
+                    helper="Choose a name, icon and grid size for this device's dashboard.">
                     <Input
                         title="Name"
                         placeholder="Living room controls"
@@ -316,6 +286,33 @@ const AddDashboardForm: FC<AddDashboardFormProps> = ({ deviceId }) => {
                         </View>
                     </View>
                 </FormSection>
+                <View style={styles.actions}>
+                    {!!actionFeedback && (
+                        <Alert
+                            icon={actionFeedback.variant === "destructive" ? CircleAlert : Info}
+                            variant={actionFeedback.variant}>
+                            <AlertDescription>{actionFeedback.message}</AlertDescription>
+                        </Alert>
+                    )}
+                    {actionFeedback?.variant === "default" ? (
+                        <Button
+                            name="Return to device"
+                            type="brand-outline"
+                            loading={false}
+                            onPress={returnToDevice}
+                            style={styles.actionButton}
+                        />
+                    ) : (
+                        <Button
+                            name="Create dashboard"
+                            type="auth"
+                            loading={pending}
+                            disabled={pending || accepted.current}
+                            onPress={submit}
+                            style={styles.actionButton}
+                        />
+                    )}
+                </View>
             </View>
         </KeyboardAwareScrollView>
     );
@@ -332,9 +329,11 @@ const styles = StyleSheet.create({
         paddingBottom: 16,
     },
     content: {
+        flexGrow: 1,
         width: "100%",
         maxWidth: 448,
     },
+    actions: { paddingTop: 32, gap: 12, marginTop: "auto" },
     dimensions: {
         flexDirection: "row",
         flexWrap: "wrap",

@@ -232,6 +232,13 @@ test("dashboard creation matches the Home icon selector and preserves the existi
     assert.equal(form.iconSelector().props.defaultIcon, "grid-outline");
     assert.equal(form.iconSelector().props.variant, "brand");
     assert.deepEqual(Array.from(form.iconSelector().props.iconList), dashboardIcons);
+    assert.equal(section.props.actions, undefined);
+    assert.ok(
+        form
+            .elements()
+            .some((node) => node.type === "View" && node.props.style?.marginTop === "auto"),
+        "The action group fills the remaining space on taller screens",
+    );
     assert.equal(form.alert(), undefined);
 
     const defaultGrid = mountForm();

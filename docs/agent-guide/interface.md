@@ -120,11 +120,13 @@ Accessibility and task completion take priority over matching a visual pattern.
   brand icon selector and offer only the same 16 dashboard icons as its former quick
   list. Capitalize their labels while keeping the submitted keys lowercase; dashboards
   do not use the Home API catalog. Trim Name to 3–64 characters, and retain Rows/Columns
-  as string drafts validated as decimal digits in the 1–10 and 1–5 bounds. Go and
-  touch share a synchronous submit lock; text fields stay natively editable while
-  pending but ignore changes, and accepted creation returns once after a best-effort
-  refresh of the matching device. The Device selector falls back to the first
-  listed dashboard while a refreshed nonempty list has no matching current ID.
+  as string drafts validated as decimal digits in the 1–10 and 1–5 bounds. Put feedback
+  and the primary action after the fields with `marginTop: "auto"` on tall screens;
+  keep them in the same keyboard-aware scroll content on short screens. Go and touch
+  share a synchronous submit lock; text fields stay natively editable while pending
+  but ignore changes, and accepted creation returns once after a best-effort refresh
+  of the matching device. The Device selector falls back to the first listed dashboard
+  while a refreshed nonempty list has no matching current ID.
 - Native `/device/dashboard/details` uses one keyboard-aware `DashboardForm` for
   Name, Icon, read-only grid size and full-width Save changes, followed by a
   confirmed Delete dashboard section in the same scroll. Preserve global icon
