@@ -151,7 +151,7 @@ selection, including one selected during recovery. A failed initializer sends th
 active details screen to the picker; it must not repeat the destructive request.
 Ordinary initialization and refresh callers keep their existing behavior.
 
-`DeviceListProvider` owns client-side dashboard loading and error recovery. It
+`DeviceListProvider` owns client-side device-list loading and error recovery. It
 requests the complete V1 collection with `size=2147483647` (the API's full-collection
 sentinel); omitting size returns only ten devices and gives incomplete room filters.
 It derives room filtering from the current home's device collection, preserves a
@@ -162,6 +162,24 @@ Failed reads retain cached current-home devices and expose an inline error;
 `true`; awaiting it does not wait for the request or report its result. Retained
 device-update callbacks consult the current-home ref before updating that collection.
 These are client context behaviors; backend API contracts are unchanged.
+
+`DeviceProvider` owns the selected device's dashboard collection and display
+resource. It reads `GET v1/devices/dashboards/display?deviceId={deviceId}` and
+`GET v1/devices/dashboards/{dashboardId}/display`; `loadError` carries dashboard
+read recovery to the screen. Binding another device clears the previous device's
+list and detail, and a detail response is accepted only for the active device,
+dashboard and collection request. The context keeps its existing `refresh` and
+`smartRefresh` signatures. This identity and local recovery state do not change
+server contracts.
+
+Dashboard placement uses `PUT v1/devices/dashboards/{dashboardId}/widgets` with
+`{ widgetId, row, column, rowSpan, columnSpan }`. Removing a dashboard placement
+uses `DELETE v1/devices/dashboards/{dashboardId}/widgets/{widgetId}`; it does not
+delete the widget definition. Live widget controls keep
+`POST v1/devices/widgets/{widgetId}/action` with `{ value }`: Button sends an
+empty string, Switch a Boolean, Radio the exact option name, Color the exact hex
+string and Slider a number. Preserve values and opaque IDs as received. The
+server remains responsible for authorization and validates these writes.
 
 ### Home and Device icons
 

@@ -3,7 +3,7 @@ import UserNote from "@/components/common/UserNote";
 import { OperationType } from "@/contexts/custom/DeviceListProvider";
 import { useWidgetDetails } from "@/contexts/custom/WidgetDetailsProvider";
 import { useFocusEffect } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 
 const INT32_MIN = -2147483648;
@@ -56,6 +56,11 @@ const SliderForm = ({ edit }: SliderFormProps) => {
     useFocusEffect(() => {
         widgetDetails.setAdditionalValidation(validate);
     });
+
+    useEffect(() => {
+        widgetDetails.validateDto();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step]);
 
     return (
         <View

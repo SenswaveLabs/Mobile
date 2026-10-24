@@ -123,9 +123,47 @@ Accessibility and task completion take priority over matching a visual pattern.
   pending but ignore changes, and accepted creation returns once after a best-effort
   refresh of the matching device. The Device selector falls back to the first
   listed dashboard while a refreshed nonempty list has no matching current ID.
+- Native `/device/dashboard/details` uses one keyboard-aware `DashboardForm` for
+  Name, Icon, read-only grid size and full-width Save changes, followed by a
+  confirmed Delete dashboard section in the same scroll. Preserve global icon
+  keys, its 16 quick icons and global search. Trim Name to 3–64 characters and
+  PATCH only changed Name/Icon values to the route dashboard ID. Show Retry for
+  invalid or failed reads; keep drafts and inline errors after failed saves/deletes,
+  update the saved baseline on accepted saves, and never repeat accepted deletion
+  after refresh/navigation failure. Cancellation and Android Back send no DELETE;
+  dashboard/details suppresses legacy toast overlays.
 - Dashboard command errors opt into compact `Alert` and `AlertDescription`; keep
   feedback unboxed and wrapping, 12 dp below controls, with a 12 dp horizontal
-  inset for Slider. Leave compact props omitted elsewhere to preserve card alerts.
+  inset for Slider. The Grid grows rows to include measured feedback. Preserve
+  each widget's endpoint and primitive value, synchronously block duplicates,
+  and keep retry on the same control. Display is read-only and does not toast.
+- The native Device dashboard binds dashboard selection to the routed device.
+  It distinguishes loading, failed reads with Retry, empty dashboards and known
+  offline devices; never render controls for a stale device/dashboard response.
+  Every home role may choose and view dashboards and use permitted live widget
+  controls. Only owners/managers see Device details, dashboard Add/details,
+  Place widget, widget creation or dashboard unlink. Direct configuration routes
+  deny Display before reads/forms and recheck permission in retained callbacks.
+- Grid keeps its Widgets heading, place action, geometry and inline recovery in
+  one vertical scroll. Use measured width, 8 dp gaps and at least 96 dp rows.
+  Empty-cell targets are named with one-based row/column numbers; placement grows
+  down/right from the selected top-left cell. Keep Height/Width and
+  Change position/Choose widget/Cancel in normal flow, and let Android Back
+  cancel place mode. Validate saved geometry before indexing; malformed geometry
+  stays visible with local Retry.
+- `/device/dashboard/placeWidget` reads the routed dashboard ID and validates
+  the captured area before presenting the explicit-device picker. Picker rows
+  select only: no power request and no operation navigation. Use a visible
+  selected state and persistent footer action. Place sends the selected widget
+  and unchanged zero-based geometry once. Failure retains the selection and
+  offers inline retry; accepted writes recover navigation without repeating PUT.
+- Grid owns dashboard-only widget unlink in one confirmed native dialog. Capture
+  device, dashboard and widget IDs, DELETE only the placement, retain the widget
+  definition, and remove the local placement after acceptance. Failure keeps the
+  widget and exposes local Retry. Managers can invoke the same action by long
+  press or its named native accessibility action; Display gets no removal callback.
+- Keep compact props omitted on other `Alert` uses so their established card
+  treatment remains unchanged.
 
 ### Form error placement — Senswave design decision
 

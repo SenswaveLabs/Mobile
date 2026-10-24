@@ -1,31 +1,28 @@
-import { CalculatedWidget } from "../../dashboards/DashboardView";
-import { Pressable } from "react-native";
 import { useTheme } from "@/contexts/ThemeProvider";
-import Text from "@/components/common/Text";
 import { shadowStyles } from "@/styles/shadowStyles";
-import { useToast } from "@/contexts/ToastProvider";
+import { widgetRemovalAccessibility } from "../widgetAccessibility";
+import type { CalculatedWidget } from "../../dashboards/DashboardView";
+import React, { FC } from "react";
+import { Pressable } from "react-native";
+import Text from "@/components/common/Text";
 
 interface DisplayWidgetProps {
-    operations: () => void;
+    operations?: () => void;
     widget: CalculatedWidget;
     disabled: boolean;
 }
 
-const DisplayWidget = ({ operations, widget, disabled }: DisplayWidgetProps) => {
+const DisplayWidget: FC<DisplayWidgetProps> = ({ operations, widget, disabled }) => {
     const theme = useTheme();
-    const toast = useToast();
-
-    const handlePress = () => {
-        toast.info("This widget has no action on click.");
-    };
-
     return (
         <Pressable
+            accessibilityRole="text"
+            accessibilityLabel={`${widget.name}: ${widget.configuration?.runtime?.value ?? "—"} ${widget.configuration?.unit ?? ""}`}
+            {...widgetRemovalAccessibility(operations)}
             style={[
                 {
                     backgroundColor: theme.current.colors.primary,
                     borderRadius: 8,
-                    alignContent: "center",
                     width: "100%",
                     height: "100%",
                     justifyContent: "center",
@@ -34,11 +31,10 @@ const DisplayWidget = ({ operations, widget, disabled }: DisplayWidgetProps) => 
                 },
             ]}
             disabled={disabled}
-            onPress={handlePress}
             onLongPress={operations}>
-            <Text size={"medium"} color={"onPrimary"}>
-                {widget?.name}: {widget?.configuration?.runtime?.value}{" "}
-                {widget?.configuration?.unit ?? ""}
+            <Text size="medium" color="onPrimary">
+                {widget.name}: {widget.configuration?.runtime?.value}{" "}
+                {widget.configuration?.unit ?? ""}
             </Text>
         </Pressable>
     );

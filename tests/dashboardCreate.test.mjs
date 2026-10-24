@@ -50,6 +50,7 @@ async function settle(component) {
 function mountForm(options = {}) {
     const {
         deviceId = "device-a",
+        home = { current: { isOwner: true, canManage: false }, loading: false },
         post = async () => ({ isSuccess: true }),
         refresh = async () => {},
         canGoBack = true,
@@ -110,6 +111,7 @@ function mountForm(options = {}) {
                 }),
             },
             "@/contexts/ThemeProvider": { useTheme: () => theme },
+            "@/contexts/domain/HomeProvider": { useHomes: () => home },
             "@/styles/defaultStyles": { keyboardOffset: 48 },
             "@/components/common/Button": "Button",
             "@/components/common/FormSection": "FormSection",
@@ -170,7 +172,10 @@ function mountForm(options = {}) {
     };
 }
 
-function mountRoute(params) {
+function mountRoute(
+    params,
+    home = { loading: false, current: { isOwner: true, canManage: false } },
+) {
     const navigation = [];
     const router = {
         replace: (destination) => navigation.push(["replace", destination]),
@@ -182,6 +187,7 @@ function mountRoute(params) {
                 useRouter: () => router,
             },
             "react-native": { StyleSheet: { create: (styles) => styles }, View: "View" },
+            "@/contexts/domain/HomeProvider": { useHomes: () => home },
             "@/contexts/ThemeProvider": { useTheme: () => theme },
             "@/components/common/Button": "Button",
             "@/components/ui/text": { Text: "Text" },
@@ -472,6 +478,17 @@ test("no-history return and navigation recovery never repeat an accepted POST", 
     assert.deepEqual(brokenNavigation.navigation, [["back"], ["back"]]);
 });
 
+test("accepted create callback cannot submit after management permission is lost", async () => {
+    const home = { current: { isOwner: true, canManage: false }, loading: false };
+    let requests = 0;
+    const form = mountForm({ home, post: async () => (requests++, { isSuccess: true }) });
+    form.change("Name", "Controls");
+    home.current = { isOwner: false, canManage: false };
+    form.render();
+    await form.submit();
+    assert.equal(requests, 0);
+});
+
 test("dashboard route guards missing IDs and keys valid forms by normalized ID", () => {
     for (const params of [
         {},
@@ -507,11 +524,14 @@ test("dashboard route guards missing IDs and keys valid forms by normalized ID",
 test("device dashboard selector uses the first option until its current ID resolves", () => {
     const dashboards = {
         loading: false,
+        loadError: null,
+        deviceId: "device-a",
         dashboards: [
             { id: "dashboard-a", name: "Main" },
             { id: "dashboard-b", name: "Second" },
         ],
         currentDashboardId: "",
+        currentDashboard: { type: "grid", configuration: {} },
         setCurrentDashboardId: () => {},
         setDeviceId: () => {},
         refresh: async () => {},
@@ -532,26 +552,39 @@ test("device dashboard selector uses the first option until its current ID resol
                 useDevice: () => dashboards,
             },
             "@/contexts/custom/DeviceListProvider": {
-                useDeviceList: () => ({ devices: [] }),
+                useDeviceList: () => ({
+                    devices: [{ id: "device-a", name: "Lamp", presence: { value: true } }],
+                }),
             },
             "@/components/common/Text": "Text",
-            "@/components/common/FAB": "FAB",
-            "@/components/common/EnhancedHorizontalSelector": "EnhancedHorizontalSelector",
+            "@/contexts/domain/HomeProvider": {
+                useHomes: () => ({ loading: false, current: { isOwner: false, canManage: false } }),
+            },
+            "@/contexts/ThemeProvider": { useTheme: () => theme },
+            "@/components/common/Button": "Button",
+            "@/components/common/SectionHeaderAction": "SectionHeaderAction",
+            "@/components/common/BottomSheetSelect": "BottomSheetSelect",
+            "@/components/common/Icon": "Icon",
             "@/components/common/Loading": "Loading",
+            "@/components/ui/alert": { Alert: "Alert", AlertDescription: "AlertDescription" },
             "@/components/device/dashboards/DashboardView": "DashboardView",
         },
     });
-    const selector = () =>
-        screen.elements().find((node) => node.type === "EnhancedHorizontalSelector");
+    const selector = () => screen.elements().find((node) => node.type === "BottomSheetSelect");
 
     assert.ok(selector());
-    assert.equal(selector().props.selected, selector().props.options[0]);
+    assert.equal(selector().props.value, "Main");
+    assert.equal(
+        selector().props.options.find((option) => option.selected).label,
+        "Main",
+        "The unresolved provider ID falls back to the first option for the selector",
+    );
 
     dashboards.currentDashboardId = "stale-dashboard";
     screen.render();
-    assert.equal(selector().props.selected, selector().props.options[0]);
+    assert.equal(selector().props.value, "Main");
 
     dashboards.currentDashboardId = "dashboard-b";
     screen.render();
-    assert.equal(selector().props.selected, selector().props.options[1]);
+    assert.equal(selector().props.value, "Second");
 });

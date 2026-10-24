@@ -555,6 +555,9 @@ test("device details load failure shows retry and recovers on the same device ro
             "@/contexts/custom/DeviceListProvider": {
                 useDeviceList: () => ({ refresh: async () => true }),
             },
+            "@/contexts/domain/HomeProvider": {
+                useHomes: () => ({ loading: false, current: { isOwner: true, canManage: false } }),
+            },
             "@/contexts/HttpClientProvider": {
                 useHttpClient: () => ({
                     get: async () => {

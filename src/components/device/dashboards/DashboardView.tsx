@@ -1,10 +1,14 @@
-import { View, StyleSheet } from "react-native";
-import React from "react";
-import Text from "@/components/common/Text";
+import React, { FC } from "react";
+import { StyleSheet, View } from "react-native";
+import { CircleAlert } from "lucide-react-native";
+import Button from "@/components/common/Button";
 import Loading from "@/components/common/Loading";
+import Text from "@/components/common/Text";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import GridDashboardView from "./Grid/GridDashboardView";
 import { useDevice } from "@/contexts/custom/DeviceProvider";
-import { WidgetType } from "@/types/DeviceTypes";
+import { useTheme } from "@/contexts/ThemeProvider";
+import type { WidgetType } from "@/types/DeviceTypes";
 
 export type DashboardDto = {
     id: string;
@@ -18,9 +22,7 @@ export type CalculatedWidget = {
     id: string;
     name: string;
     type: WidgetType;
-
     configuration: any;
-
     updatedAtUtc: string;
     createdAtUtc: string;
 };
@@ -36,48 +38,96 @@ export type PositionedWidget = {
 export type GridDashboardConfiguration = {
     columns: number;
     rows: number;
-    calculatedWidgets: any[];
+    calculatedWidgets: CalculatedWidget[];
     positionedWidgets: PositionedWidget[];
 };
 
 export interface DashboardViewProps {
+    deviceId: string;
     dashboardId: string;
+    canManage: boolean;
 }
 
-function DashboardView() {
+const DashboardView: FC<DashboardViewProps> = ({ deviceId, dashboardId, canManage }) => {
     const device = useDevice();
+    const { colors } = useTheme().current;
+    const matchingSelection =
+        device.deviceId === deviceId && device.currentDashboardId === dashboardId;
+    const currentDashboard = matchingSelection ? device.currentDashboard : undefined;
 
-    if (device.loading) {
-        return <Loading />;
-    }
+    if (device.loading && !currentDashboard) return <Loading activityColor="textOnBackground" />;
 
-    if (device.currentDashboardId === "" || device.currentDashboard === undefined) {
+    if (!currentDashboard) {
         return (
-            <View style={styles.container}>
-                <Text size={"medium"} color={"onPrimary"}>
-                    Failed to fetch dashboard please refresh.
-                </Text>
+            <View style={styles.recovery}>
+                <Alert
+                    icon={CircleAlert}
+                    variant="destructive"
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite">
+                    <AlertDescription>
+                        {device.loadError ?? "Couldn't load this dashboard. Try again."}
+                    </AlertDescription>
+                </Alert>
+                <Button
+                    name="Retry"
+                    type="auth"
+                    loading={device.loading}
+                    disabled={device.loading}
+                    onPress={() => void device.refresh(false)}
+                />
             </View>
         );
     }
 
-    if (device.currentDashboard!.type === "grid") {
-        return <GridDashboardView />;
-    }
-
     return (
-        <View style={{ ...styles.container, alignContent: "center", justifyContent: "center" }}>
-            <Text size={"medium"} color={"onPrimary"}>
-                Dashboard type not supported. {device.currentDashboard!.type}
-            </Text>
+        <View style={device.loadError ? styles.withError : styles.container}>
+            <View>
+                {device.loadError ? (
+                    <>
+                        <Alert
+                            icon={CircleAlert}
+                            compact
+                            variant="destructive"
+                            accessibilityRole="alert"
+                            accessibilityLiveRegion="polite">
+                            <AlertDescription compact>{device.loadError}</AlertDescription>
+                        </Alert>
+                        <Button
+                            name="Retry"
+                            type="brand-ghost"
+                            loading={device.loading}
+                            disabled={device.loading}
+                            onPress={() => void device.refresh(false)}
+                        />
+                    </>
+                ) : null}
+            </View>
+            {currentDashboard.type === "grid" ? (
+                <GridDashboardView
+                    deviceId={deviceId}
+                    dashboardId={dashboardId}
+                    canManage={canManage}
+                />
+            ) : (
+                <View style={styles.unsupported}>
+                    <Text
+                        size="medium"
+                        color="onBackground"
+                        style={{ color: colors.authForeground }}>
+                        Dashboard type not supported. {currentDashboard.type}
+                    </Text>
+                </View>
+            )}
         </View>
     );
-}
+};
 
 export default DashboardView;
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
+    container: { flex: 1 },
+    recovery: { flex: 1, justifyContent: "center", padding: 16, gap: 16 },
+    withError: { flex: 1, minHeight: 0, gap: 8 },
+    unsupported: { flex: 1, justifyContent: "center", padding: 16 },
 });

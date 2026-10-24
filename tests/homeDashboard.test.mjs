@@ -508,10 +508,9 @@ test("shared switch uses explicit tile colors and preserves other callers' defau
     }
 });
 
-test("slider widget preserves zero, locks pending commands and recovers from network failure", async () => {
-    const pending = deferred();
-    const requests = [];
-    const errors = [];
+test("slider widget preserves zero and rolls back to the last accepted value when action is rejected", async () => {
+    const actions = [];
+    let accepted = true;
     const props = {
         widget: {
             id: "volume",
@@ -519,6 +518,8 @@ test("slider widget preserves zero, locks pending commands and recovers from net
             configuration: { range: { min: -10, max: 100 }, step: 1, runtime: { value: 0 } },
         },
         disabled: false,
+        pending: false,
+        onAction: async (value) => (actions.push(value), accepted),
         operations() {},
     };
     const component = mountNativeComponent(
@@ -527,20 +528,6 @@ test("slider widget preserves zero, locks pending commands and recovers from net
             props,
             modules: {
                 "@/components/common/Slider": "Slider",
-                "@/contexts/HttpClientProvider": {
-                    useHttpClient: () => ({
-                        post: (...args) => {
-                            requests.push(args);
-                            return pending.promise;
-                        },
-                    }),
-                },
-                "@/contexts/ToastProvider": {
-                    useToast: () => ({
-                        error: (message) => errors.push(message),
-                        httpError: (result) => errors.push(result),
-                    }),
-                },
             },
         },
     );
@@ -548,24 +535,28 @@ test("slider widget preserves zero, locks pending commands and recovers from net
     const control = () => component.elements().find((node) => node.type === "Slider");
     assert.equal(control().props.initialValue, 0);
     const submit = control().props.onValueSlided;
-    const first = submit(25);
-    const second = submit(30);
-    assert.equal(requests.length, 1);
-    assert.equal(requests[0][0], "v1/devices/widgets/volume/action");
-    assert.equal(requests[0][1].value, 25);
+    await submit(25);
+    component.render();
+    assert.deepEqual(actions, [25]);
+    assert.equal(
+        component.elements().find((node) => node.type === "Pressable").props.accessibilityLabel,
+        "Speaker, 25",
+    );
+
+    accepted = false;
+    await control().props.onValueSlided(30);
+    component.render();
+    assert.deepEqual(actions, [25, 30]);
+    assert.equal(
+        component.elements().find((node) => node.type === "Pressable").props.accessibilityLabel,
+        "Speaker, 25",
+    );
+
+    props.pending = true;
     component.render();
     assert.equal(control().props.disabled, true);
-    pending.resolve(Promise.reject(new Error("Network unavailable")));
-    await Promise.all([first, second]);
-    component.render();
-    component.flushEffects();
-    component.render();
-    assert.equal(control().props.disabled, false);
-    assert.equal(errors.length, 1);
-    props.disabled = true;
-    component.render();
     await control().props.onValueSlided(50);
-    assert.equal(requests.length, 1);
+    assert.deepEqual(actions, [25, 30]);
 });
 
 test("room filtering keeps opaque room IDs and only managers receive edit navigation", () => {

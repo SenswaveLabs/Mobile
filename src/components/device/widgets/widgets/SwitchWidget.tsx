@@ -1,61 +1,38 @@
-import React, { useEffect, useState } from "react";
-import { CalculatedWidget } from "../../dashboards/DashboardView";
-import { LayoutChangeEvent, Pressable, View } from "react-native";
-import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
-import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useToast } from "@/contexts/ToastProvider";
-import Text from "@/components/common/Text";
 import Icon from "@/components/common/Icon";
 import Loading from "@/components/common/Loading";
+import Text from "@/components/common/Text";
+import { useTheme } from "@/contexts/ThemeProvider";
+import { shadowStyles } from "@/styles/shadowStyles";
+import { widgetRemovalAccessibility } from "../widgetAccessibility";
+import type { CalculatedWidget } from "../../dashboards/DashboardView";
+import React, { FC, useEffect, useState } from "react";
+import { LayoutChangeEvent, Pressable, View } from "react-native";
 
 interface SwitchWidgetProps {
-    operations: () => void;
+    operations?: () => void;
     widget: CalculatedWidget;
     disabled: boolean;
+    pending: boolean;
+    onAction: (value: string | number | boolean) => Promise<boolean>;
 }
 
-const SwitchWidget: React.FC<SwitchWidgetProps> = ({ operations, widget, disabled }) => {
-    const toast = useToast();
+const SwitchWidget: FC<SwitchWidgetProps> = ({
+    operations,
+    widget,
+    disabled,
+    pending,
+    onAction,
+}) => {
     const theme = useTheme();
-    const httpClient = useHttpClient();
-    const [loading, setLoading] = useState(false);
-    const [isChecked, setIsChecked] = useState(widget?.configuration?.runtime?.value ?? false);
+    const [isChecked, setIsChecked] = useState(widget.configuration?.runtime?.value ?? false);
     const [containerHeight, setContainerHeight] = useState(0);
     const [containerWidth, setContainerWidth] = useState(0);
+    const isDisabled = disabled || pending;
 
     const handleToggle = async () => {
-        if (disabled) {
-            console.info("[SwitchWidget] Toggle is disabled.");
-            return;
-        }
-
-        if (loading) {
-            console.warn("[Button Widget] Action already in progress.");
-            return;
-        }
-
-        setLoading(true);
-
-        try {
-            const newValue = !isChecked;
-
-            const result = await httpClient.post(`v1/devices/widgets/${widget.id}/action`, {
-                value: newValue,
-            });
-
-            if (result.isSuccess) {
-                console.info("[Button Widget] Action sent successfully.");
-                setIsChecked(newValue);
-            } else {
-                toast.httpError(result);
-            }
-        } catch (error) {
-            console.error("[SwitchWidget] Error toggling switch:", error);
-            toast.error("Failed to toggle switch.");
-        } finally {
-            setLoading(false);
-        }
+        if (isDisabled) return;
+        const nextValue = !isChecked;
+        if (await onAction(nextValue)) setIsChecked(nextValue);
     };
 
     const onLayout = (event: LayoutChangeEvent) => {
@@ -64,12 +41,21 @@ const SwitchWidget: React.FC<SwitchWidgetProps> = ({ operations, widget, disable
     };
 
     useEffect(() => {
-        setIsChecked(widget?.configuration?.runtime?.value ?? false);
-    }, [widget?.configuration?.runtime?.value]);
+        setIsChecked(widget.configuration?.runtime?.value ?? false);
+    }, [widget.id, widget.configuration?.runtime?.value]);
+
+    const iconSize =
+        Math.min(containerHeight * 0.4, containerWidth * 0.4) > 0
+            ? Math.min(containerHeight * 0.4, containerWidth * 0.4)
+            : 24;
 
     return (
         <Pressable
             onLayout={onLayout}
+            accessibilityRole="switch"
+            accessibilityLabel={widget.name}
+            accessibilityState={{ checked: isChecked, disabled: isDisabled, busy: pending }}
+            {...widgetRemovalAccessibility(operations)}
             style={[
                 {
                     borderRadius: 8,
@@ -83,8 +69,8 @@ const SwitchWidget: React.FC<SwitchWidgetProps> = ({ operations, widget, disable
                     ...shadowStyles.default,
                 },
             ]}
-            disabled={disabled}
-            onPress={handleToggle}
+            disabled={isDisabled}
+            onPress={() => void handleToggle()}
             onLongPress={operations}>
             <View
                 style={{
@@ -94,30 +80,19 @@ const SwitchWidget: React.FC<SwitchWidgetProps> = ({ operations, widget, disable
                     padding: 0,
                     margin: 0,
                 }}>
-                {loading ? (
-                    <Loading
-                        size={containerHeight * 0.4 > 0 ? containerHeight * 0.4 : 24}
-                        useBackgroundColor={false}
-                    />
+                {pending ? (
+                    <Loading size={iconSize} useBackgroundColor={false} />
                 ) : (
-                    <Icon
-                        icon={"power-outline"}
-                        color={"onPrimary"}
-                        size={
-                            Math.min(containerHeight * 0.4, containerWidth * 0.4) > 0
-                                ? Math.min(containerHeight * 0.4, containerWidth * 0.4)
-                                : 24
-                        }
-                    />
+                    <Icon icon="power-outline" color="onPrimary" size={iconSize} />
                 )}
             </View>
 
             <Text
                 size={containerHeight < 56 ? "small" : "medium"}
-                color={"onPrimary"}
+                color="onPrimary"
                 style={{ textAlign: "center" }}
                 numberOfLines={1}>
-                {widget?.name}
+                {widget.name}
             </Text>
         </Pressable>
     );

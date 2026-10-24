@@ -123,7 +123,7 @@ function InternalLayout() {
             <Stack.Screen
                 name="device/device"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Device" />,
+                    header: () => <DefaultHeader titlePrefix="Device" variant="brand" />,
                 }}
             />
 
@@ -197,7 +197,7 @@ function InternalLayout() {
                 name="device/dashboard/details"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Dashboard" titleSuffix="Details" />,
+                    header: () => <DefaultHeader titlePrefix="Dashboard" variant="brand" />,
                 }}
             />
 
@@ -213,7 +213,9 @@ function InternalLayout() {
                 name="device/dashboard/placeWidget"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Select" titleSuffix="Widget" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Place" titleSuffix="Widget" variant="brand" />
+                    ),
                 }}
             />
 

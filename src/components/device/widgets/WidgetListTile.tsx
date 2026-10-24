@@ -17,6 +17,7 @@ interface WidgetListTileProps {
     enabled: boolean; // Property is from WidgetListDto
 
     overrideOnClick?: (operationId: string) => Promise<void>;
+    selected?: boolean;
     disablePress?: boolean;
     variant?: "preview" | "list";
     separator?: boolean;
@@ -28,6 +29,7 @@ const WidgetListTile: FC<WidgetListTileProps> = ({
     type,
     enabled,
     overrideOnClick,
+    selected = false,
     disablePress = false,
     variant = "preview",
     separator = false,
@@ -96,36 +98,49 @@ const WidgetListTile: FC<WidgetListTileProps> = ({
                 description={type}
                 onPress={handleTileClick}
                 disabled={disablePress}
+                selected={selected}
+                accessibilityLabel={
+                    overrideOnClick ? `${name}, ${selected ? "selected" : "not selected"}` : name
+                }
+                accessibilityHint={
+                    overrideOnClick ? "Selects this widget for dashboard placement" : undefined
+                }
                 trailing={
-                    <Pressable
-                        accessibilityRole="switch"
-                        accessibilityLabel={`${name} power`}
-                        accessibilityState={{
-                            checked: enabledState,
-                            disabled: disablePress || loading,
-                        }}
-                        disabled={disablePress || loading}
-                        onPress={onStateClicked}
-                        style={{
-                            width: 48,
-                            height: 48,
-                            alignItems: "center",
-                            justifyContent: "center",
-                            borderRadius: 24,
-                            backgroundColor: enabledState
-                                ? theme.current.colors.success
-                                : theme.current.colors.error,
-                            opacity: disablePress ? 0.5 : 1,
-                        }}>
-                        {loading ? (
-                            <ActivityIndicator
-                                color={theme.current.colors.authForeground}
-                                size="small"
-                            />
-                        ) : (
-                            <Icon icon="power" size={20} color="onPrimary" />
-                        )}
-                    </Pressable>
+                    overrideOnClick ? (
+                        selected ? (
+                            <Icon icon="checkmark-outline" size={24} color="complementary" />
+                        ) : null
+                    ) : (
+                        <Pressable
+                            accessibilityRole="switch"
+                            accessibilityLabel={`${name} power`}
+                            accessibilityState={{
+                                checked: enabledState,
+                                disabled: disablePress || loading,
+                            }}
+                            disabled={disablePress || loading}
+                            onPress={onStateClicked}
+                            style={{
+                                width: 48,
+                                height: 48,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                borderRadius: 24,
+                                backgroundColor: enabledState
+                                    ? theme.current.colors.success
+                                    : theme.current.colors.error,
+                                opacity: disablePress ? 0.5 : 1,
+                            }}>
+                            {loading ? (
+                                <ActivityIndicator
+                                    color={theme.current.colors.authForeground}
+                                    size="small"
+                                />
+                            ) : (
+                                <Icon icon="power" size={20} color="onPrimary" />
+                            )}
+                        </Pressable>
+                    )
                 }
             />
         );

@@ -1,57 +1,41 @@
-import React, { useState } from "react";
-import { Pressable } from "react-native";
-import Text from "@/components/common/Text";
 import Loading from "@/components/common/Loading";
+import Text from "@/components/common/Text";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { CalculatedWidget } from "../../dashboards/DashboardView";
-import { useToast } from "@/contexts/ToastProvider";
 import { shadowStyles } from "@/styles/shadowStyles";
+import { widgetRemovalAccessibility } from "../widgetAccessibility";
+import type { CalculatedWidget } from "../../dashboards/DashboardView";
+import React, { FC } from "react";
+import { Pressable } from "react-native";
 
 interface ButtonWidgetProps {
-    operations: () => void;
+    operations?: () => void;
     widget: CalculatedWidget;
     disabled: boolean;
+    pending: boolean;
+    onAction: (value: string | number | boolean) => Promise<boolean>;
 }
 
-export default function ButtonWidget({ widget, operations, disabled }: ButtonWidgetProps) {
-    const httpClient = useHttpClient();
+const ButtonWidget: FC<ButtonWidgetProps> = ({
+    operations,
+    widget,
+    disabled,
+    pending,
+    onAction,
+}) => {
     const theme = useTheme();
-    const toast = useToast();
-    const [loading, setLoading] = useState(false);
-
-    const action = async () => {
-        if (loading) {
-            console.warn("[Button Widget] Action already in progress.");
-            return;
-        }
-
-        setLoading(true);
-
-        const result = await httpClient.post(`v1/devices/widgets/${widget.id}/action`, {
-            value: "",
-        });
-
-        if (result.isSuccess) {
-            console.info("[Button Widget] Action sent successfully.");
-        } else {
-            toast.httpError(result);
-        }
-
-        setLoading(false);
-    };
-
+    const isDisabled = disabled || pending;
     return (
         <Pressable
-            cssInterop={false}
+            accessibilityRole="button"
+            accessibilityLabel={widget.name}
+            accessibilityState={{ disabled: isDisabled, busy: pending }}
+            {...widgetRemovalAccessibility(operations)}
             style={({ pressed }) => [
                 {
                     backgroundColor: pressed
                         ? theme.current.colors.secondary
                         : theme.current.colors.primary,
-
                     borderRadius: 8,
-                    alignContent: "center",
                     width: "100%",
                     height: "100%",
                     justifyContent: "center",
@@ -59,16 +43,18 @@ export default function ButtonWidget({ widget, operations, disabled }: ButtonWid
                     ...shadowStyles.default,
                 },
             ]}
-            disabled={disabled}
-            onPress={action}
+            disabled={isDisabled}
+            onPress={() => void onAction("")}
             onLongPress={operations}>
-            {loading ? (
+            {pending ? (
                 <Loading size={32} useBackgroundColor={false} />
             ) : (
-                <Text size={"medium"} color={"onPrimary"}>
-                    {widget?.name}
+                <Text size="medium" color="onPrimary">
+                    {widget.name}
                 </Text>
             )}
         </Pressable>
     );
-}
+};
+
+export default ButtonWidget;

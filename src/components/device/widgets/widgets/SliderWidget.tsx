@@ -1,57 +1,67 @@
+import Slider from "@/components/common/Slider";
+import { useTheme } from "@/contexts/ThemeProvider";
+import { widgetRemovalAccessibility } from "../widgetAccessibility";
+import type { CalculatedWidget } from "../../dashboards/DashboardView";
 import React, { FC, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import Slider from "@/components/common/Slider";
-import { CalculatedWidget } from "../../dashboards/DashboardView";
-import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useToast } from "@/contexts/ToastProvider";
-import { useTheme } from "@/contexts/ThemeProvider";
 
 interface SliderWidgetProps {
-    operations: () => void;
+    operations?: () => void;
     widget: CalculatedWidget;
     disabled: boolean;
+    pending: boolean;
+    onAction: (value: string | number | boolean) => Promise<boolean>;
 }
 
-const SliderWidget: FC<SliderWidgetProps> = ({ operations, widget, disabled = false }) => {
-    const { min = 0, max = 100 } = widget?.configuration?.range || {};
-    const { step = 1 } = widget?.configuration || {};
-    const reportedValue = widget?.configuration?.runtime?.value ?? min;
+const SliderWidget: FC<SliderWidgetProps> = ({
+    operations,
+    widget,
+    disabled,
+    pending,
+    onAction,
+}) => {
+    const { min = 0, max = 100 } = widget.configuration?.range || {};
+    const { step = 1 } = widget.configuration || {};
+    const reportedValue = widget.configuration?.runtime?.value ?? min;
     const [displayValue, setDisplayValue] = useState(reportedValue);
-    const [loading, setLoading] = useState(false);
-    const submitting = useRef(false);
-    const httpClient = useHttpClient();
-    const toast = useToast();
+    const [committedValue, setCommittedValue] = useState(reportedValue);
+    const committedValueRef = useRef(reportedValue);
     const { colors } = useTheme().current;
+    const isDisabled = disabled || pending;
 
-    const handleValueChange = async (val: number) => {
-        if (disabled || submitting.current) return;
-        submitting.current = true;
-        setLoading(true);
-        try {
-            const result = await httpClient.post("v1/devices/widgets/" + widget.id + "/action", {
-                value: val,
-            });
-            if (!result.isSuccess) toast.httpError(result);
-        } catch {
-            toast.error("Couldn't change this value. Try again.");
-        } finally {
-            submitting.current = false;
-            setLoading(false);
+    const handleValueChange = async (value: number) => {
+        if (isDisabled) return;
+        const accepted = await onAction(value);
+        if (accepted) {
+            committedValueRef.current = value;
+            setCommittedValue(value);
+            setDisplayValue(value);
+        } else {
+            setDisplayValue(committedValueRef.current);
         }
     };
 
     useEffect(() => {
-        if (!loading) setDisplayValue(reportedValue);
-    }, [reportedValue, loading]);
+        committedValueRef.current = reportedValue;
+        setDisplayValue(reportedValue);
+        setCommittedValue(reportedValue);
+    }, [widget.id, reportedValue]);
 
     return (
-        <Pressable onLongPress={operations} style={styles.container}>
+        <Pressable
+            accessibilityRole="adjustable"
+            accessibilityLabel={`${widget.name}, ${displayValue}`}
+            accessibilityState={{ disabled: isDisabled, busy: pending }}
+            {...widgetRemovalAccessibility(operations)}
+            onLongPress={operations}
+            disabled={isDisabled}
+            style={styles.container}>
             <View style={styles.header}>
                 <Text style={[styles.name, { color: colors.authForeground }]}>{widget.name}</Text>
                 <View style={styles.value} accessibilityLiveRegion="polite">
-                    {loading && <ActivityIndicator size="small" color={colors.authForeground} />}
+                    {pending && <ActivityIndicator size="small" color={colors.authForeground} />}
                     <Text style={[styles.readout, { color: colors.authForeground }]}>
-                        {loading ? "Sending…" : String(displayValue)}
+                        {pending ? "Sending…" : String(displayValue)}
                     </Text>
                 </View>
             </View>
@@ -59,11 +69,12 @@ const SliderWidget: FC<SliderWidgetProps> = ({ operations, widget, disabled = fa
                 min={min}
                 max={max}
                 step={step}
-                initialValue={reportedValue}
+                initialValue={committedValue}
+                value={displayValue}
                 onValueSlided={handleValueChange}
                 onValueChange={setDisplayValue}
                 accessibilityLabel={widget.name}
-                disabled={disabled || loading}
+                disabled={isDisabled}
             />
         </Pressable>
     );

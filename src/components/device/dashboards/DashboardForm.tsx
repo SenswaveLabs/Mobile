@@ -1,13 +1,17 @@
-import Divider from "@/components/common/Divider";
+import Button from "@/components/common/Button";
+import FormSection from "@/components/common/FormSection";
 import IconSelector from "@/components/common/IconSelector";
 import Input from "@/components/common/Input";
-import RoomTile from "@/components/room/tiles/RoomTile";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Text } from "@/components/ui/text";
+import { useTheme } from "@/contexts/ThemeProvider";
 import { keyboardOffset } from "@/styles/defaultStyles";
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from "react";
-import { View, StyleSheet } from "react-native";
+import type { DashboardDto } from "@/components/device/dashboards/DashboardView";
+import { CircleAlert, Info } from "lucide-react-native";
+import React, { FC, ReactNode, useCallback, useRef, useState } from "react";
+import { AccessibilityInfo, StyleSheet, TextInput, View } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-
-const DefaultHomeIcon: string = "grid-outline";
 
 const DefaultIcons = [
     "grid-outline",
@@ -28,225 +32,184 @@ const DefaultIcons = [
     "filter-outline",
 ] as string[];
 
-export interface DashboardFormHandle {
-    isDirty: boolean;
-    isValid: boolean;
-    triggerSave: () => void;
-    triggerReset: () => void;
+export interface DashboardFormValues {
+    name?: string;
+    icon?: string;
 }
 
-interface DashboardFormProps {
-    deviceId: string;
-
-    initName?: string;
-    initIcon?: string;
-    initConfiguration?: any;
-
-    onSubmit: (values: any) => Promise<void>;
-    onDirtyChange?: (dirty: boolean) => void;
-    onValidChange?: (valid: boolean) => void;
-    edit?: boolean;
+export interface DashboardFormProps {
+    dashboard: DashboardDto;
+    disabled?: boolean;
+    onSubmit: (values: DashboardFormValues) => Promise<void>;
+    children?: ReactNode;
 }
 
-const DashboardForm = forwardRef<DashboardFormHandle, DashboardFormProps>(function DashboardForm(
-    {
-        deviceId,
-        initName,
-        initIcon,
-        initConfiguration,
-        onSubmit,
-        onDirtyChange,
-        onValidChange,
-        edit = false,
-    },
-    ref,
-) {
+const DashboardForm: FC<DashboardFormProps> = ({
+    dashboard,
+    disabled = false,
+    onSubmit,
+    children,
+}) => {
+    const { colors } = useTheme().current;
+    const [name, setName] = useState(dashboard.name);
+    const [icon, setIcon] = useState(dashboard.icon);
+    const [nameError, setNameError] = useState("");
+    const [feedback, setFeedback] = useState("");
     const [loading, setLoading] = useState(false);
-    const [name, setName] = useState<string>(initName ?? "");
-    const [nameError, setNameError] = useState<string>("");
-    const [icon, setIcon] = useState(initIcon ?? DefaultHomeIcon);
+    const saved = useRef({ name: dashboard.name.trim(), icon: dashboard.icon });
+    const pending = useRef(false);
+    const disabledRef = useRef(disabled);
+    disabledRef.current = disabled;
+    const active = useRef(true);
+    const nameInput = useRef<TextInput>(null);
+    const dirty = name.trim() !== saved.current.name || icon !== saved.current.icon;
+    const rows = dashboard.configuration?.rows;
+    const columns = dashboard.configuration?.columns;
+    const gridSize =
+        Number.isInteger(rows) && rows > 0 && Number.isInteger(columns) && columns > 0
+            ? `Rows: ${rows} · Columns: ${columns}`
+            : "Grid size unavailable.";
 
-    const [rows, setRows] = useState(initConfiguration?.rows ?? 6);
-    const [rowsError, setRowsError] = useState<string>("");
-    const [columns, setColumns] = useState(initConfiguration?.columns ?? 4);
-    const [columnsError, setColumnsError] = useState<string>("");
+    useFocusEffect(
+        useCallback(() => {
+            active.current = true;
+            return () => {
+                active.current = false;
+            };
+        }, []),
+    );
 
-    const isValid = name.length >= 3 && name.length <= 64;
-
-    const isDirty = name !== (initName ?? "") || icon !== (initIcon ?? DefaultHomeIcon) || !edit;
-
-    const validateForm = (): boolean => {
-        let valid: boolean = true;
-
-        if (name === "") {
-            valid = false;
-            setNameError("");
-        } else if (name.length > 64) {
-            valid = false;
-            setNameError("Name is too long.");
-        } else if (name.length < 3) {
-            valid = false;
-            setNameError("Name is too short.");
-        } else {
-            setNameError("");
-        }
-
-        if (rows < 1) {
-            valid = false;
-            setRowsError("Must be at least 1.");
-        } else if (rows > 10) {
-            valid = false;
-            setRowsError("Must be at most 10.");
-        } else {
-            setRowsError("");
-        }
-
-        if (columns < 1) {
-            valid = false;
-            setColumnsError("Must be at least 1.");
-        } else if (columns > 5) {
-            valid = false;
-            setColumnsError("Must be at most 5.");
-        } else {
-            setColumnsError("");
-        }
-
-        return valid;
-    };
-
-    const triggerSave = async () => {
-        if (loading) {
-            console.info("[DashboardForm] Form is processing");
+    const submit = async () => {
+        if (pending.current || disabledRef.current || !active.current || !dirty) return;
+        setFeedback("");
+        const trimmedName = name.trim();
+        if (!trimmedName || trimmedName.length < 3 || trimmedName.length > 64) {
+            setNameError(!trimmedName ? "Name is required." : "Use 3–64 characters.");
+            nameInput.current?.focus();
             return;
         }
 
-        if (!validateForm()) {
-            console.info("[DashboardForm] Form is invalid");
-            return;
-        }
+        const values: DashboardFormValues = {};
+        if (trimmedName !== saved.current.name) values.name = trimmedName;
+        if (icon !== saved.current.icon) values.icon = icon;
+        if (Object.keys(values).length === 0) return;
 
+        pending.current = true;
         setLoading(true);
-
-        const values: any = {};
-
-        if (name !== initName) {
-            values.name = name;
+        try {
+            await onSubmit(values);
+            saved.current = {
+                name: values.name ?? saved.current.name,
+                icon: values.icon ?? saved.current.icon,
+            };
+            setName(saved.current.name);
+            setIcon(saved.current.icon);
+            if (active.current) {
+                setFeedback("Dashboard saved.");
+                AccessibilityInfo?.announceForAccessibility?.("Dashboard saved.");
+            }
+        } catch {
+            if (active.current) setFeedback("Couldn't save this dashboard. Try again.");
+        } finally {
+            pending.current = false;
+            setLoading(false);
         }
-
-        if (icon !== initIcon) {
-            values.icon = icon;
-        }
-
-        if (!edit) {
-            values.deviceId = deviceId;
-            values.configuration = { rows, columns };
-        }
-
-        await onSubmit(values);
-
-        setLoading(false);
     };
-
-    const triggerReset = () => {
-        setName(initName ?? "");
-        setIcon(initIcon ?? DefaultHomeIcon);
-    };
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useImperativeHandle(ref, () => ({ isDirty, isValid, triggerSave, triggerReset }), [
-        isDirty,
-        isValid,
-        loading,
-        name,
-        icon,
-    ]);
-
-    useEffect(() => {
-        onDirtyChange?.(isDirty);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isDirty]);
-
-    useEffect(() => {
-        onValidChange?.(isValid);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isValid]);
-
-    useEffect(() => {
-        validateForm();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [name]);
 
     return (
-        <View style={styles.container}>
-            <View style={styles.displayContainer}>
-                <RoomTile name={name} id={""} disableClicks={true} />
-            </View>
-
-            <Divider style={{ paddingHorizontal: 15 }} />
-
-            <KeyboardAwareScrollView
-                bottomOffset={keyboardOffset}
-                style={styles.scrollContainer}
-                contentContainerStyle={{ paddingBottom: edit ? 80 : 16 }}>
+        <KeyboardAwareScrollView
+            bottomOffset={keyboardOffset}
+            keyboardShouldPersistTaps="handled"
+            style={styles.screen}
+            contentContainerStyle={styles.content}>
+            <FormSection
+                title="Dashboard details"
+                helper="Update the name and icon for this dashboard."
+                actions={
+                    <>
+                        {!!feedback && (
+                            <Alert
+                                icon={feedback === "Dashboard saved." ? Info : CircleAlert}
+                                variant={
+                                    feedback === "Dashboard saved." ? "default" : "destructive"
+                                }
+                                accessibilityRole="alert"
+                                accessibilityLiveRegion="polite">
+                                <AlertDescription>{feedback}</AlertDescription>
+                            </Alert>
+                        )}
+                        <Button
+                            name="Save changes"
+                            type="auth"
+                            loading={loading}
+                            disabled={disabled || loading || !dirty}
+                            onPress={submit}
+                        />
+                    </>
+                }>
                 <Input
-                    error={nameError}
-                    value={name}
                     title="Name"
-                    placeholder="Your home name"
-                    setValue={setName}
+                    placeholder="Living room controls"
+                    value={name}
+                    setValue={(value) => {
+                        if (pending.current || disabledRef.current) return;
+                        setName(value);
+                        setNameError("");
+                        setFeedback("");
+                    }}
+                    error={nameError}
+                    variant="auth"
+                    inputRef={nameInput}
+                    editable={!disabled}
+                    accessibilityState={{ busy: loading, disabled }}
+                    returnKeyType="done"
+                    submitBehavior="submit"
+                    onSubmitEditing={submit}
                 />
-
                 <IconSelector
-                    defaultIcon={DefaultHomeIcon}
-                    onIconSelected={setIcon}
+                    defaultIcon={icon}
                     iconList={DefaultIcons}
+                    disabled={disabled || loading}
+                    onIconSelected={(value) => {
+                        if (pending.current || disabledRef.current) return;
+                        setIcon(value);
+                        setFeedback("");
+                    }}
                 />
-
-                <View style={{ flexDirection: "row" }}>
-                    <View style={{ width: "50%", paddingRight: 8 }}>
-                        <Input
-                            error={rowsError}
-                            value={rows.toString()}
-                            title="Rows"
-                            placeholder="Number of rows"
-                            setValue={(value) => setRows(Number(value))}
-                            keyboardType="numeric"
-                            editable={!edit}
-                        />
-                    </View>
-
-                    <View style={{ width: "50%", paddingLeft: 8 }}>
-                        <Input
-                            error={columnsError}
-                            value={columns.toString()}
-                            title="Columns"
-                            placeholder="Number of columns"
-                            setValue={(value) => setColumns(Number(value))}
-                            keyboardType="numeric"
-                            editable={!edit}
-                        />
-                    </View>
+                <View style={styles.grid}>
+                    <Text
+                        accessibilityRole="header"
+                        style={[styles.gridTitle, { color: colors.authForeground }]}>
+                        Grid layout
+                    </Text>
+                    <Text style={[styles.gridValue, { color: colors.authForeground }]}>
+                        {gridSize}
+                    </Text>
+                    <Text style={[styles.gridHelper, { color: colors.authMuted }]}>
+                        Grid size is fixed after creation.
+                    </Text>
                 </View>
-            </KeyboardAwareScrollView>
-        </View>
+            </FormSection>
+            {children}
+        </KeyboardAwareScrollView>
     );
-});
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 0,
-        margin: 0,
-        marginTop: 0,
-    },
-    displayContainer: {
-        paddingHorizontal: 15,
-        paddingTop: 5,
-    },
-    scrollContainer: {
-        paddingHorizontal: 15,
-        margin: 0,
-    },
-});
+};
 
 export default DashboardForm;
+
+const styles = StyleSheet.create({
+    screen: { flex: 1 },
+    content: {
+        flexGrow: 1,
+        width: "100%",
+        maxWidth: 448,
+        alignSelf: "center",
+        paddingHorizontal: 16,
+        paddingTop: 24,
+        paddingBottom: 16,
+    },
+    grid: { gap: 4 },
+    gridTitle: { fontSize: 16, lineHeight: 24, fontWeight: "600" },
+    gridValue: { fontSize: 16, lineHeight: 24, fontWeight: "500" },
+    gridHelper: { fontSize: 14, lineHeight: 20 },
+});

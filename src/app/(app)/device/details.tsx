@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Device, useDeviceList } from "@/contexts/custom/DeviceListProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useToast } from "@/contexts/ToastProvider";
+import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
@@ -17,7 +18,16 @@ function Details() {
     const toast = useToast();
     const router = useRouter();
     const httpClient = useHttpClient();
-    const { deviceId } = useLocalSearchParams();
+    const { deviceId: deviceParam } = useLocalSearchParams<{ deviceId?: string | string[] }>();
+    const requestedDeviceId = Array.isArray(deviceParam) ? deviceParam[0] : deviceParam;
+    const deviceId =
+        typeof requestedDeviceId === "string" && requestedDeviceId.trim()
+            ? requestedDeviceId
+            : undefined;
+    const home = useHomes();
+    const canManage = home.current?.isOwner === true || home.current?.canManage === true;
+    const canManageRef = useRef(canManage);
+    canManageRef.current = canManage;
     const formRef = useRef<DeviceFormRef>(null);
     const pending = useRef(false);
     const active = useRef(true);
@@ -33,7 +43,7 @@ function Details() {
     const devices = useDeviceList();
 
     const editClicked = async (values: any): Promise<boolean> => {
-        if (pending.current || !active.current) return false;
+        if (pending.current || !active.current || !canManageRef.current || !deviceId) return false;
         pending.current = true;
         setMutationPending(true);
         try {
@@ -65,7 +75,7 @@ function Details() {
     };
 
     const deleteDevice = async () => {
-        if (pending.current || !active.current) return;
+        if (pending.current || !active.current || !canManageRef.current || !deviceId) return;
         pending.current = true;
         setMutationPending(true);
         try {
@@ -97,11 +107,13 @@ function Details() {
         }, []),
     );
 
-    const requestedDeviceId = Array.isArray(deviceId) ? deviceId[0] : deviceId;
-
     useEffect(() => {
         let current = true;
         const load = async () => {
+            if (!deviceId || home.loading || !canManageRef.current) {
+                if (!home.loading) setLoading(false);
+                return;
+            }
             setLoading(true);
             try {
                 const response = await httpClient.get(`v1/devices/${deviceId}`);
@@ -124,8 +136,45 @@ function Details() {
         };
         // Load when route id changes; the HTTP hook changes identity on renders.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [deviceId, loadAttempt]);
+    }, [deviceId, loadAttempt, home.loading, canManage]);
 
+    if (home.loading) return <Loading />;
+    if (!canManage) {
+        return (
+            <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 16 }}>
+                <Alert icon={CircleAlert} variant="destructive" accessibilityRole="alert">
+                    <AlertDescription>
+                        You don't have permission to manage this device.
+                    </AlertDescription>
+                </Alert>
+                <Button
+                    name="Return to device"
+                    type="auth"
+                    loading={false}
+                    onPress={() =>
+                        deviceId
+                            ? router.replace({ pathname: "/device/device", params: { deviceId } })
+                            : router.replace("/")
+                    }
+                />
+            </View>
+        );
+    }
+    if (!deviceId) {
+        return (
+            <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 16 }}>
+                <Alert icon={CircleAlert} variant="destructive" accessibilityRole="alert">
+                    <AlertDescription>Device not found.</AlertDescription>
+                </Alert>
+                <Button
+                    name="Return to home"
+                    type="auth"
+                    loading={false}
+                    onPress={() => router.replace("/")}
+                />
+            </View>
+        );
+    }
     if (loading) return <Loading />;
     if (!device || loadedDeviceId !== requestedDeviceId) {
         if (failedDeviceId !== requestedDeviceId) return <Loading />;
@@ -184,11 +233,17 @@ function Details() {
                         title="Manage operations and widgets"
                         description="Configure device functions and dashboard controls."
                         onPress={() => {
-                            if (pending.current || hasChanges || openingManagement.current) return;
+                            if (
+                                !canManageRef.current ||
+                                pending.current ||
+                                hasChanges ||
+                                openingManagement.current
+                            )
+                                return;
                             openingManagement.current = true;
                             router.push({ pathname: "device/widget/list" });
                         }}
-                        disabled={mutationPending || hasChanges}
+                        disabled={!canManage || mutationPending || hasChanges}
                     />
                 </ContentSection>
                 <ContentSection title="Delete device" separated>
@@ -196,8 +251,10 @@ function Details() {
                         name="Delete device"
                         type="brand-destructive"
                         loading={false}
-                        disabled={mutationPending || hasChanges}
-                        onPress={() => setShowDeleteDialog(true)}
+                        disabled={!canManage || mutationPending || hasChanges}
+                        onPress={() => {
+                            if (canManageRef.current) setShowDeleteDialog(true);
+                        }}
                     />
                 </ContentSection>
             </DeviceForm>

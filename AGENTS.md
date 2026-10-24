@@ -44,6 +44,8 @@ Data-source creation uses one keyboard-aware page with inline feedback; see the 
 Broker client start uses one keyboard-aware `FormSection`, local credential restoration, inline feedback and accepted-once return navigation; see the [mobile UI design policy](docs/agent-guide/interface.md).
 Broker subscription creation uses one keyboard-aware `FormSection`, topic validation, inline feedback and accepted-once return navigation; see the [mobile UI design policy](docs/agent-guide/interface.md).
 Dashboard creation uses one keyboard-aware `FormSection`, preserved icon keys, strict string grid bounds and accepted-once return; see the [mobile UI design policy](docs/agent-guide/interface.md).
+Dashboard details use a keyboard-aware edit form, read-only grid details, partial saves, confirmed deletion and the existing searchable icon picker; see the [mobile UI design policy](docs/agent-guide/interface.md).
+Device dashboards keep viewing and live widget controls available to all home roles; only owners/managers add, edit, place or unlink widgets. Bind reads, placement and unlink to the routed device/dashboard, and keep command failures inline with their controls; see the [mobile UI design policy](docs/agent-guide/interface.md).
 Home location uses a native MapLibre picker with OpenStreetMap. See [Tooling](docs/agent-guide/tooling.md) for its development-client rebuild requirement.
 Profile settings use one native scroll, immediate Light/Dark/System theme selection, read-only English, inline recovery, and a confirmed native account-deletion dialog; see the [mobile UI design policy](docs/agent-guide/interface.md).
 
