@@ -1,10 +1,9 @@
-import ConfirmDialog from "@/components/common/ConfirmDialog";
-import React, { FC, useState } from "react";
-import { View } from "react-native";
-import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useToast } from "@/contexts/ToastProvider";
-import { useDevice } from "@/contexts/custom/DeviceProvider";
-import { CalculatedWidget, PositionedWidget } from "../dashboards/DashboardView";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useWidgetAction } from "@/hooks/useWidgetAction";
+import { CircleAlert } from "lucide-react-native";
+import React, { FC, useCallback, useEffect, useState } from "react";
+import { LayoutChangeEvent, View } from "react-native";
+import type { CalculatedWidget, PositionedWidget } from "../dashboards/DashboardView";
 import DisplayWidget from "./widgets/DisplayWidgets";
 import ButtonWidget from "./widgets/ButtonWidget";
 import InvalidWidget from "./widgets/InvalidWidget";
@@ -20,16 +19,30 @@ interface WidgetViewProps {
     itemHeight: number;
     gap: number;
     disabled?: boolean;
+    onRemove?: () => void;
+    onFeedbackHeightChange?: (height: number) => void;
 }
+
+type WidgetActionValue = string | number | boolean;
 
 const RenderInternalWidget: FC<{
     positionedWidget: PositionedWidget;
     widget: CalculatedWidget;
-    actions: () => void;
+    actions?: () => void;
+    onAction: (value: WidgetActionValue) => Promise<boolean>;
+    pending: boolean;
     disabled: boolean;
-}> = ({ positionedWidget, widget, actions, disabled }) => {
+}> = ({ positionedWidget, widget, actions, onAction, pending, disabled }) => {
     if (widget.type === "Button") {
-        return <ButtonWidget widget={widget} operations={actions} disabled={disabled} />;
+        return (
+            <ButtonWidget
+                widget={widget}
+                operations={actions}
+                disabled={disabled}
+                pending={pending}
+                onAction={onAction}
+            />
+        );
     }
 
     if (widget.type === "Display") {
@@ -37,15 +50,39 @@ const RenderInternalWidget: FC<{
     }
 
     if (widget.type === "Switch") {
-        return <SwitchWidget operations={actions} widget={widget} disabled={disabled} />;
+        return (
+            <SwitchWidget
+                operations={actions}
+                widget={widget}
+                disabled={disabled}
+                pending={pending}
+                onAction={onAction}
+            />
+        );
     }
 
     if (widget.type === "Slider") {
-        return <SliderWidget widget={widget} operations={actions} disabled={disabled} />;
+        return (
+            <SliderWidget
+                widget={widget}
+                operations={actions}
+                disabled={disabled}
+                pending={pending}
+                onAction={onAction}
+            />
+        );
     }
 
     if (widget.type === "Color") {
-        return <ColorWidget widget={widget} operations={actions} disabled={disabled} />;
+        return (
+            <ColorWidget
+                widget={widget}
+                operations={actions}
+                disabled={disabled}
+                pending={pending}
+                onAction={onAction}
+            />
+        );
     }
 
     if (widget.type === "Radio") {
@@ -55,6 +92,8 @@ const RenderInternalWidget: FC<{
                 widget={widget}
                 operations={actions}
                 disabled={disabled}
+                pending={pending}
+                onAction={onAction}
             />
         );
     }
@@ -62,76 +101,76 @@ const RenderInternalWidget: FC<{
     return <InvalidWidget operations={actions} widget={widget} disabled={disabled} />;
 };
 
-export default function WidgetView({
+const WidgetView: FC<WidgetViewProps> = ({
     calculatedWidget,
     positionedWidget,
     itemHeight,
     itemWidth,
     gap,
     disabled = false,
-}: WidgetViewProps) {
-    const toast = useToast();
-    const httpClient = useHttpClient();
-    const device = useDevice();
-    const [showUnlinkDialog, setShowUnlinkDialog] = useState(false);
+    onRemove,
+    onFeedbackHeightChange,
+}) => {
+    const action = useWidgetAction({ widgetId: calculatedWidget.id, disabled });
+    const [feedbackHeight, setFeedbackHeight] = useState(0);
+    const width = itemWidth * positionedWidget.columnSpan + gap * (positionedWidget.columnSpan - 1);
+    const height = itemHeight * positionedWidget.rowSpan + gap * (positionedWidget.rowSpan - 1);
+    const controlHeight = Math.max(48, height - (action.error ? feedbackHeight : 0));
 
-    const unlinkWidgetFromDashboardRequest = async () => {
-        try {
-            const result = await httpClient.delete(
-                `v1/devices/dashboards/${device.currentDashboardId}/widgets/${calculatedWidget.id}`,
-            );
+    const onFeedbackLayout = useCallback(
+        (event: LayoutChangeEvent) => {
+            const nextHeight = Math.ceil(event.nativeEvent.layout.height + 12);
+            setFeedbackHeight(nextHeight);
+            onFeedbackHeightChange?.(nextHeight);
+        },
+        [onFeedbackHeightChange],
+    );
 
-            if (result.isSuccess) {
-                toast.success("Widget removed successfully");
-                device.refresh(true);
-            } else {
-                toast.httpError(result);
-            }
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to remove widget");
+    useEffect(() => {
+        if (!action.error) {
+            setFeedbackHeight(0);
+            onFeedbackHeightChange?.(0);
         }
-    };
-
-    const actions = () => {
-        setShowUnlinkDialog(true);
-    };
+    }, [action.error, onFeedbackHeightChange]);
 
     return (
-        <>
-            <ConfirmDialog
-                visible={showUnlinkDialog}
-                title="Remove from Dashboard"
-                content="The widget will be removed from this dashboard. The widget definition stays intact."
-                confirmLabel="Remove"
-                onConfirm={() => {
-                    setShowUnlinkDialog(false);
-                    unlinkWidgetFromDashboardRequest();
-                }}
-                onCancel={() => setShowUnlinkDialog(false)}
-            />
-            <View
-                style={{
-                    position: "absolute",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    borderRadius: 8,
-                    width:
-                        itemWidth * positionedWidget.columnSpan +
-                        gap * (positionedWidget.columnSpan - 1),
-                    height:
-                        itemHeight * positionedWidget.rowSpan +
-                        gap * (positionedWidget.rowSpan - 1),
-                    left: positionedWidget.column * (itemWidth + gap),
-                    top: positionedWidget.row * (itemHeight + gap),
-                }}>
+        <View
+            style={{
+                position: "absolute",
+                width,
+                height,
+                left: positionedWidget.column * (itemWidth + gap),
+                top: positionedWidget.row * (itemHeight + gap),
+            }}>
+            <View style={{ width: "100%", height: controlHeight, justifyContent: "center" }}>
                 <RenderInternalWidget
                     widget={calculatedWidget}
                     positionedWidget={positionedWidget}
-                    actions={actions}
+                    actions={onRemove}
+                    onAction={action.send}
+                    pending={action.pending}
                     disabled={disabled}
                 />
             </View>
-        </>
+            {!!action.error && (
+                <View
+                    onLayout={onFeedbackLayout}
+                    style={{
+                        marginTop: 12,
+                        paddingHorizontal: calculatedWidget.type === "Slider" ? 12 : 0,
+                    }}>
+                    <Alert
+                        icon={CircleAlert}
+                        compact
+                        variant="destructive"
+                        accessibilityRole="alert"
+                        accessibilityLiveRegion="polite">
+                        <AlertDescription compact>{action.error}</AlertDescription>
+                    </Alert>
+                </View>
+            )}
+        </View>
     );
-}
+};
+
+export default WidgetView;

@@ -1,0 +1,473 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { mountNativeComponent } from "./nativeComponentHarness.mjs";
+
+// These tests cover the widget command hook and handlers only. View QA runs on Android.
+function mountAction({ widgetId = "widget-a", disabled = false, results = [] } = {}) {
+    const requests = [];
+    let focusEffect;
+    let blur;
+    const httpClient = {
+        post: (path, body) => {
+            requests.push([path, body]);
+            return results.shift() ?? Promise.resolve({ isSuccess: true });
+        },
+    };
+    const component = mountNativeComponent("src/hooks/useWidgetAction.ts", {
+        props: { widgetId, disabled },
+        exportName: "useWidgetAction",
+        modules: {
+            "expo-router": { useFocusEffect: (callback) => (focusEffect = callback) },
+            "@/contexts/HttpClientProvider": { useHttpClient: () => httpClient },
+        },
+    });
+    return {
+        component,
+        requests,
+        action: () => component.output(),
+        focus: () => {
+            blur = focusEffect?.();
+        },
+        blur: () => blur?.(),
+    };
+}
+
+test("widget action preserves the exact command values and endpoint", async () => {
+    for (const value of ["", true, "eco.mode", "#12aBcD", 42.5]) {
+        const mounted = mountAction();
+        mounted.focus();
+
+        assert.equal(await mounted.action().send(value), true);
+        assert.deepEqual(JSON.parse(JSON.stringify(mounted.requests)), [
+            [`v1/devices/widgets/widget-a/action`, { value }],
+        ]);
+    }
+});
+
+test("widget action synchronously blocks duplicates and disabled controls", async () => {
+    let resolve;
+    const mounted = mountAction({
+        results: [new Promise((done) => (resolve = done))],
+    });
+    mounted.focus();
+    const first = mounted.action().send(1);
+    assert.equal(await mounted.action().send(2), false);
+    assert.equal(mounted.requests.length, 1);
+    resolve({ isSuccess: true });
+    assert.equal(await first, true);
+
+    const disabled = mountAction({ disabled: true });
+    disabled.focus();
+    assert.equal(await disabled.action().send(true), false);
+    assert.deepEqual(disabled.requests, []);
+});
+
+test("failed and thrown widget commands keep one inline retry path and release the lock", async () => {
+    const mounted = mountAction({
+        results: [
+            Promise.resolve({ isSuccess: false }),
+            Promise.reject(new Error("offline")),
+            Promise.resolve({ isSuccess: true }),
+        ],
+    });
+    mounted.focus();
+
+    assert.equal(await mounted.action().send(false), false);
+    mounted.component.render();
+    assert.equal(mounted.action().error, "Couldn't control this widget. Try again.");
+    assert.equal(mounted.action().pending, false);
+
+    assert.equal(await mounted.action().send("on"), false);
+    mounted.component.render();
+    assert.equal(mounted.action().error, "Couldn't control this widget. Try again.");
+    assert.equal(await mounted.action().send("on"), true);
+    assert.equal(mounted.requests.length, 3);
+});
+
+test("blur and widget identity changes suppress stale command results", async () => {
+    let resolve;
+    const mounted = mountAction({
+        results: [new Promise((done) => (resolve = done)), Promise.resolve({ isSuccess: true })],
+    });
+    mounted.focus();
+    const stale = mounted.action().send(1);
+    mounted.blur();
+    resolve({ isSuccess: false });
+    assert.equal(await stale, false);
+    mounted.component.render();
+    assert.equal(mounted.action().error, "");
+
+    mounted.component.render({ widgetId: "widget-b", disabled: false });
+    mounted.component.flushEffects();
+    mounted.focus();
+    assert.equal(await mounted.action().send(2), true);
+    assert.equal(mounted.requests[1][0], "v1/devices/widgets/widget-b/action");
+});
+
+test("changing widgets releases only the old action lock", async () => {
+    let resolveOld;
+    let resolveCurrent;
+    const mounted = mountAction({
+        results: [
+            new Promise((done) => (resolveOld = done)),
+            new Promise((done) => (resolveCurrent = done)),
+        ],
+    });
+    mounted.focus();
+    const oldAction = mounted.action().send(true);
+    mounted.component.render({ widgetId: "widget-b", disabled: false });
+    mounted.component.flushEffects();
+    const currentAction = mounted.action().send(false);
+    assert.equal(mounted.action().pending, true);
+
+    resolveOld({ isSuccess: false });
+    assert.equal(await oldAction, false);
+    assert.equal(mounted.action().pending, true);
+    resolveCurrent({ isSuccess: true });
+    assert.equal(await currentAction, true);
+    mounted.component.render();
+    assert.equal(mounted.action().pending, false);
+    assert.equal(mounted.requests.length, 2);
+});
+
+const widget = (type, configuration = {}) => ({
+    id: "widget-a",
+    name: "Test widget",
+    type,
+    configuration,
+    updatedAtUtc: "",
+    createdAtUtc: "",
+});
+
+const positionedWidget = { widgetId: "widget-a", row: 0, column: 0, rowSpan: 1, columnSpan: 1 };
+
+const commonModules = {
+    "@/contexts/ThemeProvider": {
+        useTheme: () => ({ current: { colors: {} } }),
+    },
+    "@/styles/shadowStyles": { shadowStyles: { default: {} } },
+    "@/components/common/Text": "Text",
+    "@/components/common/Icon": "Icon",
+    "@/components/common/Loading": "Loading",
+};
+
+const findElement = (component, predicate) => component.elements().find(predicate);
+const settleHandler = async () => {
+    for (let index = 0; index < 8; index++) await Promise.resolve();
+};
+const pressableWithLabel = (component, label) =>
+    findElement(
+        component,
+        (element) => element.type === "Pressable" && element.props.accessibilityLabel === label,
+    );
+
+test("button and switch handlers preserve their command value types", async () => {
+    const buttonActions = [];
+    const button = mountNativeComponent("src/components/device/widgets/widgets/ButtonWidget.tsx", {
+        props: {
+            widget: widget("Button"),
+            disabled: false,
+            pending: false,
+            onAction: async (value) => (buttonActions.push(value), true),
+        },
+        modules: commonModules,
+    });
+    pressableWithLabel(button, "Test widget").props.onPress();
+    assert.deepEqual(buttonActions, [""]);
+
+    const switchActions = [];
+    const switchWidget = mountNativeComponent(
+        "src/components/device/widgets/widgets/SwitchWidget.tsx",
+        {
+            props: {
+                widget: widget("Switch", { runtime: { value: false } }),
+                disabled: false,
+                pending: false,
+                onAction: async (value) => (switchActions.push(value), true),
+            },
+            modules: commonModules,
+        },
+    );
+    pressableWithLabel(switchWidget, "Test widget").props.onPress();
+    await settleHandler();
+    assert.deepEqual(switchActions, [true]);
+    switchWidget.render();
+    assert.equal(
+        pressableWithLabel(switchWidget, "Test widget").props.accessibilityState.checked,
+        true,
+    );
+});
+
+test("slider and radio handlers send the configured primitive values", async () => {
+    const sliderActions = [];
+    const sliderProps = {
+        widget: widget("Slider", {
+            range: { min: 0, max: 100 },
+            step: 5,
+            runtime: { value: 20 },
+        }),
+        disabled: false,
+        pending: false,
+        onAction: async (value) => (sliderActions.push(value), true),
+    };
+    const slider = mountNativeComponent("src/components/device/widgets/widgets/SliderWidget.tsx", {
+        props: sliderProps,
+        modules: {
+            ...commonModules,
+            "@/components/common/Slider": "Slider",
+        },
+    });
+    findElement(slider, (element) => element.type === "Slider").props.onValueSlided(35);
+    await settleHandler();
+    assert.deepEqual(sliderActions, [35]);
+    slider.render();
+    assert.ok(pressableWithLabel(slider, "Test widget, 35"));
+    assert.equal(
+        findElement(slider, (element) => element.type === "Slider").props.initialValue,
+        35,
+        "the accepted value must remain the Slider's source when pending clears",
+    );
+    assert.equal(findElement(slider, (element) => element.type === "Slider").props.value, 35);
+    slider.render({ ...sliderProps, pending: true });
+    assert.equal(
+        findElement(slider, (element) => element.type === "Slider").props.initialValue,
+        35,
+        "pending must not reset the native track behind its accepted readout",
+    );
+    assert.equal(findElement(slider, (element) => element.type === "Slider").props.value, 35);
+    slider.render(sliderProps);
+    assert.equal(
+        findElement(slider, (element) => element.type === "Slider").props.initialValue,
+        35,
+    );
+    findElement(slider, (element) => element.type === "Slider").props.onValueSlided(20);
+    await settleHandler();
+    slider.render();
+    assert.deepEqual(sliderActions, [35, 20]);
+    assert.equal(
+        findElement(slider, (element) => element.type === "Slider").props.initialValue,
+        20,
+    );
+    assert.equal(findElement(slider, (element) => element.type === "Slider").props.value, 20);
+
+    const radioActions = [];
+    const option = { optionName: "eco.mode", displayName: "Eco", icon: "leaf" };
+    const radio = mountNativeComponent("src/components/device/widgets/widgets/RadioWidget.tsx", {
+        props: {
+            widget: widget("Radio", { options: [option], runtime: { value: "normal" } }),
+            positionedWidget,
+            disabled: false,
+            pending: false,
+            onAction: async (value) => (radioActions.push(value), true),
+        },
+        modules: {
+            ...commonModules,
+            "react-native-gesture-handler": { ScrollView: "GestureScrollView" },
+        },
+    });
+    const container = findElement(
+        radio,
+        (element) => element.type === "View" && element.props.onLayout,
+    );
+    container.props.onLayout({ nativeEvent: { layout: { width: 160, height: 96 } } });
+    radio.render();
+    const optionView = findElement(radio, (element) => element.type?.name === "RadioDisplayOption");
+    optionView.props.onPress(option);
+    await settleHandler();
+    assert.deepEqual(radioActions, ["eco.mode"]);
+    radio.render();
+    assert.equal(
+        findElement(radio, (element) => element.type?.name === "RadioDisplayOption").props
+            .isSelected,
+        true,
+    );
+});
+
+test("color handlers keep the exact hex value and dashboard unlink uses the native action", async () => {
+    const colorActions = [];
+    const color = mountNativeComponent("src/components/device/widgets/widgets/ColorWidget.tsx", {
+        props: {
+            widget: widget("Color", { runtime: { value: "#000000" } }),
+            disabled: false,
+            pending: false,
+            onAction: async (value) => (colorActions.push(value), true),
+        },
+        modules: {
+            ...commonModules,
+            "reanimated-color-picker": {
+                __esModule: true,
+                default: "ColorPicker",
+                HueCircular: "HueCircular",
+                Panel1: "Panel1",
+                Preview: "Preview",
+            },
+        },
+    });
+    const colorContainer = findElement(
+        color,
+        (element) => element.type === "Pressable" && element.props.onLayout,
+    );
+    colorContainer.props.onLayout({ nativeEvent: { layout: { width: 160, height: 160 } } });
+    color.render();
+    findElement(color, (element) => element.type === "ColorPicker").props.onCompleteJS({
+        hex: "#Ab12Ef",
+    });
+    await settleHandler();
+    assert.deepEqual(colorActions, ["#Ab12Ef"]);
+    color.render();
+    assert.equal(
+        findElement(color, (element) => element.type === "ColorPicker").props.value,
+        "#Ab12Ef",
+    );
+
+    let removed = 0;
+    const button = mountNativeComponent("src/components/device/widgets/widgets/ButtonWidget.tsx", {
+        props: {
+            widget: widget("Button"),
+            disabled: false,
+            pending: false,
+            onAction: async () => true,
+            operations: () => removed++,
+        },
+        modules: commonModules,
+    });
+    pressableWithLabel(button, "Test widget").props.onAccessibilityAction({
+        nativeEvent: { actionName: "longpress" },
+    });
+    assert.equal(removed, 1);
+});
+
+test("a rejected slider action restores a newer reported value received while pending", async () => {
+    const actions = [];
+    let resolveCommand;
+    let commandResponse = Promise.resolve(true);
+    const props = {
+        widget: widget("Slider", {
+            range: { min: 0, max: 100 },
+            step: 5,
+            runtime: { value: 20 },
+        }),
+        disabled: false,
+        pending: false,
+        onAction: (value) => (actions.push(value), commandResponse),
+    };
+    const slider = mountNativeComponent("src/components/device/widgets/widgets/SliderWidget.tsx", {
+        props,
+        modules: {
+            ...commonModules,
+            "@/components/common/Slider": "Slider",
+        },
+    });
+    slider.flushEffects();
+
+    commandResponse = new Promise((resolve) => (resolveCommand = resolve));
+    const submit = findElement(slider, (element) => element.type === "Slider").props.onValueSlided;
+    const pendingAction = submit(35);
+    const reportedProps = {
+        ...props,
+        widget: widget("Slider", {
+            range: { min: 0, max: 100 },
+            step: 5,
+            runtime: { value: 50 },
+        }),
+        pending: true,
+    };
+    slider.render(reportedProps);
+    slider.flushEffects();
+    slider.render(reportedProps);
+    resolveCommand(false);
+    await pendingAction;
+    slider.render(reportedProps);
+
+    assert.deepEqual(actions, [35]);
+    const control = findElement(slider, (element) => element.type === "Slider");
+    assert.equal(control.props.initialValue, 50);
+    assert.equal(control.props.value, 50);
+    assert.ok(pressableWithLabel(slider, "Test widget, 50"));
+});
+
+test("Display is read-only and InvalidWidget exposes only manager unlink", () => {
+    const display = mountNativeComponent(
+        "src/components/device/widgets/widgets/DisplayWidgets.tsx",
+        {
+            props: {
+                widget: widget("Display", { runtime: { value: "21", unit: "°C" } }),
+                disabled: false,
+            },
+            modules: commonModules,
+        },
+    );
+    const displayControl = findElement(display, (element) => element.type === "Pressable");
+    assert.equal(displayControl.props.accessibilityRole, "text");
+    assert.equal(displayControl.props.onPress, undefined);
+    assert.equal(displayControl.props.accessibilityActions, undefined);
+
+    let removals = 0;
+    const invalid = mountNativeComponent(
+        "src/components/device/widgets/widgets/InvalidWidget.tsx",
+        {
+            props: {
+                widget: widget("Invalid"),
+                disabled: false,
+                operations: () => removals++,
+            },
+            modules: commonModules,
+        },
+    );
+    const invalidControl = findElement(invalid, (element) => element.type === "Pressable");
+    assert.equal(
+        invalidControl.props.accessibilityActions[0].label,
+        "Remove widget from dashboard",
+    );
+    invalidControl.props.onAccessibilityAction({ nativeEvent: { actionName: "longpress" } });
+    assert.equal(removals, 1);
+});
+
+test("WidgetView exposes failed commands as compact inline feedback and reports measured space", async () => {
+    let focusEffect;
+    const measurements = [];
+    const view = mountNativeComponent("src/components/device/widgets/WidgetView.tsx", {
+        props: {
+            calculatedWidget: widget("Button"),
+            positionedWidget,
+            itemWidth: 96,
+            itemHeight: 96,
+            gap: 8,
+            disabled: false,
+            onFeedbackHeightChange: (height) => measurements.push(height),
+        },
+        modules: {
+            "expo-router": { useFocusEffect: (callback) => (focusEffect = callback) },
+            "@/contexts/HttpClientProvider": {
+                useHttpClient: () => ({ post: async () => ({ isSuccess: false }) }),
+            },
+            "@/components/ui/alert": { Alert: "Alert", AlertDescription: "AlertDescription" },
+            "lucide-react-native": { CircleAlert: "CircleAlert" },
+            "./widgets/ButtonWidget": "ButtonWidget",
+            "./widgets/DisplayWidgets": "DisplayWidget",
+            "./widgets/InvalidWidget": "InvalidWidget",
+            "./widgets/SwitchWidget": "SwitchWidget",
+            "./widgets/SliderWidget": "SliderWidget",
+            "./widgets/ColorWidget": "ColorWidget",
+            "./widgets/RadioWidget": "RadioWidget",
+        },
+    });
+    focusEffect?.();
+    view.flushEffects();
+    const renderer = findElement(view, (element) => element.type?.name === "RenderInternalWidget");
+    const control = renderer.type(renderer.props);
+    assert.equal(await control.props.onAction(""), false);
+    view.render();
+    const alert = findElement(view, (element) => element.type === "Alert");
+    const description = findElement(view, (element) => element.type === "AlertDescription");
+    assert.equal(alert.props.compact, true);
+    assert.equal(alert.props.accessibilityRole, "alert");
+    assert.ok(JSON.stringify(description.props.children).includes("Couldn't control this widget."));
+
+    const feedback = findElement(
+        view,
+        (element) => element.type === "View" && typeof element.props.onLayout === "function",
+    );
+    feedback.props.onLayout({ nativeEvent: { layout: { height: 28 } } });
+    assert.deepEqual(measurements, [0, 40]);
+});

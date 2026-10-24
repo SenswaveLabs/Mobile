@@ -1,79 +1,55 @@
-import React, { useEffect, useState } from "react";
-import { CalculatedWidget } from "../../dashboards/DashboardView";
-import { LayoutChangeEvent, Modal, Pressable, View } from "react-native";
 import Text from "@/components/common/Text";
+import { useTheme } from "@/contexts/ThemeProvider";
+import { shadowStyles } from "@/styles/shadowStyles";
+import { widgetRemovalAccessibility } from "../widgetAccessibility";
+import type { CalculatedWidget } from "../../dashboards/DashboardView";
 import ColorPicker, {
-    ColorFormatsObject,
+    type ColorFormatsObject,
     HueCircular,
     Panel1,
     Preview,
 } from "reanimated-color-picker";
-import { shadowStyles } from "@/styles/shadowStyles";
-import { useToast } from "@/contexts/ToastProvider";
-import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useTheme } from "@/contexts/ThemeProvider";
+import React, { FC, useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    LayoutChangeEvent,
+    Modal,
+    Pressable,
+    StyleSheet,
+    View,
+} from "react-native";
 
 interface ColorWidgetProps {
-    operations: () => void;
+    operations?: () => void;
     widget: CalculatedWidget;
     disabled: boolean;
+    pending: boolean;
+    onAction: (value: string | number | boolean) => Promise<boolean>;
 }
 
-const ColorWidget: React.FC<ColorWidgetProps> = ({ widget, operations, disabled }) => {
+const ColorWidget: FC<ColorWidgetProps> = ({ widget, operations, disabled, pending, onAction }) => {
     const theme = useTheme();
-    const toast = useToast();
-    const httpClient = useHttpClient();
-
     const [showModal, setShowModal] = useState(false);
-
-    const [height, setHeight] = useState<number>(0);
-    const [width, setWidth] = useState<number>(0);
-
-    const [color, setColor] = useState<string>(widget.configuration?.runtime?.value ?? "#000000");
-    const [tempColor, setTempColor] = useState<string>(
-        widget.configuration?.runtime?.value ?? "#000000",
-    );
-
-    const [loading, setLoading] = useState<boolean>(false);
+    const [height, setHeight] = useState(0);
+    const [width, setWidth] = useState(0);
+    const reportedColor = widget.configuration?.runtime?.value ?? "#000000";
+    const [color, setColor] = useState<string>(reportedColor);
+    const [tempColor, setTempColor] = useState<string>(reportedColor);
+    const isDisabled = disabled || pending;
 
     useEffect(() => {
-        const updatedColor = widget.configuration?.runtime?.value ?? "#000000";
-        if (updatedColor !== color) {
-            setColor(updatedColor);
-            setTempColor(updatedColor);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [widget.configuration?.runtime?.value]);
+        setColor(reportedColor);
+        setTempColor(reportedColor);
+    }, [widget.id, reportedColor]);
 
     const setColorValue = async (newColor: ColorFormatsObject) => {
-        if (loading) {
-            console.warn("[Button Widget] Action already in progress.");
-            return;
-        }
-
-        if (disabled) {
-            console.warn("[Color Widget] Widget is disabled.");
-            return;
-        }
-
-        setLoading(true);
-
-        const result = await httpClient.post(`v1/devices/widgets/${widget.id}/action`, {
-            value: newColor.hex,
-        });
-
-        if (result.isSuccess) {
-            console.info("[Button Widget] Action sent successfully.");
+        if (isDisabled) return;
+        const accepted = await onAction(newColor.hex);
+        if (accepted) {
             setColor(newColor.hex);
-        } else {
-            toast.httpError(result);
+            setTempColor(newColor.hex);
         }
-
-        setLoading(false);
-
-        if (showModal) {
-            setShowModal(false);
-        }
+        if (showModal) setShowModal(false);
     };
 
     const onLayout = (event: LayoutChangeEvent) => {
@@ -82,79 +58,65 @@ const ColorWidget: React.FC<ColorWidgetProps> = ({ widget, operations, disabled 
         setHeight(height);
     };
 
-    const onPickPress = () => {
-        if (disabled) {
-            console.warn("[Color Widget] Widget is disabled.");
-            return;
-        }
-
+    const openPicker = () => {
+        if (isDisabled) return;
         setShowModal(true);
     };
 
     return (
         <Pressable
+            accessibilityRole={operations ? "button" : undefined}
+            accessibilityLabel={widget.name}
+            accessibilityState={{ disabled: isDisabled, busy: pending }}
+            {...widgetRemovalAccessibility(operations)}
             onLongPress={operations}
             onLayout={onLayout}
-            style={{
-                width: "100%",
-                height: "100%",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-            }}>
+            style={styles.container}>
             {(height < 140 || width < 140) && (
                 <Pressable
-                    onPress={onPickPress}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Choose color for ${widget.name}`}
+                    accessibilityState={{ disabled: isDisabled, busy: pending }}
+                    {...widgetRemovalAccessibility(operations)}
+                    disabled={isDisabled}
+                    onPress={openPicker}
                     onLongPress={operations}
-                    style={{
-                        width: "100%",
-                        height: "100%",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: color,
-                        borderRadius: 8,
-                        ...shadowStyles.default,
-                    }}>
-                    <Text size={"medium"} color={"contrast"} contrastingColor={color}>
-                        {color}
-                    </Text>
+                    style={[
+                        styles.colorButton,
+                        { backgroundColor: color, ...shadowStyles.default },
+                    ]}>
+                    {pending ? (
+                        <ActivityIndicator color={theme.current.colors.authForeground} />
+                    ) : (
+                        <Text size="medium" color="contrast" contrastingColor={color}>
+                            {color}
+                        </Text>
+                    )}
                 </Pressable>
             )}
 
-            {height >= 140 && width >= 140 && disabled && (
-                <View style={{ alignContent: "center", justifyContent: "center" }}>
-                    <Text size={"medium"} color={"complementary"}>
+            {height >= 140 && width >= 140 && isDisabled && (
+                <View style={styles.largeDisabled}>
+                    {pending && <ActivityIndicator color={theme.current.colors.authForeground} />}
+                    <Text size="medium" color="complementary">
                         {widget.name}
                     </Text>
                 </View>
             )}
 
-            {height >= 140 && width >= 140 && !disabled && (
-                <View
-                    style={{
-                        width: "100%",
-                        height: "100%",
-                        alignItems: "center",
-                        justifyContent: "center",
-                    }}>
+            {height >= 140 && width >= 140 && !isDisabled && (
+                <View style={styles.embeddedPicker}>
                     <ColorPicker
                         style={{ width: Math.min(width, height) }}
                         value={color}
-                        onCompleteJS={setColorValue}>
+                        onCompleteJS={(value) => void setColorValue(value)}>
                         <HueCircular
                             containerStyle={{
                                 justifyContent: "center",
                                 backgroundColor: theme.current.colors.background,
                             }}
                             thumbShape="pill">
-                            <Panel1
-                                style={{
-                                    borderRadius: 16,
-                                    width: "70%",
-                                    height: "70%",
-                                    alignSelf: "center",
-                                }}
-                            />
+                            <Panel1 style={styles.colorPanel} />
                         </HueCircular>
                     </ColorPicker>
                 </View>
@@ -164,64 +126,46 @@ const ColorWidget: React.FC<ColorWidgetProps> = ({ widget, operations, disabled 
                 visible={showModal}
                 transparent
                 animationType="fade"
+                accessibilityViewIsModal
                 onRequestClose={() => setShowModal(false)}>
-                <Pressable
-                    style={{
-                        flex: 1,
-                        backgroundColor: "rgba(0,0,0,0.5)",
-                        justifyContent: "center",
-                        alignItems: "center",
-                    }}
-                    onPress={() => setShowModal(false)} // Close on backdrop tap
-                >
+                <Pressable style={styles.modalBackdrop} onPress={() => setShowModal(false)}>
                     <Pressable
-                        onPress={(e) => e.stopPropagation()} // Prevent closing when tapping inside modal content
-                        style={{
-                            backgroundColor: theme.current.colors.background,
-                            borderRadius: 12,
-                            padding: 16,
-                            alignItems: "center",
-                            justifyContent: "center",
-                        }}>
+                        onPress={(event) => event.stopPropagation()}
+                        style={[
+                            styles.modalContent,
+                            { backgroundColor: theme.current.colors.background },
+                        ]}>
                         <ColorPicker
-                            style={{ width: 240, height: 270, gap: 10 }}
-                            value={color}
+                            style={styles.modalPicker}
+                            value={tempColor}
                             onChangeJS={({ hex }) => setTempColor(hex)}>
                             <Preview />
                             <HueCircular
                                 containerStyle={{ justifyContent: "center" }}
                                 thumbShape="pill">
-                                <Panel1
-                                    style={{
-                                        borderRadius: 16,
-                                        width: "70%",
-                                        height: "70%",
-                                        alignSelf: "center",
-                                    }}
-                                />
+                                <Panel1 style={styles.colorPanel} />
                             </HueCircular>
                         </ColorPicker>
 
-                        <View
-                            style={{
-                                flexDirection: "row",
-                                marginTop: 16,
-                                justifyContent: "flex-end",
-                                width: 240,
-                            }}>
+                        <View style={styles.modalActions}>
                             <Pressable
-                                style={{
-                                    paddingVertical: 8,
-                                    paddingHorizontal: 20,
-                                    borderRadius: 8,
-                                    backgroundColor: theme.current.colors.background,
-                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel="Confirm color"
+                                accessibilityState={{ disabled: isDisabled, busy: pending }}
+                                disabled={isDisabled}
+                                style={styles.confirmButton}
                                 onPress={() =>
-                                    setColorValue({ hex: tempColor } as ColorFormatsObject)
+                                    void setColorValue({ hex: tempColor } as ColorFormatsObject)
                                 }>
-                                <Text color="onPrimary" size={"medium"} bold>
-                                    Confirm
-                                </Text>
+                                {pending ? (
+                                    <ActivityIndicator
+                                        color={theme.current.colors.authForeground}
+                                    />
+                                ) : (
+                                    <Text color="onBackground" size="medium" bold>
+                                        Confirm
+                                    </Text>
+                                )}
                             </Pressable>
                         </View>
                     </Pressable>
@@ -232,3 +176,61 @@ const ColorWidget: React.FC<ColorWidgetProps> = ({ widget, operations, disabled 
 };
 
 export default ColorWidget;
+
+const styles = StyleSheet.create({
+    container: {
+        width: "100%",
+        height: "100%",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    colorButton: {
+        width: "100%",
+        height: "100%",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 8,
+    },
+    largeDisabled: { alignContent: "center", justifyContent: "center" },
+    embeddedPicker: {
+        width: "100%",
+        height: "100%",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.5)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    modalContent: {
+        borderRadius: 12,
+        padding: 16,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    modalPicker: { width: 240, height: 270, gap: 10 },
+    modalActions: {
+        flexDirection: "row",
+        marginTop: 16,
+        justifyContent: "flex-end",
+        width: 240,
+    },
+    confirmButton: {
+        minWidth: 88,
+        minHeight: 48,
+        paddingVertical: 8,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    colorPanel: {
+        borderRadius: 16,
+        width: "70%",
+        height: "70%",
+        alignSelf: "center",
+    },
+});

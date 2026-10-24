@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { useDevice } from "@/contexts/custom/DeviceProvider";
+import { useHomes } from "@/contexts/domain/HomeProvider";
 import { keyboardOffset } from "@/styles/defaultStyles";
 import { useFocusEffect, useRouter } from "expo-router";
 import { CircleAlert, Info } from "lucide-react-native";
@@ -49,6 +50,7 @@ const parseDimension = (draft: string, min: number, max: number): number | undef
 const AddDashboardForm: FC<AddDashboardFormProps> = ({ deviceId }) => {
     const httpClient = useHttpClient();
     const device = useDevice();
+    const home = useHomes();
     const router = useRouter();
     const { colors } = useTheme().current;
 
@@ -70,6 +72,8 @@ const AddDashboardForm: FC<AddDashboardFormProps> = ({ deviceId }) => {
     const columnsRef = useRef<TextInput>(null);
     const deviceRef = useRef(device);
     deviceRef.current = device;
+    const canManageRef = useRef(home.current?.isOwner === true || home.current?.canManage === true);
+    canManageRef.current = home.current?.isOwner === true || home.current?.canManage === true;
     const submitLock = useRef(false);
     const accepted = useRef(false);
     const returning = useRef(false);
@@ -106,28 +110,32 @@ const AddDashboardForm: FC<AddDashboardFormProps> = ({ deviceId }) => {
     );
 
     const changeName = (value: string) => {
-        if (submitLock.current || accepted.current || !focused.current) return;
+        if (submitLock.current || accepted.current || !focused.current || !canManageRef.current)
+            return;
         setName(value);
         setNameError("");
         setActionFeedback(null);
     };
 
     const changeRows = (value: string) => {
-        if (submitLock.current || accepted.current || !focused.current) return;
+        if (submitLock.current || accepted.current || !focused.current || !canManageRef.current)
+            return;
         setRows(value);
         setRowsError("");
         setActionFeedback(null);
     };
 
     const changeColumns = (value: string) => {
-        if (submitLock.current || accepted.current || !focused.current) return;
+        if (submitLock.current || accepted.current || !focused.current || !canManageRef.current)
+            return;
         setColumns(value);
         setColumnsError("");
         setActionFeedback(null);
     };
 
     const submit = async () => {
-        if (submitLock.current || accepted.current || !focused.current) return;
+        if (submitLock.current || accepted.current || !focused.current || !canManageRef.current)
+            return;
         submitLock.current = true;
         setActionFeedback(null);
 
@@ -254,7 +262,12 @@ const AddDashboardForm: FC<AddDashboardFormProps> = ({ deviceId }) => {
                         defaultIcon="grid-outline"
                         iconList={DefaultDashboardIcons}
                         onIconSelected={(value) => {
-                            if (!submitLock.current && !accepted.current && focused.current) {
+                            if (
+                                !submitLock.current &&
+                                !accepted.current &&
+                                focused.current &&
+                                canManageRef.current
+                            ) {
                                 setIcon(value);
                                 setActionFeedback(null);
                             }

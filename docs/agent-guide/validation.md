@@ -84,6 +84,8 @@ or rerun an expensive build for an unrelated documentation edit.
   submission, cancellation and focus callbacks. The handler adapter cannot prove
   native slider targets, sheet focus or rendering during a React async action.
 - Dashboard creation is also in `pnpm test:device-details` (`tests/dashboardCreate.test.mjs`). It executes the real form and route handlers for trimmed name and exact grid bounds, preserved global icon keys and payload, shared Go/touch duplicate locking, editable-but-guarded pending fields, draft recovery after POST rejection/throw, accepted-once matching-device refresh/navigation, blur/refocus behavior, navigation-only recovery and missing/array route IDs. A Device route regression checks first-option fallback for empty/stale current IDs and preserves valid non-first selection. These handler checks do not establish native layout, keyboard behavior or screen-reader behavior.
+- Dashboard details are also in `pnpm test:device-details` (`tests/dashboardDetails.test.mjs`). Real form/route handlers cover route-ID requests despite a different provider selection, malformed/failed reads and Retry, missing/array IDs, trimmed Name boundaries, exact partial Name/Icon PATCHes, the 16 quick icon keys and preserved global search, historical keys and invalid grid configuration, pending locks and saved baselines, confirmation cancellation/Back, delete failure, accepted-once return recovery and stale route/device work. These checks do not establish native layout, keyboard behavior, dialog focus restoration or TalkBack behavior.
+- Dashboard flow state and widget interactions are also in `pnpm test:device-details`: `deviceDashboard.test.mjs` covers dashboard provider/route identity and stale response handling; `dashboardGrid.test.mjs` and `dashboardGridActions.test.mjs` cover geometry and dashboard-bound unlink handlers; `widgetPlacement.test.mjs` and `widgetPicker.test.mjs` cover routed area validation, selection-only rows, request identity and recovery; `widgetActions.test.mjs` covers exact command payloads, locking, control acceptance and inline error handlers; `widgetConfigPermissions.test.mjs` covers configuration gates. These `nativeComponentHarness` suites are adapter/handler logic only, never rendered-view QA.
 - Data-source creation, details and broker/subscription actions: run `pnpm test:data-sources`.
   It executes the real create form/route, settings form, details route, overview panel, broker-client start form/route and Add subscription form handlers.
   Create checks cover exact payload fields and MQTT/TLS values, required field
@@ -148,11 +150,24 @@ layouts at their width/text-scale boundaries, wrapping labels/readouts and the
 complete informational footer in both themes. Verify the switch target does not
 open the device dashboard, pending commands cannot repeat, and failure feedback
 can recover; report hardware commands separately from fixture or handler checks.
-For dashboard creation, check both themes, normal and 200% text, a short/narrow
+For dashboard creation, check both themes, normal text, a short/narrow
 window, keyboard reachability, icon choice/cancel, Back, field validation, failed
 request draft recovery and one accepted create on isolated local data. Confirm the
 Device selector remains usable while its refreshed current dashboard ID resolves.
-Smoke-test dashboard details without editing or deleting an existing dashboard.
+For dashboard details, use a disposable local dashboard: verify routed identity,
+both themes, normal text, narrow/short windows, keyboard reachability, icon
+choice/cancel, fixed grid copy, Save failure recovery and one confirmed deletion.
+Keep original dashboards untouched; handler checks do not prove native layout or
+Back/focus behavior.
+For the integrated dashboard-flow task, perform every visual and interaction
+check on Android emulator `emulator-5554` at normal text. Skip TalkBack and 200%
+text scaling under the user's instruction. Exercise manager and Display access,
+device/dashboard switching, loading/empty/offline/retry states, the full Grid
+scroll and free-cell sizing, picker selection without power mutation, accepted
+placement once, inline command failure/retry, and unlink Cancel/Back/confirm.
+Use only disposable local data for writes and preserve the original dashboard.
+`nativeComponentHarness` results remain adapter/handler evidence and do not
+substitute for emulator screenshots or touch behavior.
 Also inspect source status in both themes: connected subtitle with no extra content
 notice; Connecting and Restarting; disconnected, Error, missing and unavailable
 notices; owner-only details/setup routes with Back; no source action for Manage or
