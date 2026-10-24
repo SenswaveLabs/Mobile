@@ -4,6 +4,7 @@ import { widgetRemovalAccessibility } from "../widgetAccessibility";
 import type { CalculatedWidget } from "../../dashboards/DashboardView";
 import React, { FC, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { widgetStyles } from "./widgetStyles";
 
 interface SliderWidgetProps {
     operations?: () => void;
@@ -25,6 +26,7 @@ const SliderWidget: FC<SliderWidgetProps> = ({
     const reportedValue = widget.configuration?.runtime?.value ?? min;
     const [displayValue, setDisplayValue] = useState(reportedValue);
     const [committedValue, setCommittedValue] = useState(reportedValue);
+    const [compact, setCompact] = useState(false);
     const committedValueRef = useRef(reportedValue);
     const { colors } = useTheme().current;
     const isDisabled = disabled || pending;
@@ -49,19 +51,33 @@ const SliderWidget: FC<SliderWidgetProps> = ({
 
     return (
         <Pressable
+            onLayout={({ nativeEvent }) => setCompact(nativeEvent.layout.width < 140)}
             accessibilityRole="adjustable"
             accessibilityLabel={`${widget.name}, ${displayValue}`}
             accessibilityState={{ disabled: isDisabled, busy: pending }}
             {...widgetRemovalAccessibility(operations)}
             onLongPress={operations}
             disabled={isDisabled}
-            style={styles.container}>
-            <View style={styles.header}>
-                <Text style={[styles.name, { color: colors.authForeground }]}>{widget.name}</Text>
+            style={[
+                widgetStyles.tile,
+                styles.container,
+                compact && widgetStyles.compactInsets,
+                { backgroundColor: colors.deviceTileSurface, borderColor: colors.deviceTileBorder },
+            ]}>
+            <View style={[styles.header, compact && styles.compactHeader]}>
+                <Text
+                    numberOfLines={1}
+                    style={[
+                        styles.name,
+                        compact && styles.compactName,
+                        { color: colors.authForeground },
+                    ]}>
+                    {widget.name}
+                </Text>
                 <View style={styles.value} accessibilityLiveRegion="polite">
                     {pending && <ActivityIndicator size="small" color={colors.authForeground} />}
                     <Text style={[styles.readout, { color: colors.authForeground }]}>
-                        {pending ? "Sending…" : String(displayValue)}
+                        {String(displayValue)}
                     </Text>
                 </View>
             </View>
@@ -83,15 +99,18 @@ const SliderWidget: FC<SliderWidgetProps> = ({
 export default SliderWidget;
 
 const styles = StyleSheet.create({
-    container: { width: "100%", height: "100%", justifyContent: "center", paddingHorizontal: 3 },
+    container: { paddingVertical: 0, gap: 0 },
     header: {
+        width: "100%",
+        minWidth: 0,
         flexDirection: "row",
         flexWrap: "wrap",
         alignItems: "center",
         gap: 8,
-        paddingVertical: 6,
     },
-    name: { flex: 1, fontSize: 16, lineHeight: 24 },
+    name: { flex: 1, minWidth: 0, fontSize: 14, lineHeight: 20, fontWeight: "600" },
+    compactHeader: { flexDirection: "column", gap: 2 },
+    compactName: { flex: 0, width: "100%", textAlign: "center" },
     value: { flexDirection: "row", alignItems: "center", gap: 8 },
     readout: { fontSize: 14, lineHeight: 20, fontWeight: "600", fontVariant: ["tabular-nums"] },
 });

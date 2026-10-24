@@ -1,25 +1,23 @@
-import React, { FC, useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import React, { FC, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
+import { CircleAlert, Power } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeProvider";
-import Text from "../../common/Text";
-import { shadowStyles } from "@/styles/shadowStyles";
-import ImageButton from "@/components/common/ImageButton";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useToast } from "@/contexts/ToastProvider";
 import ListRow from "@/components/common/ListRow";
 import Icon from "@/components/common/Icon";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface WidgetListTileProps {
     id: string;
     name: string;
     type: string;
-    enabled: boolean; // Property is from WidgetListDto
-
-    overrideOnClick?: (operationId: string) => Promise<void>;
+    enabled: boolean;
+    deviceId?: string;
+    overrideOnClick?: (widgetId: string) => Promise<void>;
     selected?: boolean;
     disablePress?: boolean;
-    variant?: "preview" | "list";
+    canManage?: boolean;
     separator?: boolean;
 }
 
@@ -28,74 +26,83 @@ const WidgetListTile: FC<WidgetListTileProps> = ({
     name,
     type,
     enabled,
+    deviceId,
     overrideOnClick,
     selected = false,
     disablePress = false,
-    variant = "preview",
+    canManage = true,
     separator = false,
 }) => {
     const router = useRouter();
-    const theme = useTheme();
-    const toast = useToast();
+    const { colors } = useTheme().current;
     const httpClient = useHttpClient();
-
-    const [loading, setLoading] = useState<boolean>(false);
+    const [loading, setLoading] = useState(false);
     const [enabledState, setEnabledState] = useState(enabled);
+    const [error, setError] = useState("");
+    const locked = useRef(false);
+    const active = useRef(true);
+    const current = useRef({ id, disablePress, canManage, overrideOnClick });
+    current.current = { id, disablePress, canManage, overrideOnClick };
+
+    useEffect(() => {
+        setEnabledState(enabled);
+        setError("");
+    }, [id, enabled]);
+    useEffect(() => {
+        active.current = true;
+        return () => {
+            active.current = false;
+        };
+    }, []);
 
     const handleTileClick = async () => {
-        if (disablePress) {
-            console.info("[WidgetListTile] Tile press is disabled.");
+        if (current.current.id !== id || current.current.disablePress) return;
+        if (current.current.overrideOnClick) {
+            await current.current.overrideOnClick(id);
             return;
         }
-
-        if (overrideOnClick) {
-            console.info("[WidgetListTile] Tile press is overridden.");
-            await overrideOnClick(id);
-            return;
-        }
-
-        router.push({ pathname: "device/widget/details", params: { widgetId: id } });
+        if (!current.current.canManage) return;
+        router.push({
+            pathname: "device/widget/details",
+            params: { widgetId: id, ...(deviceId ? { deviceId } : {}) },
+        });
     };
 
     const onStateClicked = async () => {
-        if (disablePress) {
-            console.info("[WidgetListTile] State click is disabled.");
+        if (
+            !active.current ||
+            locked.current ||
+            current.current.id !== id ||
+            current.current.disablePress ||
+            !current.current.canManage ||
+            current.current.overrideOnClick
+        )
             return;
-        }
-
-        console.info("[WidgetListTile] State Clicked.");
-
+        locked.current = true;
         setLoading(true);
-
+        setError("");
+        const nextEnabled = !enabledState;
         try {
             const result = await httpClient.put(`v1/devices/widgets/${id}/state`, {
-                enabled: !enabledState,
+                enabled: nextEnabled,
             });
-
-            if (result.isSuccess) {
-                if (enabledState) {
-                    toast.info("Widget disabled.");
-                } else {
-                    toast.info("Widget enabled.");
-                }
-
-                setEnabledState(!enabledState);
-            } else {
-                toast.httpError(result);
-            }
-        } catch (error) {
-            console.error("[WidgetListTile] Error while clicking state:", error);
+            if (!result.isSuccess) throw new Error("Widget state update failed");
+            if (active.current && current.current.id === id) setEnabledState(nextEnabled);
+        } catch {
+            if (active.current && current.current.id === id)
+                setError("Couldn't change this widget's status. Try again.");
         } finally {
-            setLoading(false);
+            locked.current = false;
+            if (active.current) setLoading(false);
         }
     };
 
-    if (variant === "list") {
-        return (
+    return (
+        <View>
             <ListRow
                 title={name}
+                description={`${type} · ${enabledState ? "Enabled" : "Disabled"}`}
                 separator={separator}
-                description={type}
                 onPress={handleTileClick}
                 disabled={disablePress}
                 selected={selected}
@@ -103,97 +110,85 @@ const WidgetListTile: FC<WidgetListTileProps> = ({
                     overrideOnClick ? `${name}, ${selected ? "selected" : "not selected"}` : name
                 }
                 accessibilityHint={
-                    overrideOnClick ? "Selects this widget for dashboard placement" : undefined
+                    overrideOnClick
+                        ? "Selects this widget for dashboard placement"
+                        : "View widget configuration"
                 }
                 trailing={
                     overrideOnClick ? (
                         selected ? (
                             <Icon icon="checkmark-outline" size={24} color="complementary" />
                         ) : null
-                    ) : (
+                    ) : canManage ? (
                         <Pressable
+                            cssInterop={false}
                             accessibilityRole="switch"
-                            accessibilityLabel={`${name} power`}
+                            accessibilityLabel={`${name} enabled`}
                             accessibilityState={{
                                 checked: enabledState,
                                 disabled: disablePress || loading,
+                                busy: loading,
                             }}
                             disabled={disablePress || loading}
-                            onPress={onStateClicked}
-                            style={{
-                                width: 48,
-                                height: 48,
-                                alignItems: "center",
-                                justifyContent: "center",
-                                borderRadius: 24,
-                                backgroundColor: enabledState
-                                    ? theme.current.colors.success
-                                    : theme.current.colors.error,
-                                opacity: disablePress ? 0.5 : 1,
-                            }}>
+                            onPress={() => void onStateClicked()}
+                            android_ripple={{ color: colors.authBorder }}
+                            style={[
+                                styles.toggle,
+                                {
+                                    borderColor: enabledState
+                                        ? colors.authPrimary
+                                        : colors.authBorder,
+                                    backgroundColor: enabledState
+                                        ? colors.authPrimary
+                                        : colors.deviceTileSurface,
+                                },
+                                disablePress && styles.dimmed,
+                            ]}>
                             {loading ? (
                                 <ActivityIndicator
-                                    color={theme.current.colors.authForeground}
+                                    color={
+                                        enabledState ? colors.authOnPrimary : colors.authForeground
+                                    }
                                     size="small"
                                 />
                             ) : (
-                                <Icon icon="power" size={20} color="onPrimary" />
+                                <Power
+                                    size={22}
+                                    color={
+                                        enabledState ? colors.authOnPrimary : colors.authForeground
+                                    }
+                                />
                             )}
                         </Pressable>
-                    )
+                    ) : null
                 }
             />
-        );
-    }
-
-    return (
-        <Pressable onPress={handleTileClick} style={{ flexDirection: "row" }}>
-            <View
-                style={{
-                    padding: 10,
-                    flexDirection: "column",
-                    borderRadius: 12,
-                    backgroundColor: theme.current.colors.primary,
-                    ...shadowStyles.default,
-                    marginVertical: 6,
-                    marginRight: 10,
-                }}>
-                <Text size="medium" color="onPrimary">
-                    {type}
-                </Text>
-            </View>
-
-            <View
-                style={{
-                    padding: 10,
-                    flexDirection: "column",
-                    borderRadius: 12,
-                    backgroundColor: theme.current.colors.primary,
-                    ...shadowStyles.default,
-                    marginVertical: 6,
-                    marginRight: 10,
-                    flex: 1,
-                }}>
-                <Text size="medium" color="onPrimary">
-                    {name}
-                </Text>
-            </View>
-
-            <View style={{ justifyContent: "center", alignItems: "center" }}>
-                <ImageButton
-                    size={25}
-                    style={{
-                        backgroundColor: enabledState
-                            ? theme.current.colors.success
-                            : theme.current.colors.error,
-                    }}
-                    loading={loading}
-                    icon={"power"}
-                    onPress={onStateClicked}
-                />
-            </View>
-        </Pressable>
+            {!!error && (
+                <View style={styles.feedback}>
+                    <Alert
+                        icon={CircleAlert}
+                        compact
+                        variant="destructive"
+                        accessibilityRole="alert"
+                        accessibilityLiveRegion="polite">
+                        <AlertDescription compact>{error}</AlertDescription>
+                    </Alert>
+                </View>
+            )}
+        </View>
     );
 };
 
 export default WidgetListTile;
+const styles = StyleSheet.create({
+    toggle: {
+        width: 48,
+        height: 48,
+        borderWidth: 1,
+        borderRadius: 8,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    dimmed: { opacity: 0.6 },
+    feedback: { paddingHorizontal: 12, paddingBottom: 12 },
+});

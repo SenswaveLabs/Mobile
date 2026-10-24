@@ -3,6 +3,7 @@ import React, { FC, useEffect, useRef, useState } from "react";
 import Text from "@/components/common/Text";
 import { TextInput, View, StyleSheet, StyleProp, ViewStyle } from "react-native";
 import { shadowStyles } from "@/styles/shadowStyles";
+import Input from "./Input";
 
 interface InputNumberProps {
     value: number | undefined;
@@ -15,7 +16,9 @@ interface InputNumberProps {
     error?: string;
     required?: boolean;
     editable?: boolean;
+    disabled?: boolean;
     style?: StyleProp<ViewStyle>;
+    variant?: "default" | "auth";
 }
 
 const FLOAT_RE = /^-?\d+\.?\d*$|^-?\d*\.?\d+$/;
@@ -32,7 +35,9 @@ const InputNumber: FC<InputNumberProps> = ({
     error: externalError = "",
     required = false,
     editable = true,
+    disabled = false,
     style,
+    variant = "default",
 }) => {
     const theme = useTheme();
     const focused = useRef(false);
@@ -47,6 +52,7 @@ const InputNumber: FC<InputNumberProps> = ({
     }, [value]);
 
     const onChangeText = (raw: string) => {
+        if (disabled || !editable) return;
         setText(raw);
 
         if (raw === "" || raw === "-") {
@@ -86,6 +92,7 @@ const InputNumber: FC<InputNumberProps> = ({
 
     const onBlur = () => {
         focused.current = false;
+        if (disabled || !editable) return;
         if (text === "-" || text === "") {
             setText("");
             if (required) setLocalError("Required");
@@ -98,6 +105,25 @@ const InputNumber: FC<InputNumberProps> = ({
     };
 
     const displayError = localError || externalError;
+
+    if (variant === "auth") {
+        return (
+            <Input
+                variant="auth"
+                title={title}
+                value={text}
+                setValue={onChangeText}
+                error={displayError}
+                placeholder={placeholder}
+                keyboardType="numeric"
+                editable={editable}
+                accessibilityState={{ busy: disabled }}
+                onFocus={onFocus}
+                onBlur={onBlur}
+                style={style}
+            />
+        );
+    }
 
     return (
         <View style={[styles.container, style]}>

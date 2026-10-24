@@ -149,7 +149,7 @@ function InternalLayout() {
                 name="device/widget/details"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Widget" titleSuffix="Details" />,
+                    header: () => <DefaultHeader titlePrefix="Widget" variant="brand" />,
                 }}
             />
 
@@ -157,7 +157,7 @@ function InternalLayout() {
                 name="device/widget/add"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Add" titleSuffix="Widget" />,
+                    header: () => <DefaultHeader titlePrefix="Widget" variant="brand" />,
                 }}
             />
 
@@ -165,7 +165,7 @@ function InternalLayout() {
                 name="device/widget/list"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Widgets" />,
+                    header: () => <DefaultHeader titlePrefix="Widgets" variant="brand" />,
                 }}
             />
 

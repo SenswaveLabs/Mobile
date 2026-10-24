@@ -99,6 +99,16 @@ or rerun an expensive build for an unrelated documentation edit.
   Add subscription checks cover route ID recovery and array normalization, exact topic payloads with the 256-character boundary, required-topic focus, synchronous Go/button locking, editable-but-guarded pending input, rejected/thrown POST recovery, accepted-once navigation and blur/refocus completion. Feedback checks include its legacy-toast suppression. These checks do not establish native keyboard behavior, layout or screen-reader behavior.
 - Before committing: run `pnpm typecheck`, `pnpm lint` and `pnpm test:poc`, plus
   the affected flow checks above.
+- Widget polish is included in `pnpm test:device-details`: `widgetTypeForms`,
+  `widgetFormValidation`, `widgetCreate` and `widgetDetails` execute type-specific
+  value/step/unit/option validation, read-only and pending guards, stale read
+  rejection, trimmed names, inline creation/deletion recovery, synchronous locks,
+  accepted-once return and Cancel/Back handlers. Widget action checks also cover
+  discarded Color drafts, Radio scroll/selection and retained pending labels.
+  These remain handler adapters; check native keyboard reachability, 48 dp targets,
+  normal-text 320/448 dp layouts, both themes, shared dashboard scrolling,
+  placement, selection-only picking and unlink on the emulator. For this polish
+  pass, enlargement and TalkBack are explicitly excluded by the user.
 - Native auth bundling, routing or asset changes: use the Android export checks in
   [native auth UI](../native-auth-ui.md).
 - Native modules or Android build configuration: verify prebuild and the affected

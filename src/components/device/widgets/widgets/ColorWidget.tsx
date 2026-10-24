@@ -1,6 +1,7 @@
-import Text from "@/components/common/Text";
+import Button from "@/components/common/Button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CircleAlert } from "lucide-react-native";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
 import { widgetRemovalAccessibility } from "../widgetAccessibility";
 import type { CalculatedWidget } from "../../dashboards/DashboardView";
 import ColorPicker, {
@@ -16,8 +17,10 @@ import {
     Modal,
     Pressable,
     StyleSheet,
+    Text,
     View,
 } from "react-native";
+import { widgetStyles } from "./widgetStyles";
 
 interface ColorWidgetProps {
     operations?: () => void;
@@ -25,10 +28,18 @@ interface ColorWidgetProps {
     disabled: boolean;
     pending: boolean;
     onAction: (value: string | number | boolean) => Promise<boolean>;
+    error?: string;
 }
 
-const ColorWidget: FC<ColorWidgetProps> = ({ widget, operations, disabled, pending, onAction }) => {
-    const theme = useTheme();
+const ColorWidget: FC<ColorWidgetProps> = ({
+    widget,
+    operations,
+    disabled,
+    pending,
+    onAction,
+    error,
+}) => {
+    const { colors } = useTheme().current;
     const [showModal, setShowModal] = useState(false);
     const [height, setHeight] = useState(0);
     const [width, setWidth] = useState(0);
@@ -36,6 +47,7 @@ const ColorWidget: FC<ColorWidgetProps> = ({ widget, operations, disabled, pendi
     const [color, setColor] = useState<string>(reportedColor);
     const [tempColor, setTempColor] = useState<string>(reportedColor);
     const isDisabled = disabled || pending;
+    const embedded = height >= 140 && width >= 140 && !isDisabled;
 
     useEffect(() => {
         setColor(reportedColor);
@@ -48,8 +60,8 @@ const ColorWidget: FC<ColorWidgetProps> = ({ widget, operations, disabled, pendi
         if (accepted) {
             setColor(newColor.hex);
             setTempColor(newColor.hex);
+            if (showModal) setShowModal(false);
         }
-        if (showModal) setShowModal(false);
     };
 
     const onLayout = (event: LayoutChangeEvent) => {
@@ -60,7 +72,14 @@ const ColorWidget: FC<ColorWidgetProps> = ({ widget, operations, disabled, pendi
 
     const openPicker = () => {
         if (isDisabled) return;
+        setTempColor(color);
         setShowModal(true);
+    };
+
+    const closePicker = () => {
+        if (pending) return;
+        setTempColor(color);
+        setShowModal(false);
     };
 
     return (
@@ -71,9 +90,21 @@ const ColorWidget: FC<ColorWidgetProps> = ({ widget, operations, disabled, pendi
             {...widgetRemovalAccessibility(operations)}
             onLongPress={operations}
             onLayout={onLayout}
-            style={styles.container}>
-            {(height < 140 || width < 140) && (
+            style={
+                embedded
+                    ? [
+                          widgetStyles.tile,
+                          styles.container,
+                          {
+                              backgroundColor: colors.deviceTileSurface,
+                              borderColor: colors.deviceTileBorder,
+                          },
+                      ]
+                    : styles.container
+            }>
+            {!embedded && (
                 <Pressable
+                    cssInterop={false}
                     accessibilityRole="button"
                     accessibilityLabel={`Choose color for ${widget.name}`}
                     accessibilityState={{ disabled: isDisabled, busy: pending }}
@@ -81,39 +112,58 @@ const ColorWidget: FC<ColorWidgetProps> = ({ widget, operations, disabled, pendi
                     disabled={isDisabled}
                     onPress={openPicker}
                     onLongPress={operations}
+                    android_ripple={{ color: colors.authBorder }}
                     style={[
+                        widgetStyles.tile,
                         styles.colorButton,
-                        { backgroundColor: color, ...shadowStyles.default },
+                        {
+                            backgroundColor: colors.deviceTileSurface,
+                            borderColor: colors.deviceTileBorder,
+                        },
                     ]}>
+                    <Text
+                        numberOfLines={width >= 96 ? 1 : 2}
+                        style={[
+                            widgetStyles.label,
+                            { color: disabled ? colors.authMuted : colors.authForeground },
+                        ]}>
+                        {widget.name}
+                    </Text>
                     {pending ? (
-                        <ActivityIndicator color={theme.current.colors.authForeground} />
+                        <ActivityIndicator size="small" color={colors.authForeground} />
                     ) : (
-                        <Text size="medium" color="contrast" contrastingColor={color}>
+                        <View
+                            style={[
+                                styles.swatch,
+                                { backgroundColor: color, borderColor: colors.authBorder },
+                            ]}
+                        />
+                    )}
+                    {width >= 96 && (
+                        <Text
+                            numberOfLines={1}
+                            style={[styles.colorValue, { color: colors.authMuted }]}>
                             {color}
                         </Text>
                     )}
                 </Pressable>
             )}
 
-            {height >= 140 && width >= 140 && isDisabled && (
-                <View style={styles.largeDisabled}>
-                    {pending && <ActivityIndicator color={theme.current.colors.authForeground} />}
-                    <Text size="medium" color="complementary">
+            {embedded && (
+                <View style={styles.embeddedPicker}>
+                    <Text
+                        numberOfLines={1}
+                        style={[widgetStyles.label, { color: colors.authForeground }]}>
                         {widget.name}
                     </Text>
-                </View>
-            )}
-
-            {height >= 140 && width >= 140 && !isDisabled && (
-                <View style={styles.embeddedPicker}>
                     <ColorPicker
-                        style={{ width: Math.min(width, height) }}
+                        style={{ width: Math.max(0, Math.min(width - 18, height - 48)) }}
                         value={color}
                         onCompleteJS={(value) => void setColorValue(value)}>
                         <HueCircular
                             containerStyle={{
                                 justifyContent: "center",
-                                backgroundColor: theme.current.colors.background,
+                                backgroundColor: colors.deviceTileSurface,
                             }}
                             thumbShape="pill">
                             <Panel1 style={styles.colorPanel} />
@@ -127,14 +177,17 @@ const ColorWidget: FC<ColorWidgetProps> = ({ widget, operations, disabled, pendi
                 transparent
                 animationType="fade"
                 accessibilityViewIsModal
-                onRequestClose={() => setShowModal(false)}>
-                <Pressable style={styles.modalBackdrop} onPress={() => setShowModal(false)}>
+                onRequestClose={closePicker}>
+                <Pressable style={styles.modalBackdrop} onPress={closePicker}>
                     <Pressable
                         onPress={(event) => event.stopPropagation()}
-                        style={[
-                            styles.modalContent,
-                            { backgroundColor: theme.current.colors.background },
-                        ]}>
+                        style={[styles.modalContent, { backgroundColor: colors.authBackground }]}>
+                        <Text
+                            accessibilityRole="header"
+                            numberOfLines={2}
+                            style={[styles.modalTitle, { color: colors.authForeground }]}>
+                            {widget.name}
+                        </Text>
                         <ColorPicker
                             style={styles.modalPicker}
                             value={tempColor}
@@ -147,26 +200,37 @@ const ColorWidget: FC<ColorWidgetProps> = ({ widget, operations, disabled, pendi
                             </HueCircular>
                         </ColorPicker>
 
+                        {!!error && (
+                            <Alert
+                                icon={CircleAlert}
+                                compact
+                                variant="destructive"
+                                accessibilityRole="alert"
+                                accessibilityLiveRegion="polite"
+                                style={styles.modalError}>
+                                <AlertDescription compact>{error}</AlertDescription>
+                            </Alert>
+                        )}
                         <View style={styles.modalActions}>
-                            <Pressable
-                                accessibilityRole="button"
+                            <Button
+                                name="Cancel"
+                                type="brand-ghost"
+                                loading={false}
+                                disabled={pending}
+                                style={styles.modalAction}
+                                onPress={closePicker}
+                            />
+                            <Button
+                                name="Confirm"
                                 accessibilityLabel="Confirm color"
-                                accessibilityState={{ disabled: isDisabled, busy: pending }}
-                                disabled={isDisabled}
-                                style={styles.confirmButton}
+                                type="auth"
+                                loading={pending}
+                                disabled={disabled}
+                                style={styles.modalAction}
                                 onPress={() =>
                                     void setColorValue({ hex: tempColor } as ColorFormatsObject)
-                                }>
-                                {pending ? (
-                                    <ActivityIndicator
-                                        color={theme.current.colors.authForeground}
-                                    />
-                                ) : (
-                                    <Text color="onBackground" size="medium" bold>
-                                        Confirm
-                                    </Text>
-                                )}
-                            </Pressable>
+                                }
+                            />
                         </View>
                     </Pressable>
                 </Pressable>
@@ -181,52 +245,45 @@ const styles = StyleSheet.create({
     container: {
         width: "100%",
         height: "100%",
-        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
     },
-    colorButton: {
-        width: "100%",
-        height: "100%",
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 8,
-    },
-    largeDisabled: { alignContent: "center", justifyContent: "center" },
+    colorButton: { gap: 4 },
+    swatch: { width: 24, height: 24, borderRadius: 6, borderWidth: 1 },
+    colorValue: { fontSize: 12, lineHeight: 18, textAlign: "center" },
     embeddedPicker: {
         width: "100%",
         height: "100%",
         alignItems: "center",
         justifyContent: "center",
+        gap: 8,
     },
     modalBackdrop: {
         flex: 1,
         backgroundColor: "rgba(0,0,0,0.5)",
         justifyContent: "center",
         alignItems: "center",
+        padding: 24,
     },
     modalContent: {
         borderRadius: 12,
         padding: 16,
+        width: "100%",
+        maxWidth: 320,
         alignItems: "center",
         justifyContent: "center",
     },
-    modalPicker: { width: 240, height: 270, gap: 10 },
+    modalTitle: { fontSize: 20, lineHeight: 28, fontWeight: "600", textAlign: "center" },
+    modalError: { width: "100%", marginTop: 12 },
+    modalPicker: { width: "100%", gap: 12, marginTop: 16 },
     modalActions: {
         flexDirection: "row",
         marginTop: 16,
         justifyContent: "flex-end",
-        width: 240,
+        width: "100%",
+        gap: 8,
     },
-    confirmButton: {
-        minWidth: 88,
-        minHeight: 48,
-        paddingVertical: 8,
-        paddingHorizontal: 20,
-        borderRadius: 8,
-        alignItems: "center",
-        justifyContent: "center",
-    },
+    modalAction: { flex: 1, width: undefined },
     colorPanel: {
         borderRadius: 16,
         width: "70%",

@@ -2,7 +2,6 @@ import Button from "@/components/common/Button";
 import Icon from "@/components/common/Icon";
 import Loading from "@/components/common/Loading";
 import SectionHeaderAction from "@/components/common/SectionHeaderAction";
-import Text from "@/components/common/Text";
 import WidgetView from "@/components/device/widgets/WidgetView";
 import {
     AlertDialog,
@@ -15,6 +14,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Text } from "@/components/ui/text";
 import { useDevice } from "@/contexts/custom/DeviceProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
@@ -26,7 +26,7 @@ import {
 import { PortalHost } from "@rn-primitives/portal";
 import { useFocusEffect, useRouter } from "expo-router";
 import { CircleAlert, Minus, Plus } from "lucide-react-native";
-import React, { FC, useCallback, useEffect, useId, useRef, useState } from "react";
+import React, { FC, ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
 import {
     BackHandler,
     Modal as NativeModal,
@@ -58,6 +58,7 @@ export interface GridDashboardViewProps {
     deviceId: string;
     dashboardId: string;
     canManage: boolean;
+    header?: ReactNode;
 }
 
 interface UnlinkTarget {
@@ -87,9 +88,7 @@ const SizeControl: FC<SizeControlProps> = ({
     const { colors } = useTheme().current;
     return (
         <View style={styles.sizeControl}>
-            <Text size="medium" color="onBackground" bold>
-                {label}
-            </Text>
+            <Text style={[styles.controlLabel, { color: colors.authForeground }]}>{label}</Text>
             <View style={styles.sizeActions}>
                 <View
                     style={[
@@ -113,9 +112,7 @@ const SizeControl: FC<SizeControlProps> = ({
                 </View>
                 <Text
                     accessibilityLiveRegion="polite"
-                    size="medium"
-                    color="onBackground"
-                    style={styles.sizeValue}>
+                    style={[styles.sizeValue, { color: colors.authForeground }]}>
                     {value}
                 </Text>
                 <View
@@ -143,13 +140,19 @@ const SizeControl: FC<SizeControlProps> = ({
     );
 };
 
-const GridDashboardView: FC<GridDashboardViewProps> = ({ deviceId, dashboardId, canManage }) => {
+const GridDashboardView: FC<GridDashboardViewProps> = ({
+    deviceId,
+    dashboardId,
+    canManage,
+    header,
+}) => {
     const { colors } = useTheme().current;
     const { width: windowWidth } = useWindowDimensions();
     const device = useDevice();
     const httpClient = useHttpClient();
     const router = useRouter();
     const scrollRef = useRef<ScrollView>(null);
+    const widgetsHeadingY = useRef(0);
     const identity = `${deviceId}:${dashboardId}`;
     const identityRef = useRef(identity);
     const canManageRef = useRef(canManage);
@@ -274,7 +277,9 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({ deviceId, dashboardId, 
         if (!isPlacementAvailable({ ...grid, positionedWidgets: positions }, next)) return;
         setPlacement(next);
         setPlacementError("");
-        requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: false }));
+        requestAnimationFrame(() =>
+            scrollRef.current?.scrollTo({ y: widgetsHeadingY.current, animated: false }),
+        );
     };
 
     const resizePlacement = (key: "rowSpan" | "columnSpan", delta: -1 | 1) => {
@@ -372,24 +377,27 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({ deviceId, dashboardId, 
 
     if (!grid)
         return (
-            <View style={styles.recovery}>
-                <Alert
-                    icon={CircleAlert}
-                    variant="destructive"
-                    accessibilityRole="alert"
-                    accessibilityLiveRegion="polite">
-                    <AlertDescription>
-                        Grid unavailable. Refresh this dashboard and try again.
-                    </AlertDescription>
-                </Alert>
-                <Button
-                    name="Retry"
-                    type="brand-outline"
-                    loading={device.loading}
-                    disabled={device.loading}
-                    onPress={() => void refresh()}
-                />
-            </View>
+            <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+                {header}
+                <View style={styles.recovery}>
+                    <Alert
+                        icon={CircleAlert}
+                        variant="destructive"
+                        accessibilityRole="alert"
+                        accessibilityLiveRegion="polite">
+                        <AlertDescription>
+                            Grid unavailable. Refresh this dashboard and try again.
+                        </AlertDescription>
+                    </Alert>
+                    <Button
+                        name="Retry"
+                        type="brand-outline"
+                        loading={device.loading}
+                        disabled={device.loading}
+                        onPress={() => void refresh()}
+                    />
+                </View>
+            </ScrollView>
         );
 
     return (
@@ -450,11 +458,28 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({ deviceId, dashboardId, 
                     ref={scrollRef}
                     style={styles.scroll}
                     contentContainerStyle={styles.scrollContent}
+                    onContentSizeChange={() => {
+                        // Android applies the new scroll range after the content-size event.
+                        if (placeMode)
+                            requestAnimationFrame(() =>
+                                scrollRef.current?.scrollTo({
+                                    y: widgetsHeadingY.current,
+                                    animated: false,
+                                }),
+                            );
+                    }}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />
                     }>
-                    <View style={styles.headingRow}>
-                        <Text accessibilityRole="header" size="large" color="onBackground" bold>
+                    {header}
+                    <View
+                        style={styles.headingRow}
+                        onLayout={({ nativeEvent }) => {
+                            widgetsHeadingY.current = nativeEvent.layout.y;
+                        }}>
+                        <Text
+                            accessibilityRole="header"
+                            style={[styles.title, { color: colors.authForeground }]}>
                             Widgets
                         </Text>
                         {canManage && positions.length > 0 && !placeMode && (
@@ -472,10 +497,14 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({ deviceId, dashboardId, 
                         <View style={styles.placePanel}>
                             <View style={styles.placeHeading}>
                                 <View style={styles.placeCopy}>
-                                    <Text size="medium" color="onBackground" bold>
+                                    <Text
+                                        style={[
+                                            styles.sectionTitle,
+                                            { color: colors.authForeground },
+                                        ]}>
                                         Choose widget area
                                     </Text>
-                                    <Text size="small" color="onBackground">
+                                    <Text style={[styles.helper, { color: colors.authMuted }]}>
                                         Select the top-left empty cell, then set the size.
                                     </Text>
                                 </View>
@@ -497,10 +526,12 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({ deviceId, dashboardId, 
                                 <>
                                     <Text
                                         accessibilityLiveRegion="polite"
-                                        size="medium"
-                                        color="onBackground">
+                                        style={[styles.helper, { color: colors.authForeground }]}>
                                         Row {placement.row + 1} · Column {placement.column + 1} ·{" "}
-                                        {placement.rowSpan} rows × {placement.columnSpan} columns
+                                        {placement.rowSpan}{" "}
+                                        {placement.rowSpan === 1 ? "row" : "rows"} ×{" "}
+                                        {placement.columnSpan}{" "}
+                                        {placement.columnSpan === 1 ? "column" : "columns"}
                                     </Text>
                                     <View style={styles.sizeControls}>
                                         <SizeControl
@@ -541,7 +572,7 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({ deviceId, dashboardId, 
                                     </View>
                                 </>
                             ) : (
-                                <Text size="small" color="onBackground">
+                                <Text style={[styles.helper, { color: colors.authMuted }]}>
                                     Empty cells are labelled by row and column.
                                 </Text>
                             )}
@@ -582,10 +613,10 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({ deviceId, dashboardId, 
 
                     {positions.length === 0 && !placeMode ? (
                         <View style={styles.emptyState}>
-                            <Text size="medium" color="onBackground" bold>
+                            <Text style={[styles.sectionTitle, { color: colors.authForeground }]}>
                                 No widgets placed.
                             </Text>
-                            <Text size="small" color="onBackground">
+                            <Text style={[styles.helper, { color: colors.authMuted }]}>
                                 {canManage
                                     ? "Choose an empty dashboard area to add a widget."
                                     : "Ask a home manager to add widgets to this dashboard."}
@@ -614,7 +645,7 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({ deviceId, dashboardId, 
                                 }
                             }}>
                             {positions.length > 0 && !placeMode && (
-                                <Text size="small" color="onBackground">
+                                <Text style={[styles.helper, { color: colors.authMuted }]}>
                                     Visible values are informational.
                                 </Text>
                             )}
@@ -768,7 +799,17 @@ export default GridDashboardView;
 const styles = StyleSheet.create({
     root: { flex: 1 },
     scroll: { flex: 1 },
-    scrollContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24, gap: 16 },
+    title: { fontSize: 20, lineHeight: 28, fontWeight: "600" },
+    sectionTitle: { fontSize: 16, lineHeight: 24, fontWeight: "600" },
+    helper: { fontSize: 14, lineHeight: 20 },
+    controlLabel: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
+    scrollContent: {
+        flexGrow: 1,
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 16,
+        gap: 16,
+    },
     headingRow: {
         minHeight: 48,
         flexDirection: "row",
@@ -794,12 +835,18 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    sizeValue: { minWidth: 32, textAlign: "center" },
+    sizeValue: { minWidth: 32, fontSize: 16, lineHeight: 24, textAlign: "center" },
     placementActions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    changePositionButton: { flex: 1, minWidth: 140 },
-    chooseWidgetButton: { flex: 1, minWidth: 140 },
+    changePositionButton: { flex: 1, minWidth: 160 },
+    chooseWidgetButton: { flex: 1, minWidth: 160 },
     unlinkError: { gap: 8 },
-    emptyState: { flex: 1, justifyContent: "center", alignItems: "stretch", gap: 12, padding: 8 },
+    emptyState: {
+        flexGrow: 1,
+        justifyContent: "center",
+        alignItems: "stretch",
+        gap: 12,
+        padding: 8,
+    },
     gridSection: { width: "100%", gap: 12 },
     horizontalGrid: { flexGrow: 1 },
     grid: { position: "relative", alignSelf: "flex-start", gap: GAP },
@@ -821,7 +868,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         zIndex: 1,
     },
-    recovery: { flex: 1, justifyContent: "center", paddingHorizontal: 16, gap: 16 },
+    recovery: { flexGrow: 1, justifyContent: "center", gap: 16 },
     dialogContent: { maxHeight: "90%" },
     dialogBody: { flexShrink: 1, maxHeight: "75%" },
 });

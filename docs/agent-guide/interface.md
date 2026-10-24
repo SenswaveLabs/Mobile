@@ -145,7 +145,10 @@ Accessibility and task completion take priority over matching a visual pattern.
   Place widget, widget creation or dashboard unlink. Direct configuration routes
   deny Display before reads/forms and recheck permission in retained callbacks.
 - Grid keeps its Widgets heading, place action, geometry and inline recovery in
-  one vertical scroll. Use measured width, 8 dp gaps and at least 96 dp rows.
+  one vertical scroll with device identity, dashboard selection and management
+  actions. Reveal the measured Widgets heading when starting or selecting a
+  placement, so the device header does not consume the narrow-screen workspace.
+  Use measured width, 8 dp gaps and at least 96 dp rows.
   Empty-cell targets are named with one-based row/column numbers; placement grows
   down/right from the selected top-left cell. Keep Height/Width and
   Change position/Choose widget/Cancel in normal flow, and let Android Back
@@ -164,6 +167,29 @@ Accessibility and task completion take priority over matching a visual pattern.
   press or its named native accessibility action; Display gets no removal callback.
 - Keep compact props omitted on other `Alert` uses so their established card
   treatment remains unchanged.
+- Widget creation uses one keyboard-aware `FormSection`, with operation context,
+  Name, a compatible Widget type sheet, type configuration and full-width Create
+  widget in the same scroll. Preserve exact operation option/icon keys and command
+  values; trim Name to 3–64 characters. Pending requests guard draft changes and
+  duplicates, errors stay inline, and accepted creation can only return once.
+  Read failures offer Retry. Display cannot mount configuration routes or their
+  reads; retained mutations recheck current permission and routed identity.
+- Widget details remain read-only. Show configuration and Enabled/Disabled status,
+  then a separate Delete widget section with a native Reusables confirmation.
+  Cancel and Android Back send no request; failed deletion stays inline and an
+  accepted deletion cannot repeat during return recovery. Definition deletion and
+  dashboard-only unlink remain distinct operations.
+- Widget fields use the same outlined native inputs and selection sheets as other
+  forms. Numeric drafts clear invalid payload values; Slider requires a finite
+  operation range and a valid step within the existing 10,000-step limit. Radio
+  uses 2–10 unique, valid operation options with inline errors; Color stores the
+  chosen value immediately. Keep read-only details free of configuration writes.
+- Live widgets reuse neutral device-tile surfaces, 12 dp corners, readable value
+  hierarchy and amber controls. Keep action names and accepted values visible
+  while pending. Color Cancel/Back discard its unsent draft; Radio options keep
+  at least 48 dp targets and the correct scroll direction. Widget list status
+  changes use a separate 48 dp target and persistent local error feedback; picker
+  rows remain selection-only.
 
 ### Form error placement — Senswave design decision
 

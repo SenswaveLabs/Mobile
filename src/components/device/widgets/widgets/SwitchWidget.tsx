@@ -1,12 +1,10 @@
-import Icon from "@/components/common/Icon";
-import Loading from "@/components/common/Loading";
-import Text from "@/components/common/Text";
+import { Switch } from "@/components/common/Switch";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
 import { widgetRemovalAccessibility } from "../widgetAccessibility";
 import type { CalculatedWidget } from "../../dashboards/DashboardView";
 import React, { FC, useEffect, useState } from "react";
-import { LayoutChangeEvent, Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { widgetStyles } from "./widgetStyles";
 
 interface SwitchWidgetProps {
     operations?: () => void;
@@ -23,10 +21,9 @@ const SwitchWidget: FC<SwitchWidgetProps> = ({
     pending,
     onAction,
 }) => {
-    const theme = useTheme();
+    const { colors } = useTheme().current;
     const [isChecked, setIsChecked] = useState(widget.configuration?.runtime?.value ?? false);
-    const [containerHeight, setContainerHeight] = useState(0);
-    const [containerWidth, setContainerWidth] = useState(0);
+    const [narrow, setNarrow] = useState(false);
     const isDisabled = disabled || pending;
 
     const handleToggle = async () => {
@@ -35,67 +32,62 @@ const SwitchWidget: FC<SwitchWidgetProps> = ({
         if (await onAction(nextValue)) setIsChecked(nextValue);
     };
 
-    const onLayout = (event: LayoutChangeEvent) => {
-        setContainerHeight(event.nativeEvent.layout.height);
-        setContainerWidth(event.nativeEvent.layout.width);
-    };
-
     useEffect(() => {
         setIsChecked(widget.configuration?.runtime?.value ?? false);
     }, [widget.id, widget.configuration?.runtime?.value]);
 
-    const iconSize =
-        Math.min(containerHeight * 0.4, containerWidth * 0.4) > 0
-            ? Math.min(containerHeight * 0.4, containerWidth * 0.4)
-            : 24;
-
     return (
         <Pressable
-            onLayout={onLayout}
+            onLayout={({ nativeEvent }) => setNarrow(nativeEvent.layout.width < 80)}
             accessibilityRole="switch"
             accessibilityLabel={widget.name}
             accessibilityState={{ checked: isChecked, disabled: isDisabled, busy: pending }}
             {...widgetRemovalAccessibility(operations)}
             style={[
+                widgetStyles.tile,
+                narrow && widgetStyles.compactInsets,
                 {
-                    borderRadius: 8,
-                    width: "100%",
-                    height: "100%",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    backgroundColor: isChecked
-                        ? theme.current.colors.success
-                        : theme.current.colors.error,
-                    ...shadowStyles.default,
+                    backgroundColor: colors.deviceTileSurface,
+                    borderColor: colors.deviceTileBorder,
                 },
             ]}
             disabled={isDisabled}
             onPress={() => void handleToggle()}
             onLongPress={operations}>
-            <View
-                style={{
-                    justifyContent: "center",
-                    alignItems: "center",
-                    height: containerHeight * 0.4 > 0 ? containerHeight * 0.4 : 24,
-                    padding: 0,
-                    margin: 0,
-                }}>
-                {pending ? (
-                    <Loading size={iconSize} useBackgroundColor={false} />
-                ) : (
-                    <Icon icon="power-outline" color="onPrimary" size={iconSize} />
-                )}
-            </View>
-
             <Text
-                size={containerHeight < 56 ? "small" : "medium"}
-                color="onPrimary"
-                style={{ textAlign: "center" }}
-                numberOfLines={1}>
+                numberOfLines={2}
+                style={[
+                    widgetStyles.label,
+                    { color: disabled ? colors.authMuted : colors.authForeground },
+                ]}>
                 {widget.name}
             </Text>
+            <View
+                pointerEvents="none"
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={styles.indicator}>
+                {pending ? (
+                    <ActivityIndicator size="small" color={colors.authForeground} />
+                ) : (
+                    <Switch
+                        value={{ value: isChecked }}
+                        onPress={() => void handleToggle()}
+                        orientation="horizontal"
+                        disabled={isDisabled}
+                        style={styles.switch}
+                        trackColors={{ on: colors.authPrimary, off: colors.authBorder }}
+                        thumbColor={isChecked ? colors.authOnPrimary : colors.authFieldBackground}
+                    />
+                )}
+            </View>
         </Pressable>
     );
 };
 
 export default SwitchWidget;
+
+const styles = StyleSheet.create({
+    indicator: { width: 48, height: 24, alignItems: "center", justifyContent: "center" },
+    switch: { width: 40, height: 24, padding: 3 },
+});

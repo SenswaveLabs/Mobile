@@ -1,18 +1,19 @@
-import ImageButton from "@/components/common/ImageButton";
-import React, { useEffect, useState } from "react";
-import { View } from "react-native";
-import Text from "@/components/common/Text";
-import { shadowStyles } from "@/styles/shadowStyles";
+import React, { FC, useEffect, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { useWidgetDetails } from "@/contexts/custom/WidgetDetailsProvider";
 import Icon from "@/components/common/Icon";
-import RadioOptionFormModal from "./RadioOptionFormModal";
-import { useToast } from "@/contexts/ToastProvider";
+import ListRow from "@/components/common/ListRow";
+import SectionHeaderAction from "@/components/common/SectionHeaderAction";
 import SenswaveModal from "@/components/common/SenswaveModal";
+import RadioOptionFormModal from "./RadioOptionFormModal";
+import { getRadioOptionErrors, getRadioOptionsError } from "./radioValidation";
 import { OperationType } from "@/types/DeviceTypes";
+import type { OptionInfo } from "@/contexts/custom/OperationFormProvider";
 
-interface RadioFormProps {
+interface Props {
     edit?: boolean;
+    disabled?: boolean;
 }
 
 export type RadioOption = {
@@ -23,150 +24,187 @@ export type RadioOption = {
 
 export const RadioOperationTypes: OperationType[] = ["Options"];
 
-const RadioForm = ({ edit }: RadioFormProps) => {
-    const theme = useTheme();
-    const toast = useToast();
-    const [dialogOpen, setDialogOpen] = useState(false);
+const RadioForm: FC<Props> = ({ edit = false, disabled = false }) => {
+    const { colors } = useTheme().current;
     const widgetDetails = useWidgetDetails();
+    const configuredOptions = Array.isArray(widgetDetails.widget?.configuration?.options)
+        ? (widgetDetails.widget.configuration.options as RadioOption[])
+        : [];
+    const operationOptions = Array.isArray(widgetDetails.operation?.configuration?.options)
+        ? (widgetDetails.operation.configuration.options as OptionInfo[])
+        : [];
+    const [options, setOptions] = useState(configuredOptions);
+    const optionsRef = useRef(options);
+    const [optionsError, setOptionsError] = useState("");
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const lockedRef = useRef(edit || disabled);
+    lockedRef.current = edit || disabled;
+    const detailsRef = useRef(widgetDetails);
+    detailsRef.current = widgetDetails;
+    const canAdd =
+        options.length < 10 &&
+        operationOptions.some(
+            (available) => !options.some((option) => option?.optionName === available?.name),
+        );
 
-    const options = (widgetDetails.widget?.configuration?.options as RadioOption[]) ?? [];
-
-    const [currentRadioOptions, setCurrentRadioOptions] = useState<RadioOption[]>(options);
-
-    const validateOptions = (): boolean => {
-        if (widgetDetails.widget?.configuration?.options?.length === 0) {
-            return false;
-        }
-
-        if (widgetDetails.widget?.configuration?.options?.length < 2) {
-            toast.error("At least two options are required.");
-            return false;
-        }
-
-        return true;
+    const validate = () => {
+        const availableOptions = detailsRef.current.operation?.configuration?.options;
+        const error = getRadioOptionsError(
+            optionsRef.current,
+            Array.isArray(availableOptions) ? availableOptions : [],
+        );
+        setOptionsError(error);
+        return error === "";
     };
+    const validateRef = useRef(validate);
+    validateRef.current = validate;
 
     useEffect(() => {
-        widgetDetails.setAdditionalValidation(validateOptions);
-        widgetDetails.setIsValid(options.length >= 2);
+        const details = detailsRef.current;
+        const saved = details.widget?.configuration?.options;
+        const initial = Array.isArray(saved) ? saved : [];
+        optionsRef.current = initial;
+        setOptions(initial);
+        details.setAdditionalValidation(() => validateRef.current());
+        details.validateDto();
+        return () => details.setAdditionalValidation(null);
+    }, [widgetDetails.operation?.id, widgetDetails.widget?.id]);
 
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    const removeOption = (option: RadioOption) => {
-        const updatedOptions = currentRadioOptions.filter((item) => item !== option);
-        setCurrentRadioOptions(updatedOptions);
-
-        widgetDetails.setWidget({
-            ...widgetDetails.widget!,
-            configuration: {
-                ...widgetDetails.widget?.configuration,
-                options: updatedOptions,
-            },
+    const updateOptions = (nextOptions: RadioOption[]) => {
+        if (lockedRef.current) return;
+        optionsRef.current = nextOptions;
+        setOptions(nextOptions);
+        const details = detailsRef.current;
+        details.setWidget({
+            ...details.widget!,
+            configuration: { ...details.widget?.configuration, options: nextOptions },
         });
-
-        widgetDetails.setIsValid(updatedOptions.length >= 2);
+        details.validateDto();
     };
 
-    const onAddOption = (option: RadioOption) => {
-        const updatedOptions = [...currentRadioOptions, option];
-        setCurrentRadioOptions(updatedOptions);
-
-        widgetDetails.setWidget({
-            ...widgetDetails.widget!,
-            configuration: {
-                ...widgetDetails.widget?.configuration,
-                options: updatedOptions,
-            },
-        });
-
-        widgetDetails.setIsValid(updatedOptions.length >= 2);
+    const addOption = (option: RadioOption) => {
+        if (lockedRef.current) return;
+        const errors = getRadioOptionErrors(option, operationOptions, optionsRef.current);
+        const error =
+            optionsRef.current.length >= 10
+                ? "Use at most 10 options."
+                : errors.displayName || errors.optionName || errors.icon;
+        if (error) {
+            setOptionsError(error);
+            return;
+        }
+        updateOptions([...optionsRef.current, option]);
+        setDialogOpen(false);
     };
 
     return (
-        <View>
-            <SenswaveModal
-                visible={dialogOpen}
-                onClose={() => setDialogOpen(false)}
-                title="Add Radio Option">
-                <RadioOptionFormModal
-                    onAddOption={onAddOption}
-                    currentRadioOptions={currentRadioOptions}
+        <View style={styles.fields}>
+            {!edit && (
+                <SenswaveModal
+                    visible={dialogOpen}
                     onClose={() => setDialogOpen(false)}
-                />
-            </SenswaveModal>
-
-            <View>
-                <View style={{ flexDirection: "row", marginBottom: 10, alignItems: "center" }}>
-                    <Text size={"medium"} color={"onBackground"} bold={true} style={{ flex: 1 }}>
-                        Configured Options
-                    </Text>
-                    <ImageButton
-                        icon="add-outline"
-                        size={20}
-                        onPress={() => {
-                            if (edit) {
-                                return;
-                            }
-                            setDialogOpen(true);
-                        }}
-                        style={{ opacity: edit ? 0 : 1 }}
-                    />
+                    title="Add option"
+                    variant="brand">
+                    {dialogOpen && (
+                        <RadioOptionFormModal
+                            onAddOption={addOption}
+                            currentRadioOptions={options}
+                            onClose={() => setDialogOpen(false)}
+                            disabled={disabled}
+                        />
+                    )}
+                </SenswaveModal>
+            )}
+            <View style={styles.group}>
+                <View style={styles.header}>
+                    <Text style={[styles.label, { color: colors.authForeground }]}>Options</Text>
+                    {!edit && (
+                        <SectionHeaderAction
+                            label="Add"
+                            accessibilityLabel="Add radio option"
+                            icon={<Icon icon="add-outline" size={20} color="brand" />}
+                            disabled={disabled || !canAdd}
+                            onPress={() => {
+                                if (!lockedRef.current && canAdd) setDialogOpen(true);
+                            }}
+                        />
+                    )}
                 </View>
-
-                {currentRadioOptions.map((option: RadioOption, idx: number) => (
-                    <View
-                        key={idx}
-                        style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-                        <View
-                            style={[
-                                {
-                                    marginTop: 0,
-                                    marginBottom: 5,
-                                    borderRadius: 12,
-                                    padding: 8,
-                                    height: 40,
-                                    marginRight: 10,
-                                    backgroundColor: theme.current.colors.primary,
-                                    justifyContent: "center",
-                                },
-                                shadowStyles.default,
-                            ]}>
-                            <Icon icon={option.icon} size={20} />
-                        </View>
-                        <View
-                            style={[
-                                {
-                                    marginTop: 0,
-                                    marginBottom: 5,
-                                    borderRadius: 12,
-                                    padding: 8,
-                                    height: 40,
-                                    flex: 1,
-                                    marginRight: edit ? 0 : 10,
-                                    backgroundColor: theme.current.colors.primary,
-                                    justifyContent: "flex-start",
-                                    flexDirection: "row",
-                                    gap: 8,
-                                },
-                                shadowStyles.default,
-                            ]}>
-                            <Text size={"medium"} color={"onPrimary"} bold={false}>
-                                {option.displayName}
-                            </Text>
-                        </View>
-                        {!edit && (
-                            <ImageButton
-                                size={24}
-                                icon="remove-outline"
-                                onPress={() => removeOption(option)}
-                            />
-                        )}
-                    </View>
+                <Text style={[styles.support, { color: colors.authMuted }]}>
+                    Choose 2–10 operation options. Each needs a unique display name.
+                </Text>
+                {options.length === 0 && (
+                    <Text style={[styles.support, { color: colors.authMuted }]}>
+                        No options configured.
+                    </Text>
+                )}
+                {options.map((option, index) => (
+                    <ListRow
+                        key={index}
+                        title={option?.displayName || "Unavailable option"}
+                        description={option?.optionName || "No operation option"}
+                        separator={index < options.length - 1}
+                        leading={
+                            <Icon icon={option?.icon || "bulb-outline"} size={24} color="brand" />
+                        }
+                        trailing={
+                            !edit && (
+                                <Pressable
+                                    cssInterop={false}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Remove ${option?.displayName || "option"}`}
+                                    accessibilityState={{ disabled, busy: disabled }}
+                                    disabled={disabled}
+                                    onPress={() => {
+                                        if (!lockedRef.current)
+                                            updateOptions(
+                                                optionsRef.current.filter(
+                                                    (_, optionIndex) => optionIndex !== index,
+                                                ),
+                                            );
+                                    }}
+                                    style={({ pressed }) => [
+                                        styles.remove,
+                                        pressed && styles.pressed,
+                                    ]}>
+                                    <Icon icon="remove-outline" size={24} color="brand" />
+                                </Pressable>
+                            )
+                        }
+                    />
                 ))}
+                {!!optionsError && (
+                    <Text
+                        style={[styles.support, { color: colors.error }]}
+                        accessibilityLiveRegion="polite">
+                        {optionsError}
+                    </Text>
+                )}
+                {!edit && !canAdd && options.length > 0 && (
+                    <Text style={[styles.support, { color: colors.authMuted }]}>
+                        {options.length >= 10
+                            ? "The maximum of 10 options is configured."
+                            : "All available operation options are configured."}
+                    </Text>
+                )}
             </View>
         </View>
     );
 };
 
 export default RadioForm;
+
+const styles = StyleSheet.create({
+    fields: { gap: 24 },
+    group: { gap: 8 },
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+    },
+    label: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: "500" },
+    support: { fontSize: 14, lineHeight: 20 },
+    remove: { minWidth: 48, minHeight: 48, alignItems: "center", justifyContent: "center" },
+    pressed: { opacity: 0.72 },
+});

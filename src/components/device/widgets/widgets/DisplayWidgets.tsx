@@ -1,10 +1,9 @@
 import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
 import { widgetRemovalAccessibility } from "../widgetAccessibility";
 import type { CalculatedWidget } from "../../dashboards/DashboardView";
 import React, { FC } from "react";
-import { Pressable } from "react-native";
-import Text from "@/components/common/Text";
+import { Pressable, Text } from "react-native";
+import { widgetStyles } from "./widgetStyles";
 
 interface DisplayWidgetProps {
     operations?: () => void;
@@ -13,28 +12,35 @@ interface DisplayWidgetProps {
 }
 
 const DisplayWidget: FC<DisplayWidgetProps> = ({ operations, widget, disabled }) => {
-    const theme = useTheme();
+    const { colors } = useTheme().current;
+    const value = widget.configuration?.runtime?.value;
+    const unit = widget.configuration?.unit;
+    const readout =
+        value === undefined || value === null ? "—" : `${String(value)}${unit ? ` ${unit}` : ""}`;
     return (
         <Pressable
             accessibilityRole="text"
-            accessibilityLabel={`${widget.name}: ${widget.configuration?.runtime?.value ?? "—"} ${widget.configuration?.unit ?? ""}`}
+            accessibilityLabel={`${widget.name}: ${readout}`}
             {...widgetRemovalAccessibility(operations)}
             style={[
+                widgetStyles.tile,
+                { gap: 4 },
                 {
-                    backgroundColor: theme.current.colors.primary,
-                    borderRadius: 8,
-                    width: "100%",
-                    height: "100%",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    ...shadowStyles.default,
+                    backgroundColor: colors.deviceTileSurface,
+                    borderColor: colors.deviceTileBorder,
                 },
             ]}
             disabled={disabled}
             onLongPress={operations}>
-            <Text size="medium" color="onPrimary">
-                {widget.name}: {widget.configuration?.runtime?.value}{" "}
-                {widget.configuration?.unit ?? ""}
+            <Text numberOfLines={2} style={[widgetStyles.label, { color: colors.authMuted }]}>
+                {widget.name}
+            </Text>
+            <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+                style={[widgetStyles.readout, { color: colors.authForeground }]}>
+                {readout}
             </Text>
         </Pressable>
     );

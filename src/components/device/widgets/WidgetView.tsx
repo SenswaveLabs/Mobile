@@ -32,7 +32,8 @@ const RenderInternalWidget: FC<{
     onAction: (value: WidgetActionValue) => Promise<boolean>;
     pending: boolean;
     disabled: boolean;
-}> = ({ positionedWidget, widget, actions, onAction, pending, disabled }) => {
+    error?: string;
+}> = ({ positionedWidget, widget, actions, onAction, pending, disabled, error }) => {
     if (widget.type === "Button") {
         return (
             <ButtonWidget
@@ -81,6 +82,7 @@ const RenderInternalWidget: FC<{
                 disabled={disabled}
                 pending={pending}
                 onAction={onAction}
+                error={error}
             />
         );
     }
@@ -150,6 +152,7 @@ const WidgetView: FC<WidgetViewProps> = ({
                     onAction={action.send}
                     pending={action.pending}
                     disabled={disabled}
+                    error={action.error}
                 />
             </View>
             {!!action.error && (

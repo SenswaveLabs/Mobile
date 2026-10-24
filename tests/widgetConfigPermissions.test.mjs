@@ -59,6 +59,7 @@ function mountWidgetAdd({ canManage }) {
             "@/components/common/Button": "Button",
             "@/components/common/Loading": "Loading",
             "@/components/device/widgets/WidgetForm": "WidgetForm",
+            "@/components/device/widgets/AddWidgetForm": "AddWidgetForm",
             "@/components/ui/alert": { Alert: "Alert", AlertDescription: "AlertDescription" },
             "@/contexts/custom/DeviceProvider": { useDevice: () => ({ deviceId: "device-a" }) },
             "@/contexts/custom/WidgetDetailsProvider": {
@@ -108,4 +109,36 @@ test("widget creation route does not mount its provider for Display", () => {
         false,
     );
     assert.match(display.text(), /don't have permission/);
+});
+
+test("widget details and standalone management list deny Display before mounting their reads", () => {
+    for (const routeName of ["details", "list"]) {
+        const route = mountNativeComponent(`src/app/(app)/device/widget/${routeName}.tsx`, {
+            modules: {
+                "expo-router": {
+                    useLocalSearchParams: () => ({ widgetId: "widget-a", deviceId: "device-a" }),
+                    useRouter: () => ({ canGoBack: () => true, back: () => {} }),
+                },
+                "@/components/device/widgets/WidgetDetails": "WidgetDetails",
+                "@/components/device/widgets/WidgetList": "WidgetList",
+                "@/contexts/custom/WidgetDetailsProvider": {
+                    WidgetDetailsProvider: "WidgetDetailsProvider",
+                },
+                "@/contexts/custom/DeviceProvider": { useDevice: () => ({ deviceId: "device-a" }) },
+                "@/contexts/domain/HomeProvider": {
+                    useHomes: () => ({
+                        loading: false,
+                        current: { isOwner: false, canManage: false },
+                    }),
+                },
+            },
+        });
+        assert.match(route.text(), /don't have permission/);
+        assert.equal(
+            route
+                .elements()
+                .some((node) => ["WidgetDetailsProvider", "WidgetList"].includes(node.type)),
+            false,
+        );
+    }
 });

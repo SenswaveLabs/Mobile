@@ -1,206 +1,226 @@
-import { OperationDto, WidgetDto, WidgetType } from "@/types/DeviceTypes";
-import React, { createContext, useContext, useState, useRef, ReactNode } from "react";
+import type { OperationDto, OperationType, WidgetDto, WidgetType } from "@/types/DeviceTypes";
+import React, {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useRef,
+    useState,
+    FC,
+    PropsWithChildren,
+} from "react";
 import { useHttpClient } from "../HttpClientProvider";
-import { useToast } from "../ToastProvider";
 
-type AddWidgetDto = {
+export interface AddWidgetDto {
     operationId: string;
-
     name: string;
     type: WidgetType;
-
     configuration: any;
-};
+}
 
-type WidgetBaseErrors = {
-    nameError: string;
+export const supportedWidgetTypes: Record<OperationType, WidgetType[]> = {
+    Boolean: ["Button", "Switch"],
+    Number: ["Button", "Display", "Slider"],
+    Integer: ["Button", "Display", "Slider"],
+    Text: ["Button", "Display"],
+    HexColor: ["Button", "Color"],
+    Options: ["Button", "Radio"],
 };
 
 interface WidgetDetailsContextProps {
     loading: boolean;
-
+    loadError: string;
     operation: OperationDto | undefined;
     widget: WidgetDto | undefined;
-    errors: WidgetBaseErrors;
+    errors: { nameError: string };
     setWidget: (widget: WidgetDto) => void;
-
     initializeForAdd: (operationId: string) => Promise<void>;
     initializeForDisplay: (widgetId: string) => Promise<void>;
-
     toAddDto: () => AddWidgetDto;
     isValid: boolean;
     setIsValid: (valid: boolean) => void;
-    validateDto: () => boolean;
-    setAdditionalValidation: (callback: () => boolean) => void;
+    validateDto: (showErrors?: boolean) => boolean;
+    setAdditionalValidation: (callback: (() => boolean) | null) => void;
 }
 
 const WidgetDetailsContext = createContext<WidgetDetailsContextProps>({
-    loading: false,
-
+    loading: true,
+    loadError: "",
     operation: undefined,
-
     widget: undefined,
     errors: { nameError: "" },
     setWidget: () => {},
-
-    initializeForAdd: (): Promise<void> => {
-        console.warn("[WidgetDetailsProvider] Initialize for add not implemented.");
-        return Promise.resolve();
-    },
-    initializeForDisplay: (): Promise<void> => Promise.resolve(),
-
-    toAddDto: (): AddWidgetDto => {
-        return { operationId: "", name: "", type: "Invalid", configuration: {} };
-    },
+    initializeForAdd: async () => {},
+    initializeForDisplay: async () => {},
+    toAddDto: () => ({ operationId: "", name: "", type: "Invalid", configuration: {} }),
     isValid: false,
     setIsValid: () => {},
     validateDto: () => false,
-    setAdditionalValidation: () => {
-        console.warn("[WidgetDetailsProvider] Validation function set.");
-    },
+    setAdditionalValidation: () => {},
 });
 
-export const WidgetDetailsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+const isConfiguration = (value: unknown) =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+
+export const WidgetDetailsProvider: FC<PropsWithChildren> = ({ children }) => {
     const httpClient = useHttpClient();
-    const toast = useToast();
-
-    const [loading, setLoading] = useState<boolean>(false);
-
-    const [operation, setOperation] = useState<OperationDto | undefined>(undefined);
-    const [widget, setWidget] = useState<WidgetDto | undefined>(undefined);
-    const [errors, setErrors] = useState<WidgetBaseErrors>({ nameError: "" });
-    const [isValid, setIsValid] = useState<boolean>(false);
-
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
+    const [operation, setOperation] = useState<OperationDto>();
+    const [widget, setWidgetState] = useState<WidgetDto>();
+    const [errors, setErrors] = useState({ nameError: "" });
+    const [isValid, setIsValid] = useState(false);
+    const widgetRef = useRef<WidgetDto | undefined>(undefined);
+    const requestRef = useRef(0);
     const additionalValidateRef = useRef<(() => boolean) | null>(null);
 
-    const initializeForAdd = async (operationId: string) => {
-        if (loading) {
-            console.info("[WidgetDetailsContext] Already processing.");
-            return;
-        }
+    useEffect(
+        () => () => {
+            ++requestRef.current;
+        },
+        [],
+    );
 
-        setLoading(true);
+    const setWidget = useCallback((value: WidgetDto) => {
+        widgetRef.current = value;
+        setWidgetState(value);
+    }, []);
 
-        const response = await httpClient.get("v1/devices/operations/" + operationId);
+    const readOperation = useCallback(
+        async (operationId: string) => {
+            const result = await httpClient.get(`v1/devices/operations/${operationId}`);
+            if (!result.isSuccess || !result.response) throw new Error("Operation read failed");
+            const content = (await result.response.json()) as OperationDto;
+            if (
+                !content ||
+                content.id !== operationId ||
+                typeof content.name !== "string" ||
+                !Object.prototype.hasOwnProperty.call(supportedWidgetTypes, content.type) ||
+                !isConfiguration(content.configuration)
+            ) {
+                throw new Error("Invalid operation");
+            }
+            return content;
+        },
+        [httpClient],
+    );
 
-        if (response.isSuccess) {
-            const content = (await response.response?.json()) as OperationDto;
-            setOperation(content);
-        } else {
-            toast.httpError(response);
-        }
+    const initialize = useCallback(
+        async (id: string, display: boolean) => {
+            const request = ++requestRef.current;
+            setLoading(true);
+            setLoadError("");
+            setOperation(undefined);
+            widgetRef.current = undefined;
+            setWidgetState(undefined);
+            setErrors({ nameError: "" });
+            setIsValid(false);
+            additionalValidateRef.current = null;
 
-        setWidget({
-            id: "",
-            deviceId: "",
-            operationId: operationId,
+            try {
+                if (!id?.trim()) throw new Error("Missing identifier");
+                let nextWidget: WidgetDto;
+                if (display) {
+                    const result = await httpClient.get(`v1/devices/widgets/${id}`);
+                    if (!result.isSuccess || !result.response)
+                        throw new Error("Widget read failed");
+                    nextWidget = (await result.response.json()) as WidgetDto;
+                    if (
+                        !nextWidget ||
+                        nextWidget.id !== id ||
+                        typeof nextWidget.operationId !== "string" ||
+                        !nextWidget.operationId.trim() ||
+                        typeof nextWidget.deviceId !== "string" ||
+                        typeof nextWidget.name !== "string" ||
+                        typeof nextWidget.type !== "string" ||
+                        typeof nextWidget.enabled !== "boolean" ||
+                        !isConfiguration(nextWidget.configuration)
+                    ) {
+                        throw new Error("Invalid widget");
+                    }
+                } else {
+                    nextWidget = {
+                        id: "",
+                        deviceId: "",
+                        operationId: id,
+                        name: "",
+                        type: "Button",
+                        enabled: true,
+                        configuration: {},
+                    };
+                }
+                const nextOperation = await readOperation(nextWidget.operationId);
+                if (request !== requestRef.current) return;
+                setOperation(nextOperation);
+                setWidget(nextWidget);
+            } catch {
+                if (request === requestRef.current)
+                    setLoadError(
+                        display
+                            ? "Couldn't load this widget. Try again."
+                            : "Couldn't load the operation. Try again.",
+                    );
+            } finally {
+                if (request === requestRef.current) setLoading(false);
+            }
+        },
+        [httpClient, readOperation, setWidget],
+    );
 
-            name: "",
-            type: "Button",
-            enabled: true,
+    const initializeForAdd = useCallback(
+        (operationId: string) => initialize(operationId, false),
+        [initialize],
+    );
+    const initializeForDisplay = useCallback(
+        (widgetId: string) => initialize(widgetId, true),
+        [initialize],
+    );
 
-            configuration: {},
-        });
+    const toAddDto = (): AddWidgetDto => ({
+        operationId: widgetRef.current?.operationId ?? "",
+        name: widgetRef.current?.name.trim() ?? "",
+        type: widgetRef.current?.type ?? "Invalid",
+        configuration: widgetRef.current?.configuration ?? {},
+    });
 
-        setLoading(false);
-    };
-
-    const initializeForDisplay = async (widgetId: string) => {
-        if (loading) {
-            console.info("[WidgetDetailsContext] Already processing.");
-            return;
-        }
-
-        setLoading(true);
-
-        const widgetResponse = await httpClient.get("v1/devices/widgets/" + widgetId);
-
-        let operationId = "";
-
-        if (widgetResponse.isSuccess) {
-            const content = (await widgetResponse.response?.json()) as WidgetDto;
-            operationId = content.operationId;
-            setWidget(content);
-        } else {
-            toast.httpError(widgetResponse);
-            setLoading(false);
-            return;
-        }
-
-        const response = await httpClient.get("v1/devices/operations/" + operationId);
-
-        if (response.isSuccess) {
-            const content = (await response.response?.json()) as OperationDto;
-            setOperation(content);
-        } else {
-            toast.httpError(response);
-            setLoading(false);
-            return;
-        }
-
-        setLoading(false);
-    };
-
-    const toAddDto = (): AddWidgetDto => {
-        return {
-            operationId: widget?.operationId ?? "",
-
-            name: widget?.name ?? "",
-            type: widget?.type ?? "Invalid",
-
-            configuration: widget?.configuration ?? {},
-        };
-    };
-
-    const validateDto = () => {
-        console.info("[WidgetDetailsProvider] Validating.");
-
-        let valid = true;
-
-        const name = widget?.name ?? "";
-
-        if (name === "") {
-            valid = false;
-            setErrors({ ...errors, nameError: "" });
-        } else if (name.length > 64) {
-            valid = false;
-            setErrors({ ...errors, nameError: "Name is too long." });
-        } else if (name.length < 3) {
-            valid = false;
-            setErrors({ ...errors, nameError: "Name is too short." });
-        } else {
-            setErrors({ ...errors, nameError: "" });
-        }
-
-        if (additionalValidateRef.current) {
-            const additionalValid = additionalValidateRef.current();
-            valid = additionalValid && valid;
-
-            console.info("[WidgetDetailsProvider] Additional validation result:", additionalValid);
-        } else {
-            console.warn("[WidgetDetailsProvider] No additional validation function set.");
-        }
-
+    const validateDto = (showErrors = false) => {
+        const current = widgetRef.current;
+        const name = current?.name.trim() ?? "";
+        const nameError =
+            name.length === 0
+                ? showErrors
+                    ? "Name is required."
+                    : ""
+                : name.length < 3 || name.length > 64
+                  ? "Use 3–64 characters."
+                  : "";
+        setErrors({ nameError });
+        const additionalValid = additionalValidateRef.current?.() ?? true;
+        const valid =
+            name.length >= 3 &&
+            name.length <= 64 &&
+            Boolean(
+                operation &&
+                current &&
+                supportedWidgetTypes[operation.type]?.includes(current.type),
+            ) &&
+            additionalValid;
         setIsValid(valid);
-
         return valid;
     };
 
-    const setAdditionalValidation = (callback: () => boolean) => {
-        additionalValidateRef.current = () => {
-            return callback();
-        };
-    };
-
-    console.info("[WidgetDetailsProvider] Initialized.");
+    const setAdditionalValidation = useCallback((callback: (() => boolean) | null) => {
+        additionalValidateRef.current = callback;
+    }, []);
 
     return (
         <WidgetDetailsContext.Provider
             value={{
                 loading,
+                loadError,
                 operation,
-                errors,
                 widget,
+                errors,
                 setWidget,
                 initializeForAdd,
                 initializeForDisplay,

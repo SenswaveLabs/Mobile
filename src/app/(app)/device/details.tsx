@@ -241,7 +241,7 @@ function Details() {
                             )
                                 return;
                             openingManagement.current = true;
-                            router.push({ pathname: "device/widget/list" });
+                            router.push({ pathname: "device/widget/list", params: { deviceId } });
                         }}
                         disabled={!canManage || mutationPending || hasChanges}
                     />

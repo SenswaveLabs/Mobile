@@ -1,11 +1,9 @@
-import Loading from "@/components/common/Loading";
-import Text from "@/components/common/Text";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
 import { widgetRemovalAccessibility } from "../widgetAccessibility";
 import type { CalculatedWidget } from "../../dashboards/DashboardView";
 import React, { FC } from "react";
-import { Pressable } from "react-native";
+import { ActivityIndicator, Pressable, Text } from "react-native";
+import { widgetStyles } from "./widgetStyles";
 
 interface ButtonWidgetProps {
     operations?: () => void;
@@ -22,37 +20,31 @@ const ButtonWidget: FC<ButtonWidgetProps> = ({
     pending,
     onAction,
 }) => {
-    const theme = useTheme();
+    const { colors } = useTheme().current;
     const isDisabled = disabled || pending;
+    const foreground = disabled ? colors.authMuted : colors.authOnPrimary;
     return (
         <Pressable
+            cssInterop={false}
             accessibilityRole="button"
             accessibilityLabel={widget.name}
             accessibilityState={{ disabled: isDisabled, busy: pending }}
             {...widgetRemovalAccessibility(operations)}
-            style={({ pressed }) => [
+            android_ripple={{ color: colors.authBorder }}
+            style={[
+                widgetStyles.tile,
                 {
-                    backgroundColor: pressed
-                        ? theme.current.colors.secondary
-                        : theme.current.colors.primary,
-                    borderRadius: 8,
-                    width: "100%",
-                    height: "100%",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    ...shadowStyles.default,
+                    backgroundColor: disabled ? colors.deviceTileSubtle : colors.authPrimary,
+                    borderColor: disabled ? colors.deviceTileBorder : colors.authPrimary,
                 },
             ]}
             disabled={isDisabled}
             onPress={() => void onAction("")}
             onLongPress={operations}>
-            {pending ? (
-                <Loading size={32} useBackgroundColor={false} />
-            ) : (
-                <Text size="medium" color="onPrimary">
-                    {widget.name}
-                </Text>
-            )}
+            {pending && <ActivityIndicator size="small" color={foreground} accessible={false} />}
+            <Text numberOfLines={2} style={[widgetStyles.label, { color: foreground }]}>
+                {widget.name}
+            </Text>
         </Pressable>
     );
 };

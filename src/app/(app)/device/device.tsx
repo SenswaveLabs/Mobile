@@ -3,9 +3,9 @@ import Button from "@/components/common/Button";
 import Icon from "@/components/common/Icon";
 import Loading from "@/components/common/Loading";
 import SectionHeaderAction from "@/components/common/SectionHeaderAction";
-import Text from "@/components/common/Text";
 import DashboardView from "@/components/device/dashboards/DashboardView";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Text } from "@/components/ui/text";
 import { useDevice } from "@/contexts/custom/DeviceProvider";
 import { useDeviceList } from "@/contexts/custom/DeviceListProvider";
 import { useHomes } from "@/contexts/domain/HomeProvider";
@@ -63,17 +63,21 @@ const Device: FC = () => {
         }
     };
 
-    const showFallback = (title: string, message: string, action?: ReactNode) => (
+    const showFallback = (
+        title: string,
+        message: string,
+        action?: ReactNode,
+        header?: ReactNode,
+    ) => (
         <ScrollView
             contentContainerStyle={styles.fallbackScroll}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+            {header}
             <View style={styles.fallback}>
-                <Text size="large" color="onBackground" bold style={styles.fallbackTitle}>
+                <Text style={[styles.fallbackTitle, { color: colors.authForeground }]}>
                     {title}
                 </Text>
-                <Text size="medium" color="onBackground" style={styles.fallbackMessage}>
-                    {message}
-                </Text>
+                <Text style={[styles.fallbackMessage, { color: colors.authMuted }]}>{message}</Text>
                 {action}
             </View>
         </ScrollView>
@@ -122,17 +126,67 @@ const Device: FC = () => {
         </View>
     ) : null;
 
+    const header = (
+        <View style={styles.header}>
+            <Text
+                accessibilityRole="header"
+                style={[styles.title, { color: colors.authForeground }]}>
+                {currentDevice?.name || "Device dashboard"}
+            </Text>
+            <View style={styles.sectionHeader}>
+                <Text
+                    accessibilityRole="header"
+                    style={[styles.sectionTitle, { color: colors.authForeground }]}>
+                    Dashboards
+                </Text>
+                {canManage && (
+                    <SectionHeaderAction
+                        label="Add"
+                        accessibilityLabel="Add dashboard"
+                        icon={<Icon icon="add-outline" size={20} color="complementary" />}
+                        disabled={home.loading}
+                        onPress={addDashboard}
+                    />
+                )}
+            </View>
+            {dashboards.dashboards.length > 0 && (
+                <BottomSheetSelect
+                    title="Dashboard"
+                    sheetTitle="Choose dashboard"
+                    value={selectorSelection?.name ?? "Choose dashboard"}
+                    options={dashboards.dashboards.map((dashboard) => ({
+                        label: dashboard.name,
+                        selected: dashboard.id === selectorSelection?.id,
+                        onPress: () => dashboards.setCurrentDashboardId(dashboard.id),
+                    }))}
+                    disabled={dashboards.loading || refreshing}
+                />
+            )}
+            {managerActions}
+        </View>
+    );
+
+    const loadingContent = () => (
+        <ScrollView contentContainerStyle={styles.fallbackScroll}>
+            {header}
+            <Loading />
+        </ScrollView>
+    );
+
     const dashboardContent = () => {
         if (currentDevice?.presence?.value === false)
             return showFallback(
                 "Device offline.",
                 "The live dashboard is unavailable until this device comes back online.",
+                undefined,
+                header,
             );
         if (dashboards.loadError && !hasLoadedSelection)
             return (
                 <ScrollView
                     contentContainerStyle={styles.fallbackScroll}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+                    {header}
                     <View style={styles.fallback}>
                         <Alert
                             icon={CircleAlert}
@@ -152,7 +206,7 @@ const Device: FC = () => {
                     </View>
                 </ScrollView>
             );
-        if (dashboards.loading && !hasLoadedSelection) return <Loading />;
+        if (dashboards.loading && !hasLoadedSelection) return loadingContent();
         if (dashboards.dashboards.length === 0)
             return showFallback(
                 "No dashboards yet.",
@@ -168,53 +222,22 @@ const Device: FC = () => {
                         style={styles.retryButton}
                     />
                 ) : undefined,
+                header,
             );
-        if (!hasLoadedSelection) return <Loading />;
+        if (!hasLoadedSelection) return loadingContent();
         return (
             <DashboardView
                 deviceId={deviceId}
                 dashboardId={dashboards.currentDashboardId}
                 canManage={canManage}
+                header={header}
             />
         );
     };
 
     return (
         <View style={[styles.screen, { backgroundColor: colors.background }]}>
-            <View style={styles.header}>
-                <Text accessibilityRole="header" size="large" color="onBackground" bold>
-                    {currentDevice?.name || "Device dashboard"}
-                </Text>
-                <View style={styles.sectionHeader}>
-                    <Text accessibilityRole="header" size="medium" color="onBackground" bold>
-                        Dashboards
-                    </Text>
-                    {canManage && (
-                        <SectionHeaderAction
-                            label="Add"
-                            accessibilityLabel="Add dashboard"
-                            icon={<Icon icon="add-outline" size={20} color="complementary" />}
-                            disabled={home.loading}
-                            onPress={addDashboard}
-                        />
-                    )}
-                </View>
-                {dashboards.dashboards.length > 0 && (
-                    <BottomSheetSelect
-                        title="Dashboard"
-                        sheetTitle="Choose dashboard"
-                        value={selectorSelection?.name ?? "Choose dashboard"}
-                        options={dashboards.dashboards.map((dashboard) => ({
-                            label: dashboard.name,
-                            selected: dashboard.id === selectorSelection?.id,
-                            onPress: () => dashboards.setCurrentDashboardId(dashboard.id),
-                        }))}
-                        disabled={dashboards.loading || refreshing}
-                    />
-                )}
-                {managerActions}
-            </View>
-            <View style={styles.dashboardContent}>{dashboardContent()}</View>
+            {dashboardContent()}
         </View>
     );
 };
@@ -223,7 +246,9 @@ export default Device;
 
 const styles = StyleSheet.create({
     screen: { flex: 1 },
-    header: { gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
+    header: { gap: 12 },
+    title: { fontSize: 20, lineHeight: 28, fontWeight: "600" },
+    sectionTitle: { fontSize: 16, lineHeight: 24, fontWeight: "600" },
     sectionHeader: {
         minHeight: 48,
         flexDirection: "row",
@@ -233,10 +258,9 @@ const styles = StyleSheet.create({
     },
     managementActions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     secondaryAction: { flexGrow: 1, flexBasis: 150 },
-    dashboardContent: { flex: 1, minHeight: 0 },
-    fallbackScroll: { flexGrow: 1 },
-    fallback: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 24, gap: 12 },
-    fallbackTitle: { textAlign: "center" },
-    fallbackMessage: { textAlign: "center" },
+    fallbackScroll: { flexGrow: 1, padding: 16, gap: 24 },
+    fallback: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 8, gap: 12 },
+    fallbackTitle: { fontSize: 20, lineHeight: 28, fontWeight: "600", textAlign: "center" },
+    fallbackMessage: { fontSize: 14, lineHeight: 20, textAlign: "center" },
     retryButton: { marginTop: 4, width: "100%" },
 });

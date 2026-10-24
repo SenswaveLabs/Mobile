@@ -35,8 +35,7 @@ test("a transient dashboard load error keeps the grid in its mounted child slot"
     const gridAtStableSlot = (element) => {
         assert.equal(element.type, "View");
         assert.equal(Array.isArray(element.props.children), true);
-        assert.equal(element.props.children[0].type, "View");
-        return element.props.children[1];
+        return element.props.children[0];
     };
 
     const beforeError = gridAtStableSlot(view.output());

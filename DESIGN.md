@@ -162,6 +162,23 @@ Device grid tiles use gently rounded corners (`rounded.device-tile`); list rows 
 - **List:** Transparent, square rows with an 84 dp minimum height; keep the existing boundary only between siblings.
 - **Controls:** Keep controls within the tile's current layout. Errors wrap and expand the tile instead of overlaying or clipping its contents.
 
+### Dashboard Widgets
+
+Dashboard controls reuse the device-tile surface and border roles, 12 dp corners,
+8 dp compact insets and 14/20 dp labels. Button and selected Radio options use the
+amber action role; Switch uses an amber/neutral indicator rather than a red/green
+card. Display separates its muted name from its 24/32 dp readout and preserves zero
+and missing values. Names truncate within small cells while their accessible names
+remain complete. Narrow Sliders stack identity and value above the 48 dp control;
+Radio adapts its scrolling and optional icon to the available cell height. Color
+shows a swatch on small cells, adds its hex code where it fits and uses the existing
+picker with named Cancel/Confirm actions. No new palette or elevation role is added.
+
+Widget creation and read-only details follow the existing FormSection layout,
+outlined fields, selection sheets and inline feedback. Destructive definition
+deletion stays below configuration; dashboard unlink has its separate confirmation.
+The dashboard's identity, selector, management and widget grid share one scroll.
+
 ## Do's and Don'ts
 
 ### Do:

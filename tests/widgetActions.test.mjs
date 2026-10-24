@@ -149,6 +149,7 @@ const commonModules = {
     "@/components/common/Text": "Text",
     "@/components/common/Icon": "Icon",
     "@/components/common/Loading": "Loading",
+    "@/components/common/Switch": { Switch: "Switch" },
 };
 
 const findElement = (component, predicate) => component.elements().find(predicate);
@@ -160,6 +161,69 @@ const pressableWithLabel = (component, label) =>
         component,
         (element) => element.type === "Pressable" && element.props.accessibilityLabel === label,
     );
+
+test("malformed Radio options render the existing unavailable widget fallback", () => {
+    const radio = mountNativeComponent("src/components/device/widgets/widgets/RadioWidget.tsx", {
+        props: {
+            widget: widget("Radio", { options: { name: "invalid" } }),
+            positionedWidget,
+            disabled: false,
+            pending: false,
+            onAction: async () => true,
+        },
+        modules: {
+            ...commonModules,
+            "react-native-gesture-handler": { ScrollView: "GestureScrollView" },
+            "./InvalidWidget": "InvalidWidget",
+        },
+    });
+    assert.ok(radio.elements().some((element) => element.type === "InvalidWidget"));
+});
+
+test("five-column controls keep a full 48 dp inner target at 320 dp", () => {
+    const width = (320 - 32 - 4 * 8) / 5;
+    for (const type of ["Slider", "Switch", "Radio"]) {
+        const component = mountNativeComponent(
+            `src/components/device/widgets/widgets/${type}Widget.tsx`,
+            {
+                props: {
+                    widget: widget(type, {
+                        range: { min: 0, max: 100 },
+                        step: 1,
+                        options: [{ optionName: "eco", displayName: "Eco", icon: "leaf" }],
+                        runtime: { value: 0 },
+                    }),
+                    positionedWidget,
+                    disabled: false,
+                    pending: false,
+                    onAction: async () => true,
+                },
+                modules: {
+                    ...commonModules,
+                    "@/components/common/Slider": "Slider",
+                    "react-native-gesture-handler": { ScrollView: "GestureScrollView" },
+                },
+            },
+        );
+        const frame = () =>
+            findElement(component, (element) => typeof element.props.onLayout === "function");
+        frame().props.onLayout({ nativeEvent: { layout: { width, height: 96 } } });
+        component.render();
+        const style = Object.assign({}, ...frame().props.style.filter(Boolean));
+        const innerWidth =
+            width -
+            2 * (style.paddingHorizontal ?? style.padding ?? 0) -
+            2 * (style.borderWidth ?? 0);
+        assert.ok(innerWidth >= 48, `${type} keeps its complete control inside the tile`);
+        if (type === "Radio") {
+            const option = findElement(
+                component,
+                (element) => element.type?.name === "RadioDisplayOption",
+            );
+            assert.ok(option.props.itemWidth >= 48 && option.props.itemWidth <= innerWidth);
+        }
+    }
+});
 
 test("button and switch handlers preserve their command value types", async () => {
     const buttonActions = [];
@@ -421,6 +485,196 @@ test("Display is read-only and InvalidWidget exposes only manager unlink", () =>
     );
     invalidControl.props.onAccessibilityAction({ nativeEvent: { actionName: "longpress" } });
     assert.equal(removals, 1);
+});
+
+test("Display keeps zero and missing readings visible with the configured unit", () => {
+    for (const [value, expected] of [
+        [0, "0 °C"],
+        [null, "—"],
+        [undefined, "—"],
+    ]) {
+        const display = mountNativeComponent(
+            "src/components/device/widgets/widgets/DisplayWidgets.tsx",
+            {
+                props: {
+                    widget: widget("Display", { runtime: { value }, unit: "°C" }),
+                    disabled: false,
+                },
+                modules: commonModules,
+            },
+        );
+        const control = findElement(display, (element) => element.type === "Pressable");
+        assert.equal(control.props.accessibilityLabel, `Test widget: ${expected}`);
+        assert.ok(
+            display
+                .elements()
+                .some(
+                    (element) =>
+                        element.type === "Text" &&
+                        element.props.children.flat(Infinity).join("").includes(expected),
+                ),
+            `${expected} must be visible, not only announced`,
+        );
+    }
+});
+
+test("Color cancellation and Android Back discard the draft before reopening", () => {
+    const actions = [];
+    const color = mountNativeComponent("src/components/device/widgets/widgets/ColorWidget.tsx", {
+        props: {
+            widget: widget("Color", { runtime: { value: "#000000" } }),
+            disabled: false,
+            pending: false,
+            onAction: async (value) => (actions.push(value), true),
+        },
+        modules: {
+            ...commonModules,
+            "reanimated-color-picker": {
+                __esModule: true,
+                default: "ColorPicker",
+                HueCircular: "HueCircular",
+                Panel1: "Panel1",
+                Preview: "Preview",
+            },
+        },
+    });
+    const modalPicker = () =>
+        findElement(color, (element) => element.type === "ColorPicker" && element.props.onChangeJS);
+    const open = () => {
+        pressableWithLabel(color, "Choose color for Test widget").props.onPress();
+        color.render();
+        assert.equal(findElement(color, (element) => element.type === "Modal").props.visible, true);
+    };
+
+    open();
+    modalPicker().props.onChangeJS({ hex: "#Ab12Ef" });
+    color.render();
+    findElement(color, (element) => element.type === "Modal").props.onRequestClose();
+    color.render();
+    open();
+    assert.equal(modalPicker().props.value, "#000000");
+
+    modalPicker().props.onChangeJS({ hex: "#aBcDeF" });
+    color.render();
+    findElement(
+        color,
+        (element) => element.type === "Button" && element.props.name === "Cancel",
+    ).props.onPress();
+    color.render();
+    open();
+    assert.equal(modalPicker().props.value, "#000000");
+    assert.deepEqual(actions, []);
+});
+
+test("failed Color confirmation keeps the chosen draft and inline modal retry", async () => {
+    let accepted = false;
+    const actions = [];
+    const color = mountNativeComponent("src/components/device/widgets/widgets/ColorWidget.tsx", {
+        props: {
+            widget: widget("Color", { runtime: { value: "#000000" } }),
+            disabled: false,
+            pending: false,
+            error: "Couldn't control this widget. Try again.",
+            onAction: async (value) => {
+                actions.push(value);
+                return accepted;
+            },
+        },
+        modules: {
+            ...commonModules,
+            "reanimated-color-picker": {
+                __esModule: true,
+                default: "ColorPicker",
+                HueCircular: "HueCircular",
+                Panel1: "Panel1",
+                Preview: "Preview",
+            },
+        },
+    });
+    pressableWithLabel(color, "Choose color for Test widget").props.onPress();
+    color.render();
+    const picker = () =>
+        findElement(color, (element) => element.type === "ColorPicker" && element.props.onChangeJS);
+    const confirm = () =>
+        findElement(
+            color,
+            (element) => element.type === "Button" && element.props.name === "Confirm",
+        );
+    picker().props.onChangeJS({ hex: "#Ab12Ef" });
+    color.render();
+    await confirm().props.onPress();
+    await settleHandler();
+    color.render();
+    assert.equal(findElement(color, (element) => element.type === "Modal").props.visible, true);
+    assert.equal(picker().props.value, "#Ab12Ef");
+    assert.match(color.text(), /Couldn't control this widget/);
+    accepted = true;
+    await confirm().props.onPress();
+    await settleHandler();
+    color.render();
+    assert.equal(findElement(color, (element) => element.type === "Modal").props.visible, false);
+    assert.deepEqual(actions, ["#Ab12Ef", "#Ab12Ef"]);
+});
+
+test("Radio keeps vertical options reachable and ignores the selected option", async () => {
+    const actions = [];
+    const option = { optionName: "eco.mode", displayName: "Eco", icon: "leaf" };
+    const radio = mountNativeComponent("src/components/device/widgets/widgets/RadioWidget.tsx", {
+        props: {
+            widget: widget("Radio", { options: [option], runtime: { value: "eco.mode" } }),
+            positionedWidget: { ...positionedWidget, rowSpan: 3 },
+            disabled: false,
+            pending: false,
+            onAction: async (value) => (actions.push(value), true),
+        },
+        modules: {
+            ...commonModules,
+            "react-native-gesture-handler": { ScrollView: "GestureScrollView" },
+        },
+    });
+    findElement(
+        radio,
+        (element) => element.type === "View" && element.props.onLayout,
+    ).props.onLayout({ nativeEvent: { layout: { width: 66, height: 96 } } });
+    radio.render();
+    const scroller = findElement(radio, (element) => element.type === "GestureScrollView");
+    assert.equal(scroller.props.horizontal, false);
+    assert.equal(scroller.props.contentContainerStyle.flexDirection, "column");
+
+    const optionView = findElement(radio, (element) => element.type?.name === "RadioDisplayOption");
+    optionView.props.onPress(option);
+    await settleHandler();
+    assert.deepEqual(actions, []);
+    const control = radio
+        .elements(optionView.type(optionView.props))
+        .find((element) => element.type === "Pressable");
+    const style = Object.assign({}, ...control.props.style);
+    assert.equal(control.props.accessibilityRole, "radio");
+    assert.ok(style.minWidth >= 48);
+    assert.ok(style.minHeight >= 48);
+});
+
+test("a pending Button keeps its action name visible", () => {
+    const button = mountNativeComponent("src/components/device/widgets/widgets/ButtonWidget.tsx", {
+        props: {
+            widget: widget("Button"),
+            disabled: false,
+            pending: true,
+            onAction: async () => true,
+        },
+        modules: commonModules,
+    });
+    const control = pressableWithLabel(button, "Test widget");
+    assert.equal(control.props.disabled, true);
+    assert.equal(control.props.accessibilityState.busy, true);
+    assert.ok(
+        button
+            .elements()
+            .some(
+                (element) =>
+                    element.type === "Text" && element.props.children.includes("Test widget"),
+            ),
+    );
 });
 
 test("WidgetView exposes failed commands as compact inline feedback and reports measured space", async () => {

@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useDevice } from "@/contexts/custom/DeviceProvider";
 import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
+import { useTheme } from "@/contexts/ThemeProvider";
 import type { ListResponse } from "@/utils/httpClient";
 import type { OperationGroup, WidgetListDto } from "@/types/DeviceTypes";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -64,7 +65,12 @@ const WidgetList: FC<WidgetListProps> = ({
     const device = useDevice();
     const home = useHomes();
     const router = useRouter();
+    const { colors } = useTheme().current;
     const canManage = home.current?.isOwner === true || home.current?.canManage === true;
+    const canManageRef = useRef(canManage);
+    canManageRef.current = canManage;
+    const disabledRef = useRef(disabled);
+    disabledRef.current = disabled;
     const deviceId = explicitDeviceId || device.deviceId;
     const deviceIdRef = useRef(deviceId);
     deviceIdRef.current = deviceId;
@@ -145,7 +151,13 @@ const WidgetList: FC<WidgetListProps> = ({
     };
 
     const addWidgetClicked = (operationId: string) => {
-        if (!canManage || disabled || !deviceId) return;
+        if (
+            !canManageRef.current ||
+            disabledRef.current ||
+            !deviceId ||
+            deviceIdRef.current !== deviceId
+        )
+            return;
         router.push({
             pathname: "device/widget/add",
             params: { operationId, deviceId },
@@ -211,10 +223,11 @@ const WidgetList: FC<WidgetListProps> = ({
                 name={item.name}
                 type={item.type}
                 enabled={item.enabled}
+                deviceId={deviceId}
+                canManage={canManage}
                 overrideOnClick={overrideOnClick}
                 selected={item.id === selectedWidgetId}
                 disablePress={disabled}
-                variant="list"
                 separator={separator}
             />
         );
@@ -223,6 +236,7 @@ const WidgetList: FC<WidgetListProps> = ({
     return (
         <SectionList
             style={styles.list}
+            stickySectionHeadersEnabled={false}
             sections={groups.map((group) => ({
                 operation: group.operation,
                 data: group.widgets.length > 0 ? group.widgets : [EmptyWidget],
@@ -245,14 +259,13 @@ const WidgetList: FC<WidgetListProps> = ({
                     </View>
                     {canManage && !hideAddButtons && (
                         <Pressable
+                            cssInterop={false}
                             accessibilityRole="button"
                             accessibilityLabel={`Add widget to ${section.operation.name}`}
                             accessibilityState={{ disabled }}
                             disabled={disabled}
-                            style={({ pressed }) => [
-                                styles.addWidgetButton,
-                                pressed && !disabled && styles.pressed,
-                            ]}
+                            android_ripple={{ color: colors.deviceTileSubtle }}
+                            style={[styles.addWidgetButton, disabled && styles.pressed]}
                             onPress={() => addWidgetClicked(section.operation.id)}>
                             <Icon icon="add-outline" size={24} color="complementary" />
                         </Pressable>

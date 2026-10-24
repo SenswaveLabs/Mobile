@@ -70,6 +70,14 @@ src/
   styles/                   # shared style helpers
 ```
 
+Widget configuration lives in `device/widgets`: `WidgetForm` owns the shared
+keyboard-aware creation/read-only layout, `AddWidgetForm` owns creation and return
+recovery, and `WidgetDetails` owns confirmed definition deletion. Type forms retain
+their primitive configuration values and register/clean up provider validation.
+`WidgetDetailsProvider` validates routed reads, rejects stale responses and exposes
+inline load recovery; it does not display toasts. Live widget surfaces share the
+local `widgets/widgetStyles` scale and existing device-tile theme roles.
+
 `package.json` points to `index.js`, which imports Expo's Metro runtime and registers
 `src/App.tsx` through `registerRootComponent`. `App` preserves `Head.Provider` and
 passes the `require.context("./app")` routes and `OptimisticActionProvider` wrapper

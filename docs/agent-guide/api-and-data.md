@@ -75,9 +75,9 @@ type WidgetType = "Invalid" | "Empty" | "Button" | "Display" | "Switch" | "Radio
 | Widget | OperationType | Behaviour |
 |--------|---------------|-----------|
 | Button | Any | Sends configured value on press |
-| Display | Any | Shows current value, read-only |
+| Display | Text / Number / Integer | Shows current value, read-only |
 | Switch | Boolean | Toggle true/false |
-| Radio | Options | Pick from option list (modal picker) |
+| Radio | Options | Pick from the widget's configured operation options |
 | Slider | Number / Integer | Range slider, configured min/max |
 | Color | HexColor | Full color picker (`reanimated-color-picker`) |
 | Empty | — | Placeholder grid slot |

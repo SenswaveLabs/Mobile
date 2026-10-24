@@ -15,6 +15,7 @@ function mountTile(props, { requests = [], navigation = [] } = {}) {
                 View: "View",
                 Text: "NativeText",
                 ActivityIndicator: "ActivityIndicator",
+                StyleSheet: { create: (styles) => styles },
             },
             "@/contexts/ThemeProvider": {
                 useTheme: () => ({
@@ -190,7 +191,7 @@ test("standalone widget list keeps its existing power control", () => {
 
     assert.equal(row.props.trailing.type, "Pressable");
     assert.equal(row.props.trailing.props.accessibilityRole, "switch");
-    assert.equal(row.props.trailing.props.accessibilityLabel, "Ceiling light power");
+    assert.equal(row.props.trailing.props.accessibilityLabel, "Ceiling light enabled");
 });
 
 test("picker reads the captured device and disables operation navigation", async () => {
@@ -205,7 +206,7 @@ test("picker reads the captured device and disables operation navigation", async
     const row = list.sectionList().props.renderItem({ item: section.data[0], index: 0, section });
 
     assert.equal(operation.props.disablePress, true);
-    assert.equal(row.props.deviceId, undefined);
+    assert.equal(row.props.deviceId, "device-a");
     assert.equal(row.props.selected, true);
     assert.equal(typeof row.props.overrideOnClick, "function");
     addWidget.props.onPress();

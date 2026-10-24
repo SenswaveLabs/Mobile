@@ -1,14 +1,20 @@
 import Icon from "@/components/common/Icon";
-import Loading from "@/components/common/Loading";
-import Text from "@/components/common/Text";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
 import type { CalculatedWidget, PositionedWidget } from "../../dashboards/DashboardView";
 import { widgetRemovalAccessibility } from "../widgetAccessibility";
 import type { RadioOption } from "../forms/Radio/RadioForm";
 import React, { FC, useEffect, useState } from "react";
-import { LayoutChangeEvent, Pressable, StyleSheet, View } from "react-native";
+import {
+    ActivityIndicator,
+    LayoutChangeEvent,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
+import { widgetStyles } from "./widgetStyles";
+import InvalidWidget from "./InvalidWidget";
 
 interface RadioWidgetProps {
     operations?: () => void;
@@ -19,7 +25,7 @@ interface RadioWidgetProps {
     onAction: (value: string | number | boolean) => Promise<boolean>;
 }
 
-const RadioDisplayOption: FC<{
+interface RadioDisplayOptionProps {
     option: RadioOption;
     isSelected: boolean;
     onPress: (option: RadioOption) => void;
@@ -28,45 +34,63 @@ const RadioDisplayOption: FC<{
     pending: boolean;
     itemWidth: number;
     itemHeight: number;
-}> = ({ option, isSelected, onPress, operations, disabled, pending, itemWidth, itemHeight }) => {
-    const theme = useTheme();
+}
+
+const RadioDisplayOption: FC<RadioDisplayOptionProps> = ({
+    option,
+    isSelected,
+    onPress,
+    operations,
+    disabled,
+    pending,
+    itemWidth,
+    itemHeight,
+}) => {
+    const { colors } = useTheme().current;
     const isDisabled = disabled || pending;
+    const foreground = isSelected ? colors.authOnPrimary : colors.authForeground;
+
     return (
-        <View style={{ width: itemWidth, height: itemHeight, padding: 8 }}>
-            <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${option.displayName}${isSelected ? ", selected" : ""}`}
-                accessibilityState={{ selected: isSelected, disabled: isDisabled, busy: pending }}
-                {...widgetRemovalAccessibility(operations)}
-                disabled={isDisabled}
-                onPress={() => onPress(option)}
-                onLongPress={operations}
+        <Pressable
+            accessibilityRole="radio"
+            accessibilityLabel={option.displayName}
+            accessibilityState={{
+                checked: isSelected,
+                selected: isSelected,
+                disabled: isDisabled,
+                busy: pending,
+            }}
+            {...widgetRemovalAccessibility(operations)}
+            disabled={isDisabled}
+            onPress={() => onPress(option)}
+            onLongPress={operations}
+            style={[
+                styles.option,
+                {
+                    width: itemWidth,
+                    height: itemHeight,
+                    backgroundColor: isSelected ? colors.authPrimary : colors.deviceTileSurface,
+                    borderColor: isSelected ? colors.authPrimary : colors.deviceTileBorder,
+                },
+            ]}>
+            {itemHeight >= 80 && (
+                <View style={[styles.optionIcon, { backgroundColor: colors.deviceTileSurface }]}>
+                    {pending ? (
+                        <ActivityIndicator size="small" color={colors.authForeground} />
+                    ) : (
+                        <Icon icon={option.icon} size={20} color="brand" />
+                    )}
+                </View>
+            )}
+            <Text
+                numberOfLines={itemHeight >= 80 ? 2 : 1}
                 style={[
-                    {
-                        flex: 1,
-                        borderRadius: 8,
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: isSelected
-                            ? theme.current.colors.primary
-                            : theme.current.colors.background,
-                        ...shadowStyles.default,
-                    },
-                    isSelected ? {} : { shadowOpacity: 0, elevation: 0 },
+                    styles.optionLabel,
+                    { color: disabled && !isSelected ? colors.authMuted : foreground },
                 ]}>
-                {pending ? (
-                    <Loading size={itemHeight / 3} />
-                ) : (
-                    <View style={{ alignItems: "center", justifyContent: "center" }}>
-                        <Icon icon={option.icon} size={itemHeight / 3} color="onPrimary" />
-                        <Text size="small" color="onPrimary" numberOfLines={1}>
-                            {option.displayName}
-                        </Text>
-                    </View>
-                )}
-            </Pressable>
-        </View>
+                {option.displayName}
+            </Text>
+        </Pressable>
     );
 };
 
@@ -78,89 +102,90 @@ const RadioWidget: FC<RadioWidgetProps> = ({
     pending,
     onAction,
 }) => {
-    const radioOptions = (widget.configuration?.options as RadioOption[]) ?? [];
-    const currentRadioOption = radioOptions.find(
-        (option) => option.optionName === widget.configuration?.runtime?.value,
-    );
-    const [selectedOption, setSelectedOption] = useState<RadioOption | undefined>(
-        currentRadioOption,
-    );
+    const { colors } = useTheme().current;
+    const configuredOptions = widget.configuration?.options;
+    const radioOptions: RadioOption[] = Array.isArray(configuredOptions)
+        ? configuredOptions.filter(
+              (option): option is RadioOption =>
+                  option &&
+                  typeof option.optionName === "string" &&
+                  typeof option.displayName === "string" &&
+                  typeof option.icon === "string",
+          )
+        : [];
+    const reportedOption = widget.configuration?.runtime?.value;
+    const [selectedOption, setSelectedOption] = useState<string | undefined>(reportedOption);
     const [containerHeight, setContainerHeight] = useState(0);
     const [containerWidth, setContainerWidth] = useState(0);
-    const [contentWidth, setContentWidth] = useState(0);
-    const [scrollX, setScrollX] = useState(0);
-    const columns = positionedWidget.columnSpan;
-    const rows = positionedWidget.rowSpan;
+    const horizontal = positionedWidget.columnSpan >= positionedWidget.rowSpan;
+    const contentHeight = containerHeight - 46;
+    const narrow = containerWidth < 80;
+    const contentWidth = containerWidth - (narrow ? 2 : 18);
 
     useEffect(() => {
-        setSelectedOption(currentRadioOption);
-    }, [widget.id, widget.configuration?.runtime?.value, currentRadioOption]);
+        setSelectedOption(reportedOption);
+    }, [widget.id, reportedOption]);
 
     const handleToggle = async (option: RadioOption) => {
-        if (disabled || pending) return;
-        if (await onAction(option.optionName)) setSelectedOption(option);
+        if (disabled || pending || option.optionName === selectedOption) return;
+        if (await onAction(option.optionName)) setSelectedOption(option.optionName);
     };
 
     const onLayout = (event: LayoutChangeEvent) => {
         setContainerHeight(event.nativeEvent.layout.height);
         setContainerWidth(event.nativeEvent.layout.width);
     };
-    const itemWidth = containerWidth / columns;
-    const itemHeight = containerHeight / rows;
-    const showRightIndicator =
-        contentWidth > containerWidth && scrollX < contentWidth - containerWidth;
-    const showLeftIndicator = scrollX > 0;
+
+    if (radioOptions.length === 0)
+        return <InvalidWidget widget={widget} operations={operations} disabled={disabled} />;
 
     return (
         <View
             onLayout={onLayout}
-            style={{
-                borderRadius: 8,
-                width: "100%",
-                height: "100%",
-                justifyContent: "center",
-                alignItems: "center",
-            }}>
+            accessibilityRole="radiogroup"
+            accessibilityLabel={widget.name}
+            style={[
+                widgetStyles.tile,
+                narrow && widgetStyles.compactInsets,
+                { backgroundColor: colors.deviceTileSurface, borderColor: colors.deviceTileBorder },
+            ]}>
+            <Text numberOfLines={1} style={[widgetStyles.label, { color: colors.authForeground }]}>
+                {widget.name}
+            </Text>
             {containerHeight <= 0 || containerWidth <= 0 ? (
-                <Loading />
+                <ActivityIndicator size="small" color={colors.authForeground} />
             ) : (
                 <ScrollView
-                    onContentSizeChange={setContentWidth}
-                    onScroll={(event) => setScrollX(event.nativeEvent.contentOffset.x)}
-                    scrollEventThrottle={16}
-                    horizontal={columns >= rows}
-                    contentContainerStyle={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                    }}
-                    showsHorizontalScrollIndicator={false}
-                    showsVerticalScrollIndicator={false}>
+                    horizontal={horizontal}
+                    style={styles.scroll}
+                    contentContainerStyle={{ flexDirection: horizontal ? "row" : "column", gap: 8 }}
+                    persistentScrollbar
+                    showsHorizontalScrollIndicator={horizontal}
+                    showsVerticalScrollIndicator={!horizontal}>
                     {radioOptions.map((option) => (
                         <RadioDisplayOption
                             key={option.optionName}
                             option={option}
-                            isSelected={selectedOption?.optionName === option.optionName}
+                            isSelected={selectedOption === option.optionName}
                             onPress={(selected) => void handleToggle(selected)}
                             operations={operations}
                             disabled={disabled}
                             pending={pending}
-                            itemWidth={itemWidth}
-                            itemHeight={itemHeight}
+                            itemWidth={Math.max(
+                                48,
+                                horizontal
+                                    ? contentWidth / positionedWidget.columnSpan
+                                    : contentWidth,
+                            )}
+                            itemHeight={Math.max(
+                                48,
+                                horizontal
+                                    ? contentHeight
+                                    : contentHeight / positionedWidget.rowSpan,
+                            )}
                         />
                     ))}
                 </ScrollView>
-            )}
-
-            {showRightIndicator && (
-                <View style={styles.rightIndicator}>
-                    <Icon icon="chevron-forward" size={24} color="complementary" />
-                </View>
-            )}
-            {showLeftIndicator && (
-                <View style={styles.leftIndicator}>
-                    <Icon icon="chevron-back" size={24} color="complementary" />
-                </View>
             )}
         </View>
     );
@@ -169,26 +194,23 @@ const RadioWidget: FC<RadioWidgetProps> = ({
 export default RadioWidget;
 
 const styles = StyleSheet.create({
-    rightIndicator: {
-        position: "absolute" as const,
-        right: 0,
-        top: 0,
-        bottom: 0,
-        width: 24,
-        justifyContent: "center" as const,
-        alignItems: "center" as const,
-        borderTopRightRadius: 8,
-        borderBottomRightRadius: 8,
+    scroll: { width: "100%", flex: 1 },
+    option: {
+        minWidth: 48,
+        minHeight: 48,
+        padding: 4,
+        borderWidth: 1,
+        borderRadius: 8,
+        gap: 4,
+        alignItems: "center",
+        justifyContent: "center",
     },
-    leftIndicator: {
-        position: "absolute" as const,
-        left: 0,
-        top: 0,
-        bottom: 0,
+    optionIcon: {
         width: 24,
-        justifyContent: "center" as const,
-        alignItems: "center" as const,
-        borderTopLeftRadius: 8,
-        borderBottomLeftRadius: 8,
+        height: 24,
+        borderRadius: 4,
+        alignItems: "center",
+        justifyContent: "center",
     },
+    optionLabel: { fontSize: 14, lineHeight: 20, fontWeight: "500", textAlign: "center" },
 });

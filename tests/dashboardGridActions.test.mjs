@@ -17,6 +17,7 @@ function mountGrid({
     deleteResult = { isSuccess: true },
     gridConfiguration = configuration,
     windowWidth = 448,
+    header,
 } = {}) {
     const requests = [];
     const refreshes = [];
@@ -30,7 +31,7 @@ function mountGrid({
     const grid = mountNativeComponent(
         "src/components/device/dashboards/Grid/GridDashboardView.tsx",
         {
-            props: { deviceId: "device-a", dashboardId: "dashboard-a", canManage },
+            props: { deviceId: "device-a", dashboardId: "dashboard-a", canManage, header },
             modules: {
                 "expo-router": {
                     useFocusEffect: () => {},
@@ -145,7 +146,12 @@ test("place grid measures the viewport and groups empty cells into rows", () => 
     const styleObject = (style) => Object.assign({}, ...(Array.isArray(style) ? style : [style]));
     const section = mounted.grid
         .elements()
-        .find((element) => element.type === "View" && typeof element.props.onLayout === "function");
+        .find(
+            (element) =>
+                element.type === "View" &&
+                typeof element.props.onLayout === "function" &&
+                styleObject(element.props.style).width === "100%",
+        );
     assert.ok(section, "grid section measures available viewport width");
     section.props.onLayout({ nativeEvent: { layout: { width: 300 } } });
     mounted.grid.render();
@@ -235,6 +241,95 @@ test("narrow dashboard cells and the placement preview share first-render geomet
         return style.position === "absolute" && style.opacity === 0.2;
     });
     assert.equal(styleObject(preview.props.style).width, 66);
+});
+
+test("placement reveals its controls below the scrollable device header", () => {
+    const mounted = mountGrid({
+        gridConfiguration: { ...configuration, rows: 2, positionedWidgets: [] },
+        header: "Device header",
+    });
+    const scroll = mounted.grid
+        .elements()
+        .find((element) => element.type === "ScrollView" && element.props.refreshControl);
+    assert.ok(
+        mounted.grid
+            .elements(scroll)
+            .some((element) => element.props?.children?.includes("Device header")),
+    );
+
+    const scrolls = [];
+    scroll.props.ref.current = {
+        scrollTo: ({ y, animated }) => scrolls.push({ y, animated }),
+    };
+    const widgetsHeading = mounted.grid
+        .elements()
+        .find(
+            (element) =>
+                element.type === "View" &&
+                element.props.children?.some((child) =>
+                    child?.props?.children?.includes("Widgets"),
+                ),
+        );
+    widgetsHeading.props.onLayout({ nativeEvent: { layout: { y: 360 } } });
+    mounted.button("Place widget").props.onPress();
+    mounted.grid.render();
+    mounted.grid
+        .elements()
+        .find((element) => element.type === "ScrollView" && element.props.refreshControl)
+        .props.onContentSizeChange();
+    mounted.grid
+        .elements()
+        .find((element) => element.props.accessibilityLabel === "Row 2, column 1, empty")
+        .props.onPress();
+    mounted.grid.render();
+
+    assert.deepEqual(scrolls, [
+        { y: 360, animated: false },
+        { y: 360, animated: false },
+    ]);
+    assert.ok(mounted.button("Choose widget"));
+});
+
+test("malformed grid keeps the device header and retry in one scroll", () => {
+    const mounted = mountGrid({
+        gridConfiguration: { ...configuration, rows: 0 },
+        header: "Device header",
+    });
+    const scrolls = mounted.grid.elements().filter((element) => element.type === "ScrollView");
+    assert.equal(scrolls.length, 1);
+    assert.equal(scrolls[0].props.children.filter((child) => child === "Device header").length, 1);
+    assert.ok(mounted.button("Retry"));
+    assert.equal(mounted.widget(), undefined);
+});
+
+test("placement reveal waits for the native scroll content to grow", () => {
+    const mounted = mountGrid({
+        gridConfiguration: { ...configuration, positionedWidgets: [] },
+        header: "Device header",
+    });
+    const scroll = () =>
+        mounted.grid
+            .elements()
+            .find((element) => element.type === "ScrollView" && element.props.refreshControl);
+    let maxScroll = 0;
+    const scrolls = [];
+    scroll().props.ref.current = { scrollTo: ({ y }) => scrolls.push(Math.min(maxScroll, y)) };
+    const heading = mounted.grid
+        .elements()
+        .find(
+            (element) =>
+                element.type === "View" &&
+                element.props.children?.some((child) =>
+                    child?.props?.children?.includes("Widgets"),
+                ),
+        );
+    heading.props.onLayout({ nativeEvent: { layout: { y: 360 } } });
+    mounted.button("Place widget").props.onPress();
+    assert.deepEqual(scrolls, []);
+    mounted.grid.render();
+    maxScroll = 1000;
+    scroll().props.onContentSizeChange();
+    assert.deepEqual(scrolls, [360]);
 });
 
 test("canceling the grid-owned unlink confirmation sends no request", () => {

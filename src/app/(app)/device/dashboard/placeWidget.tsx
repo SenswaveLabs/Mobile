@@ -1,8 +1,8 @@
 import Button from "@/components/common/Button";
 import Loading from "@/components/common/Loading";
-import Text from "@/components/common/Text";
 import WidgetList from "@/components/device/widgets/WidgetList";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Text } from "@/components/ui/text";
 import { useDevice } from "@/contexts/custom/DeviceProvider";
 import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
@@ -264,7 +264,7 @@ const PlaceWidget: FC = () => {
                 }}
             />
             {returnError && (
-                <Text size="small" color="error">
+                <Text style={[styles.helper, { color: colors.error }]}>
                     Couldn't return to the dashboard. Try again.
                 </Text>
             )}
@@ -313,15 +313,18 @@ const PlaceWidget: FC = () => {
     return (
         <View style={[styles.screen, { backgroundColor: colors.background }]}>
             <View style={styles.heading}>
-                <Text accessibilityRole="header" size="large" color="onBackground" bold>
+                <Text
+                    accessibilityRole="header"
+                    style={[styles.title, { color: colors.authForeground }]}>
                     Choose widget
                 </Text>
-                <Text size="small" color="onBackground">
+                <Text style={[styles.helper, { color: colors.authMuted }]}>
                     Choose a widget for the selected dashboard area.
                 </Text>
-                <Text size="small" color="onBackground">
+                <Text style={[styles.helper, { color: colors.authMuted }]}>
                     Row {placement.row + 1} · Column {placement.column + 1} · {placement.rowSpan}{" "}
-                    rows × {placement.columnSpan} columns
+                    {placement.rowSpan === 1 ? "row" : "rows"} × {placement.columnSpan}{" "}
+                    {placement.columnSpan === 1 ? "column" : "columns"}
                 </Text>
                 <Button
                     name="Add operation"
@@ -388,6 +391,8 @@ export default PlaceWidget;
 
 const styles = StyleSheet.create({
     screen: { flex: 1, minHeight: 0 },
+    title: { fontSize: 24, lineHeight: 32, fontWeight: "600" },
+    helper: { fontSize: 14, lineHeight: 20 },
     heading: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
     footer: { gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
     recovery: { flex: 1, justifyContent: "center", gap: 16, padding: 16 },

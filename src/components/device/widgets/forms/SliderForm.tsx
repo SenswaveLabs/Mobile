@@ -1,103 +1,137 @@
+import React, { FC, useEffect, useRef, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import InputNumber from "@/components/common/InputNumber";
-import UserNote from "@/components/common/UserNote";
-import { OperationType } from "@/contexts/custom/DeviceListProvider";
+import { OperationType } from "@/types/DeviceTypes";
 import { useWidgetDetails } from "@/contexts/custom/WidgetDetailsProvider";
-import { useFocusEffect } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { useTheme } from "@/contexts/ThemeProvider";
 
 const INT32_MIN = -2147483648;
 const INT32_MAX = 2147483647;
 
-interface SliderFormProps {
+interface Props {
     edit?: boolean;
+    disabled?: boolean;
 }
 
 export const SliderOperationTypes: OperationType[] = ["Number", "Integer"];
 
-const SliderForm = ({ edit }: SliderFormProps) => {
+const SliderForm: FC<Props> = ({ edit = false, disabled = false }) => {
     const widgetDetails = useWidgetDetails();
+    const { colors } = useTheme().current;
+    const { min, max } = widgetDetails.operation?.configuration ?? {};
+    const integer = widgetDetails.operation?.type === "Integer";
+    const span = max - min;
+    const rangeValid =
+        (integer || widgetDetails.operation?.type === "Number") &&
+        typeof min === "number" &&
+        typeof max === "number" &&
+        Number.isFinite(min) &&
+        Number.isFinite(max) &&
+        Number.isFinite(span) &&
+        min < max &&
+        (integer
+            ? Number.isInteger(min) &&
+              Number.isInteger(max) &&
+              min !== INT32_MIN &&
+              max !== INT32_MAX
+            : min !== -Number.MAX_VALUE && max !== Number.MAX_VALUE);
+    const [step, setStep] = useState<number | undefined>(widgetDetails.widget?.configuration?.step);
+    const [stepError, setStepError] = useState("");
+    const stepRef = useRef(step);
+    const lockedRef = useRef(edit || disabled);
+    lockedRef.current = edit || disabled;
+    const detailsRef = useRef(widgetDetails);
+    detailsRef.current = widgetDetails;
 
-    const configurationMin = widgetDetails.operation?.configuration?.min;
-    const configurationMax = widgetDetails.operation?.configuration?.max;
-
-    const hasNoRange =
-        configurationMin === undefined ||
-        configurationMax === undefined ||
-        (widgetDetails.operation?.type === "Integer" &&
-            configurationMin === INT32_MIN &&
-            configurationMax === INT32_MAX) ||
-        (widgetDetails.operation?.type === "Number" &&
-            configurationMin === -Number.MAX_VALUE &&
-            configurationMax === Number.MAX_VALUE);
-
-    const rangeMin = configurationMin ?? 0;
-    const rangeMax = configurationMax ?? 100;
-
-    const [step, setStep] = useState<number | undefined>(widgetDetails.widget?.configuration.step);
-    const stepValidRef = useRef<boolean>(step !== undefined);
-
-    const onStepChange = (value: number | undefined) => {
-        stepValidRef.current = value !== undefined;
-        setStep(value);
-        if (value !== undefined) {
-            widgetDetails.setWidget({
-                ...widgetDetails.widget!,
-                configuration: {
-                    ...widgetDetails.widget?.configuration,
-                    step: value,
-                },
-            });
+    const validate = () => {
+        const value = stepRef.current;
+        let error = "";
+        if (!rangeValid)
+            error = "Set a finite minimum and maximum in the operation before using a Slider.";
+        else if (
+            typeof value !== "number" ||
+            !Number.isFinite(value) ||
+            value < (integer ? 1 : 0.0001) ||
+            value > span ||
+            (integer && !Number.isInteger(value))
+        ) {
+            error = integer
+                ? `Enter a whole step between 1 and ${span}.`
+                : `Enter a step between 0.0001 and ${span}.`;
+        } else if (span / value > 10000) {
+            error = `Use a step of at least ${integer ? Math.ceil(span / 10000) : Math.max(0.0001, span / 10000)} to keep the Slider within 10,000 steps.`;
         }
+        setStepError(error);
+        return error === "";
     };
-
-    const validate = (): boolean => stepValidRef.current;
-
-    useFocusEffect(() => {
-        widgetDetails.setAdditionalValidation(validate);
-    });
+    const validateRef = useRef(validate);
+    validateRef.current = validate;
 
     useEffect(() => {
-        widgetDetails.validateDto();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [step]);
+        const details = detailsRef.current;
+        stepRef.current = details.widget?.configuration?.step;
+        setStep(stepRef.current);
+        details.setAdditionalValidation(() => validateRef.current());
+        details.validateDto();
+        return () => details.setAdditionalValidation(null);
+    }, [widgetDetails.operation?.id, widgetDetails.operation?.type, widgetDetails.widget?.id]);
+
+    useEffect(() => {
+        detailsRef.current.validateDto();
+    }, [min, max]);
+
+    const onStepChange = (value: number | undefined) => {
+        if (lockedRef.current) return;
+        stepRef.current = value;
+        setStep(value);
+        const details = detailsRef.current;
+        details.setWidget({
+            ...details.widget!,
+            configuration: { ...details.widget?.configuration, step: value },
+        });
+        details.validateDto();
+    };
 
     return (
-        <View
-            style={{
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "space-between",
-            }}>
-            {hasNoRange ? (
-                <UserNote
-                    text="Selected operation has no range defined. Slider requires a valid min/max range to function correctly. Set the range in the operation configuration."
-                    style={{ paddingHorizontal: 0, paddingTop: 5, paddingBottom: 10 }}
-                />
-            ) : (
-                <UserNote
-                    text="Verify that the selected operation has a values range set. Otherwise the slider will fail to validate."
-                    style={{ paddingHorizontal: 0, paddingTop: 5, paddingBottom: 10 }}
-                />
-            )}
-
+        <View style={styles.fields}>
+            <View style={styles.range}>
+                <Text style={[styles.label, { color: colors.authForeground }]}>
+                    Operation range
+                </Text>
+                <Text
+                    style={[
+                        styles.support,
+                        { color: rangeValid ? colors.authMuted : colors.error },
+                    ]}
+                    accessibilityLiveRegion="polite">
+                    {rangeValid
+                        ? `${min} to ${max}. The range is set in the operation configuration.`
+                        : "Set a finite minimum and maximum in the operation before using a Slider."}
+                </Text>
+            </View>
             <InputNumber
+                variant="auth"
                 title="Slider Step"
                 value={step}
                 onChange={onStepChange}
-                integer={widgetDetails.operation?.type === "Integer"}
-                min={widgetDetails.operation?.type === "Integer" ? 1 : 0.0001}
-                max={rangeMax - rangeMin}
+                integer={integer}
+                min={integer ? 1 : 0.0001}
+                max={rangeValid ? span : undefined}
+                error={rangeValid ? stepError : ""}
                 required
-                editable={!edit}
-                placeholder={
-                    widgetDetails.operation?.type === "Integer"
-                        ? `e.g. 1 — max ${rangeMax - rangeMin}`
-                        : `e.g. 0.0001 — max ${rangeMax - rangeMin}`
-                }
+                disabled={disabled}
+                editable={!edit && rangeValid}
+                placeholder={integer ? "For example, 1" : "For example, 0.1"}
             />
         </View>
     );
 };
 
 export default SliderForm;
+
+const styles = StyleSheet.create({
+    fields: { gap: 24 },
+    range: { gap: 8 },
+    label: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
+    support: { fontSize: 14, lineHeight: 20 },
+});
