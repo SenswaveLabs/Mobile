@@ -118,7 +118,10 @@ The Impeccable finish review is recorded at
 `../../../.impeccable/review/dashboard-flow/finish-review.md` with disposition
 `ship`. The documenter pass found that the existing global `DESIGN.md` still
 matches the inspected theme and component patterns, so it was left unchanged.
-Sol code review and the authorized commit/push/PR remain the final steps.
+The final Sol 6.1 Max review reported no material findings. Commit `dbe8029`
+(`feat: complete dashboard management and widget placement flow`) was pushed to
+`feat/dashboard-flow-2026-10-24`. PR [#29](https://github.com/SenswaveLabs/Mobile/pull/29)
+targets `next-dev` and remains open for review; it has not been merged.
 
 ## Post-review fixes and evidence
 
