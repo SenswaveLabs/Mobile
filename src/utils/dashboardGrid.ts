@@ -131,6 +131,51 @@ export const isPlacementAvailable = (
     return !grid.positionedWidgets.some((position) => overlaps(position, placement));
 };
 
+export const dragDashboardPlacement = ({
+    grid,
+    placement,
+    mode,
+    deltaX,
+    deltaY,
+    columnPitch,
+    rowPitch,
+}: {
+    grid: GridDashboardConfiguration;
+    placement: DashboardPlacement;
+    mode: "move" | "resize";
+    deltaX: number;
+    deltaY: number;
+    columnPitch: number;
+    rowPitch: number;
+}): DashboardPlacement | undefined => {
+    if (
+        ![deltaX, deltaY, columnPitch, rowPitch].every(Number.isFinite) ||
+        columnPitch <= 0 ||
+        rowPitch <= 0
+    )
+        return undefined;
+    const columns = Math.round(deltaX / columnPitch);
+    const rows = Math.round(deltaY / rowPitch);
+    const clamp = (value: number, max: number, min = 0) => Math.max(min, Math.min(max, value));
+    const next =
+        mode === "move"
+            ? {
+                  ...placement,
+                  column: clamp(placement.column + columns, grid.columns - placement.columnSpan),
+                  row: clamp(placement.row + rows, grid.rows - placement.rowSpan),
+              }
+            : {
+                  ...placement,
+                  columnSpan: clamp(
+                      placement.columnSpan + columns,
+                      grid.columns - placement.column,
+                      1,
+                  ),
+                  rowSpan: clamp(placement.rowSpan + rows, grid.rows - placement.row, 1),
+              };
+    return isPlacementAvailable(grid, next) ? next : undefined;
+};
+
 export const unlinkDashboardWidget = async ({
     dashboardId,
     widgetId,

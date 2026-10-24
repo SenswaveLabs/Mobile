@@ -61,6 +61,8 @@ function mountWidgetList({
     providerDeviceId = "device-b",
     canManage = true,
     results,
+    excludedWidgetIds = [],
+    onSelect = async () => {},
 } = {}) {
     const requests = [];
     const navigation = [];
@@ -90,8 +92,9 @@ function mountWidgetList({
     const component = mountNativeComponent("src/components/device/widgets/WidgetList.tsx", {
         props: {
             deviceId,
-            overrideOnClick: async () => {},
+            overrideOnClick: onSelect,
             selectedWidgetId: "widget-a",
+            excludedWidgetIds,
         },
         modules: {
             "expo-router": {
@@ -192,6 +195,21 @@ test("standalone widget list keeps its existing power control", () => {
     assert.equal(row.props.trailing.type, "Pressable");
     assert.equal(row.props.trailing.props.accessibilityRole, "switch");
     assert.equal(row.props.trailing.props.accessibilityLabel, "Ceiling light enabled");
+});
+
+test("picker excludes already placed widgets and supplies the selected widget summary", async () => {
+    const selected = [];
+    const list = mountWidgetList({
+        onSelect: async (id, widget) => selected.push([id, widget.name]),
+    });
+    await list.load();
+    const section = list.sectionList().props.sections[0];
+    const row = list.sectionList().props.renderItem({ item: section.data[0], index: 0, section });
+    await row.props.overrideOnClick("widget-a");
+    assert.deepEqual(selected, [["widget-a", "Ceiling light"]]);
+    const filtered = mountWidgetList({ excludedWidgetIds: ["widget-a"] });
+    await filtered.load();
+    assert.equal(filtered.sectionList().props.sections[0].data[0].empty, true);
 });
 
 test("picker reads the captured device and disables operation navigation", async () => {

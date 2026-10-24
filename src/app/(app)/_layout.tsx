@@ -214,7 +214,7 @@ function InternalLayout() {
                 options={{
                     headerShown: true,
                     header: () => (
-                        <DefaultHeader titlePrefix="Place" titleSuffix="Widget" variant="brand" />
+                        <DefaultHeader titlePrefix="Add" titleSuffix="Widget" variant="brand" />
                     ),
                 }}
             />

@@ -78,6 +78,12 @@ their primitive configuration values and register/clean up provider validation.
 inline load recovery; it does not display toasts. Live widget surfaces share the
 local `widgets/widgetStyles` scale and existing device-tile theme roles.
 
+`dashboards/Grid/GridDashboardView` always renders the dashboard canvas and routes
+free-cell taps directly to the picker. `WidgetPlacementCanvas` owns native move and
+corner-resize gestures for unsaved placements; `utils/dashboardGrid` validates,
+snaps and bounds their geometry. The placement route owns selection, inline save
+recovery and the accepted-once write/return lifecycle.
+
 `package.json` points to `index.js`, which imports Expo's Metro runtime and registers
 `src/App.tsx` through `registerRootComponent`. `App` preserves `Head.Provider` and
 passes the `require.context("./app")` routes and `OptimisticActionProvider` wrapper

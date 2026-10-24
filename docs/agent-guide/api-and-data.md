@@ -173,7 +173,10 @@ dashboard and collection request. The context keeps its existing `refresh` and
 server contracts.
 
 Dashboard placement uses `PUT v1/devices/dashboards/{dashboardId}/widgets` with
-`{ widgetId, row, column, rowSpan, columnSpan }`. Removing a dashboard placement
+`{ widgetId, row, column, rowSpan, columnSpan }`. This endpoint adds a placement;
+it rejects a widget ID already on the dashboard and does not update its geometry.
+The picker excludes already placed IDs, and gesture editing applies to the unsaved
+placement. Removing a dashboard placement
 uses `DELETE v1/devices/dashboards/{dashboardId}/widgets/{widgetId}`; it does not
 delete the widget definition. Live widget controls keep
 `POST v1/devices/widgets/{widgetId}/action` with `{ value }`: Button sends an

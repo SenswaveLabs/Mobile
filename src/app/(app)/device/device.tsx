@@ -107,20 +107,18 @@ const Device: FC = () => {
 
     const managerActions = canManage ? (
         <View style={styles.managementActions}>
-            <Button
-                name="Device details"
-                type="brand-outline"
-                loading={false}
+            <SectionHeaderAction
+                label="Device"
+                accessibilityLabel="Device details"
+                icon={<Icon icon="settings-outline" size={20} color="brand" />}
                 onPress={openDeviceDetails}
-                style={styles.secondaryAction}
             />
             {selected && (
-                <Button
-                    name="Dashboard details"
-                    type="brand-outline"
-                    loading={false}
+                <SectionHeaderAction
+                    label="Dashboard"
+                    accessibilityLabel="Dashboard details"
+                    icon={<Icon icon="settings-outline" size={20} color="brand" />}
                     onPress={openDashboardDetails}
-                    style={styles.secondaryAction}
                 />
             )}
         </View>
@@ -256,8 +254,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         gap: 8,
     },
-    managementActions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    secondaryAction: { flexGrow: 1, flexBasis: 150 },
+    managementActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
     fallbackScroll: { flexGrow: 1, padding: 16, gap: 24 },
     fallback: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 8, gap: 12 },
     fallbackTitle: { fontSize: 20, lineHeight: 28, fontWeight: "600", textAlign: "center" },

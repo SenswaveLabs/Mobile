@@ -1,7 +1,6 @@
 import Button from "@/components/common/Button";
 import Icon from "@/components/common/Icon";
 import Loading from "@/components/common/Loading";
-import SectionHeaderAction from "@/components/common/SectionHeaderAction";
 import WidgetView from "@/components/device/widgets/WidgetView";
 import {
     AlertDialog,
@@ -24,11 +23,10 @@ import {
     unlinkDashboardWidget,
 } from "@/utils/dashboardGrid";
 import { PortalHost } from "@rn-primitives/portal";
-import { useFocusEffect, useRouter } from "expo-router";
-import { CircleAlert, Minus, Plus } from "lucide-react-native";
-import React, { FC, ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
+import { useRouter } from "expo-router";
+import { CircleAlert } from "lucide-react-native";
+import React, { FC, ReactNode, useEffect, useId, useRef, useState } from "react";
 import {
-    BackHandler,
     Modal as NativeModal,
     Pressable,
     RefreshControl,
@@ -38,7 +36,6 @@ import {
     useWindowDimensions,
 } from "react-native";
 import type { CalculatedWidget, PositionedWidget } from "../DashboardView";
-import type { DashboardPlacement } from "@/utils/dashboardGrid";
 
 const GAP = 8;
 const MIN_CELL_WIDTH = 48;
@@ -68,78 +65,6 @@ interface UnlinkTarget {
     widgetName: string;
 }
 
-interface SizeControlProps {
-    label: string;
-    value: number;
-    decreaseDisabled: boolean;
-    increaseDisabled: boolean;
-    onDecrease: () => void;
-    onIncrease: () => void;
-}
-
-const SizeControl: FC<SizeControlProps> = ({
-    label,
-    value,
-    decreaseDisabled,
-    increaseDisabled,
-    onDecrease,
-    onIncrease,
-}) => {
-    const { colors } = useTheme().current;
-    return (
-        <View style={styles.sizeControl}>
-            <Text style={[styles.controlLabel, { color: colors.authForeground }]}>{label}</Text>
-            <View style={styles.sizeActions}>
-                <View
-                    style={[
-                        styles.sizeButtonSlot,
-                        {
-                            backgroundColor: colors.authFieldBackground,
-                            borderColor: colors.authBorder,
-                            opacity: decreaseDisabled ? 0.5 : 1,
-                        },
-                    ]}>
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Decrease ${label.toLowerCase()}`}
-                        accessibilityState={{ disabled: decreaseDisabled }}
-                        disabled={decreaseDisabled}
-                        android_ripple={{ color: colors.authBorder }}
-                        onPress={onDecrease}
-                        style={[StyleSheet.absoluteFillObject, styles.sizeButton]}>
-                        <Minus size={20} color={colors.authForeground} accessible={false} />
-                    </Pressable>
-                </View>
-                <Text
-                    accessibilityLiveRegion="polite"
-                    style={[styles.sizeValue, { color: colors.authForeground }]}>
-                    {value}
-                </Text>
-                <View
-                    style={[
-                        styles.sizeButtonSlot,
-                        {
-                            backgroundColor: colors.authFieldBackground,
-                            borderColor: colors.authBorder,
-                            opacity: increaseDisabled ? 0.5 : 1,
-                        },
-                    ]}>
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Increase ${label.toLowerCase()}`}
-                        accessibilityState={{ disabled: increaseDisabled }}
-                        disabled={increaseDisabled}
-                        android_ripple={{ color: colors.authBorder }}
-                        onPress={onIncrease}
-                        style={[StyleSheet.absoluteFillObject, styles.sizeButton]}>
-                        <Plus size={20} color={colors.authForeground} accessible={false} />
-                    </Pressable>
-                </View>
-            </View>
-        </View>
-    );
-};
-
 const GridDashboardView: FC<GridDashboardViewProps> = ({
     deviceId,
     dashboardId,
@@ -151,8 +76,6 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
     const device = useDevice();
     const httpClient = useHttpClient();
     const router = useRouter();
-    const scrollRef = useRef<ScrollView>(null);
-    const widgetsHeadingY = useRef(0);
     const identity = `${deviceId}:${dashboardId}`;
     const identityRef = useRef(identity);
     const canManageRef = useRef(canManage);
@@ -169,13 +92,13 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
             ? measuredLayout.width
             : Math.max(0, windowWidth - 32);
     const [refreshing, setRefreshing] = useState(false);
-    const [placeMode, setPlaceMode] = useState(false);
-    const [placement, setPlacement] = useState<DashboardPlacement>();
-    const [placementError, setPlacementError] = useState("");
     const [unlinkTarget, setUnlinkTarget] = useState<UnlinkTarget>();
     const [failedUnlink, setFailedUnlink] = useState<UnlinkTarget>();
     const [unlinking, setUnlinking] = useState(false);
-    const [positions, setPositions] = useState<PositionedWidget[]>([]);
+    const [positionOverride, setPositionOverride] = useState<{
+        grid: NonNullable<ReturnType<typeof readGridConfiguration>>;
+        positions: PositionedWidget[];
+    }>();
     const [feedbackHeights, setFeedbackHeights] = useState<Record<string, number>>({});
     const unlinkPendingRef = useRef(false);
     const dialogHost = useId();
@@ -187,48 +110,25 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
     const grid = selectedDashboard
         ? readGridConfiguration(selectedDashboard.configuration)
         : undefined;
+    const positions =
+        positionOverride?.grid === grid
+            ? (positionOverride?.positions ?? [])
+            : (grid?.positionedWidgets ?? []);
 
     useEffect(() => {
-        setPlaceMode(false);
-        setPlacement(undefined);
-        setPlacementError("");
         setUnlinkTarget(undefined);
         setFailedUnlink(undefined);
         setUnlinking(false);
-        setPositions([]);
+        setPositionOverride(undefined);
         setFeedbackHeights({});
     }, [identity]);
 
     useEffect(() => {
         if (!canManage) {
-            setPlaceMode(false);
-            setPlacement(undefined);
-            setPlacementError("");
             setUnlinkTarget(undefined);
             setFailedUnlink(undefined);
         }
     }, [canManage]);
-
-    useEffect(() => {
-        if (grid) setPositions(grid.positionedWidgets);
-    }, [grid]);
-
-    const cancelPlaceMode = useCallback(() => {
-        setPlaceMode(false);
-        setPlacement(undefined);
-        setPlacementError("");
-    }, []);
-
-    useFocusEffect(
-        useCallback(() => {
-            if (!placeMode) return;
-            const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-                cancelPlaceMode();
-                return true;
-            });
-            return () => subscription.remove();
-        }, [cancelPlaceMode, placeMode]),
-    );
 
     if (!selectedDashboard) return <Loading />;
 
@@ -239,13 +139,6 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
         } finally {
             setRefreshing(false);
         }
-    };
-
-    const startPlaceMode = () => {
-        if (!canManageRef.current) return;
-        setPlaceMode(true);
-        setPlacement(undefined);
-        setPlacementError("");
     };
 
     const columns = grid?.columns ?? 1;
@@ -271,41 +164,27 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
             invalidWidget(position.widgetId),
     }));
 
-    const selectCell = (row: number, column: number) => {
-        if (!canManageRef.current || !grid) return;
-        const next = { row, column, rowSpan: 1, columnSpan: 1 };
-        if (!isPlacementAvailable({ ...grid, positionedWidgets: positions }, next)) return;
-        setPlacement(next);
-        setPlacementError("");
-        requestAnimationFrame(() =>
-            scrollRef.current?.scrollTo({ y: widgetsHeadingY.current, animated: false }),
-        );
-    };
-
-    const resizePlacement = (key: "rowSpan" | "columnSpan", delta: -1 | 1) => {
-        if (!grid || !placement || !canManageRef.current) return;
-        const next = { ...placement, [key]: placement[key] + delta };
-        if (isPlacementAvailable({ ...grid, positionedWidgets: positions }, next)) {
-            setPlacement(next);
-            setPlacementError("");
-        }
-    };
-
-    const chooseWidget = () => {
-        if (!canManageRef.current || !grid || !placement) return;
-        if (!isPlacementAvailable({ ...grid, positionedWidgets: positions }, placement)) {
-            setPlacementError("Choose an empty area within the dashboard grid.");
+    const chooseCell = (row: number, column: number) => {
+        if (
+            !canManageRef.current ||
+            unlinkPendingRef.current ||
+            identityRef.current !== identity ||
+            deviceRef.current.deviceId !== deviceId ||
+            deviceRef.current.currentDashboardId !== dashboardId ||
+            !grid
+        )
             return;
-        }
+        const placement = { row, column, rowSpan: 1, columnSpan: 1 };
+        if (!isPlacementAvailable({ ...grid, positionedWidgets: positions }, placement)) return;
         router.push({
             pathname: "device/dashboard/placeWidget",
             params: {
                 deviceId,
                 dashboardId,
-                row: String(placement.row),
-                column: String(placement.column),
-                rowSpan: String(placement.rowSpan),
-                columnSpan: String(placement.columnSpan),
+                row: String(row),
+                column: String(column),
+                rowSpan: "1",
+                columnSpan: "1",
             },
         });
     };
@@ -328,10 +207,13 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
             widgetId: target.widgetId,
             deleteWidget: (path) => httpClient.delete(path),
             onRemoved: () => {
-                if (isCurrentUnlink(target))
-                    setPositions((current) =>
-                        current.filter((position) => position.widgetId !== target.widgetId),
-                    );
+                if (grid && isCurrentUnlink(target))
+                    setPositionOverride({
+                        grid,
+                        positions: positions.filter(
+                            (position) => position.widgetId !== target.widgetId,
+                        ),
+                    });
             },
         });
 
@@ -356,25 +238,6 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
     };
 
     const horizontalOverflow = gridWidth > layoutWidth;
-    const canGrowHeight = Boolean(
-        grid &&
-        placement &&
-        placement.row + placement.rowSpan < grid.rows &&
-        isPlacementAvailable(
-            { ...grid, positionedWidgets: positions },
-            { ...placement, rowSpan: placement.rowSpan + 1 },
-        ),
-    );
-    const canGrowWidth = Boolean(
-        grid &&
-        placement &&
-        placement.column + placement.columnSpan < grid.columns &&
-        isPlacementAvailable(
-            { ...grid, positionedWidgets: positions },
-            { ...placement, columnSpan: placement.columnSpan + 1 },
-        ),
-    );
-
     if (!grid)
         return (
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -455,134 +318,30 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
                 </AlertDialogContent>
 
                 <ScrollView
-                    ref={scrollRef}
                     style={styles.scroll}
                     contentContainerStyle={styles.scrollContent}
-                    onContentSizeChange={() => {
-                        // Android applies the new scroll range after the content-size event.
-                        if (placeMode)
-                            requestAnimationFrame(() =>
-                                scrollRef.current?.scrollTo({
-                                    y: widgetsHeadingY.current,
-                                    animated: false,
-                                }),
-                            );
-                    }}
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={() => void refresh()}
+                            tintColor={colors.authForeground}
+                        />
                     }>
                     {header}
-                    <View
-                        style={styles.headingRow}
-                        onLayout={({ nativeEvent }) => {
-                            widgetsHeadingY.current = nativeEvent.layout.y;
-                        }}>
+                    <View style={styles.heading}>
                         <Text
                             accessibilityRole="header"
                             style={[styles.title, { color: colors.authForeground }]}>
                             Widgets
                         </Text>
-                        {canManage && positions.length > 0 && !placeMode && (
-                            <SectionHeaderAction
-                                label="Place widget"
-                                accessibilityLabel="Place widget"
-                                icon={<Icon icon="add-outline" size={20} color="brand" />}
-                                disabled={unlinking}
-                                onPress={startPlaceMode}
-                            />
-                        )}
+                        <Text style={[styles.helper, { color: colors.authMuted }]}>
+                            {canManage
+                                ? "Tap a free cell to add a widget. Hold a widget to remove it."
+                                : positions.length > 0
+                                  ? "Visible values are informational."
+                                  : "No widgets yet. A home manager can add them."}
+                        </Text>
                     </View>
-
-                    {placeMode && (
-                        <View style={styles.placePanel}>
-                            <View style={styles.placeHeading}>
-                                <View style={styles.placeCopy}>
-                                    <Text
-                                        style={[
-                                            styles.sectionTitle,
-                                            { color: colors.authForeground },
-                                        ]}>
-                                        Choose widget area
-                                    </Text>
-                                    <Text style={[styles.helper, { color: colors.authMuted }]}>
-                                        Select the top-left empty cell, then set the size.
-                                    </Text>
-                                </View>
-                                <SectionHeaderAction
-                                    label="Cancel"
-                                    accessibilityLabel="Cancel widget placement"
-                                    icon={<Icon icon="close-outline" size={20} color="brand" />}
-                                    onPress={cancelPlaceMode}
-                                />
-                            </View>
-
-                            {placement ? (
-                                <>
-                                    <Text
-                                        accessibilityLiveRegion="polite"
-                                        style={[styles.helper, { color: colors.authForeground }]}>
-                                        Row {placement.row + 1} · Column {placement.column + 1} ·{" "}
-                                        {placement.rowSpan}{" "}
-                                        {placement.rowSpan === 1 ? "row" : "rows"} ×{" "}
-                                        {placement.columnSpan}{" "}
-                                        {placement.columnSpan === 1 ? "column" : "columns"}
-                                    </Text>
-                                    <View style={styles.sizeControls}>
-                                        <SizeControl
-                                            label="Height"
-                                            value={placement.rowSpan}
-                                            decreaseDisabled={placement.rowSpan <= 1}
-                                            increaseDisabled={!canGrowHeight}
-                                            onDecrease={() => resizePlacement("rowSpan", -1)}
-                                            onIncrease={() => resizePlacement("rowSpan", 1)}
-                                        />
-                                        <SizeControl
-                                            label="Width"
-                                            value={placement.columnSpan}
-                                            decreaseDisabled={placement.columnSpan <= 1}
-                                            increaseDisabled={!canGrowWidth}
-                                            onDecrease={() => resizePlacement("columnSpan", -1)}
-                                            onIncrease={() => resizePlacement("columnSpan", 1)}
-                                        />
-                                    </View>
-                                    <View style={styles.placementActions}>
-                                        <Button
-                                            name="Change position"
-                                            type="brand-outline"
-                                            loading={false}
-                                            onPress={() => {
-                                                setPlacement(undefined);
-                                                setPlacementError("");
-                                            }}
-                                            style={styles.changePositionButton}
-                                        />
-                                        <Button
-                                            name="Choose widget"
-                                            type="auth"
-                                            loading={false}
-                                            onPress={chooseWidget}
-                                            style={styles.chooseWidgetButton}
-                                        />
-                                    </View>
-                                </>
-                            ) : (
-                                <Text style={[styles.helper, { color: colors.authMuted }]}>
-                                    Empty cells are labelled by row and column.
-                                </Text>
-                            )}
-                            {!!placementError && (
-                                <Alert
-                                    icon={CircleAlert}
-                                    compact
-                                    variant="destructive"
-                                    accessibilityRole="alert"
-                                    accessibilityLiveRegion="polite">
-                                    <AlertDescription compact>{placementError}</AlertDescription>
-                                </Alert>
-                            )}
-                        </View>
-                    )}
-
                     {!!failedUnlink && isCurrentUnlink(failedUnlink) && (
                         <View style={styles.unlinkError}>
                             <Alert
@@ -604,184 +363,99 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
                             />
                         </View>
                     )}
-
-                    {positions.length === 0 && !placeMode ? (
-                        <View style={styles.emptyState}>
-                            <Text style={[styles.sectionTitle, { color: colors.authForeground }]}>
-                                No widgets placed.
-                            </Text>
-                            <Text style={[styles.helper, { color: colors.authMuted }]}>
-                                {canManage
-                                    ? "Choose an empty dashboard area to add a widget."
-                                    : "Ask a home manager to add widgets to this dashboard."}
-                            </Text>
-                            {canManage && (
-                                <Button
-                                    name="Place widget"
-                                    type="auth"
-                                    loading={false}
-                                    disabled={unlinking}
-                                    onPress={startPlaceMode}
-                                />
-                            )}
-                        </View>
-                    ) : (
-                        <View
-                            style={styles.gridSection}
-                            onLayout={({ nativeEvent }) => {
-                                if (nativeEvent.layout.width > 0) {
-                                    setMeasuredLayout((current) =>
-                                        current?.windowWidth === windowWidth &&
-                                        current.width === nativeEvent.layout.width
-                                            ? current
-                                            : { windowWidth, width: nativeEvent.layout.width },
-                                    );
-                                }
-                            }}>
-                            {positions.length > 0 && !placeMode && (
-                                <Text style={[styles.helper, { color: colors.authMuted }]}>
-                                    Visible values are informational.
-                                </Text>
-                            )}
-                            <ScrollView
-                                style={styles.horizontalViewport}
-                                horizontal
-                                scrollEnabled={horizontalOverflow}
-                                showsHorizontalScrollIndicator={horizontalOverflow}
-                                contentContainerStyle={styles.horizontalGrid}>
-                                <View
-                                    style={[styles.grid, { width: gridWidth, height: gridHeight }]}>
-                                    {placeMode &&
-                                        Array.from({ length: rows }, (_, row) => (
-                                            <View
-                                                key={`row-${row}`}
+                    <View
+                        style={styles.gridSection}
+                        onLayout={({ nativeEvent }) => {
+                            if (nativeEvent.layout.width > 0) {
+                                setMeasuredLayout((current) =>
+                                    current?.windowWidth === windowWidth &&
+                                    current.width === nativeEvent.layout.width
+                                        ? current
+                                        : { windowWidth, width: nativeEvent.layout.width },
+                                );
+                            }
+                        }}>
+                        <ScrollView
+                            horizontal
+                            style={styles.horizontalViewport}
+                            scrollEnabled={horizontalOverflow}
+                            showsHorizontalScrollIndicator={horizontalOverflow}
+                            contentContainerStyle={styles.horizontalGrid}>
+                            <View style={[styles.grid, { width: gridWidth, height: gridHeight }]}>
+                                {Array.from({ length: rows }, (_, row) =>
+                                    Array.from({ length: columns }, (_, column) => {
+                                        const available = isPlacementAvailable(
+                                            { ...grid, positionedWidgets: positions },
+                                            { row, column, rowSpan: 1, columnSpan: 1 },
+                                        );
+                                        return available ? (
+                                            <Pressable
+                                                key={`${row}:${column}`}
+                                                cssInterop={false}
+                                                accessibilityRole={canManage ? "button" : "text"}
+                                                accessibilityLabel={`Row ${row + 1}, column ${column + 1}, empty`}
+                                                accessibilityHint={
+                                                    canManage
+                                                        ? "Choose a widget for this cell"
+                                                        : undefined
+                                                }
+                                                disabled={!canManage || unlinking}
+                                                android_ripple={{ color: colors.deviceTileSubtle }}
+                                                onPress={() => chooseCell(row, column)}
                                                 style={[
-                                                    styles.gridRow,
-                                                    { width: gridWidth, height: rowHeight },
+                                                    styles.emptyCell,
+                                                    {
+                                                        left: column * (cellWidth + GAP),
+                                                        top: row * (rowHeight + GAP),
+                                                        width: cellWidth,
+                                                        height: rowHeight,
+                                                        borderColor: colors.deviceTileBorder,
+                                                    },
                                                 ]}>
-                                                {Array.from({ length: columns }, (_, column) => {
-                                                    const available = isPlacementAvailable(
-                                                        { ...grid, positionedWidgets: positions },
-                                                        {
-                                                            row,
-                                                            column,
-                                                            rowSpan: 1,
-                                                            columnSpan: 1,
-                                                        },
-                                                    );
-                                                    if (!available)
-                                                        return (
-                                                            <View
-                                                                key={`occupied-${row}-${column}`}
-                                                                pointerEvents="none"
-                                                                style={{
-                                                                    width: cellWidth,
-                                                                    flexBasis: cellWidth,
-                                                                    flexShrink: 0,
-                                                                    height: rowHeight,
-                                                                }}
-                                                            />
-                                                        );
-                                                    return (
-                                                        <View
-                                                            key={`empty-${row}-${column}`}
-                                                            style={[
-                                                                styles.gridCellSlot,
-                                                                {
-                                                                    width: cellWidth,
-                                                                    flexBasis: cellWidth,
-                                                                    flexShrink: 0,
-                                                                    height: rowHeight,
-                                                                },
-                                                            ]}>
-                                                            <Pressable
-                                                                accessibilityRole="button"
-                                                                accessibilityLabel={`Row ${row + 1}, column ${column + 1}, empty`}
-                                                                android_ripple={{
-                                                                    color: colors.authBorder,
-                                                                }}
-                                                                onPress={() =>
-                                                                    selectCell(row, column)
-                                                                }
-                                                                style={[
-                                                                    StyleSheet.absoluteFillObject,
-                                                                    styles.emptyCell,
-                                                                    {
-                                                                        backgroundColor:
-                                                                            colors.authFieldBackground,
-                                                                        borderColor:
-                                                                            colors.authBorder,
-                                                                    },
-                                                                ]}>
-                                                                <Icon
-                                                                    icon="add-outline"
-                                                                    size={24}
-                                                                    color="brand"
-                                                                />
-                                                            </Pressable>
-                                                        </View>
-                                                    );
-                                                })}
-                                            </View>
-                                        ))}
-                                    {placement && (
-                                        <View
-                                            pointerEvents="none"
-                                            style={[
-                                                styles.placementPreview,
-                                                {
-                                                    top: placement.row * (rowHeight + GAP),
-                                                    left: placement.column * (cellWidth + GAP),
-                                                    width:
-                                                        placement.columnSpan * cellWidth +
-                                                        GAP * (placement.columnSpan - 1),
-                                                    height:
-                                                        placement.rowSpan * rowHeight +
-                                                        GAP * (placement.rowSpan - 1),
-                                                    backgroundColor: colors.authPrimary,
-                                                    borderColor: colors.complementary,
-                                                },
-                                            ]}
-                                        />
-                                    )}
-
-                                    {placedWidgets.map(({ position, widget }) => (
-                                        <WidgetView
-                                            key={widgetPositionKey(dashboardId, position)}
-                                            calculatedWidget={widget}
-                                            positionedWidget={position}
-                                            itemHeight={rowHeight}
-                                            itemWidth={cellWidth}
-                                            gap={GAP}
-                                            disabled={placeMode || unlinking}
-                                            onRemove={
-                                                canManage && !placeMode
-                                                    ? () => openUnlinkConfirmation(widget)
-                                                    : undefined
-                                            }
-                                            onFeedbackHeightChange={(height) => {
-                                                const key = widgetPositionKey(
-                                                    dashboardId,
-                                                    position,
-                                                );
-                                                setFeedbackHeights((current) => {
-                                                    const previous = current[key] ?? 0;
-                                                    if (previous === height) return current;
-                                                    if (height <= 0) {
-                                                        if (!(key in current)) return current;
-                                                        const next = { ...current };
-                                                        delete next[key];
-                                                        return next;
-                                                    }
-                                                    return { ...current, [key]: height };
-                                                });
-                                            }}
-                                        />
-                                    ))}
-                                </View>
-                            </ScrollView>
-                        </View>
-                    )}
+                                                {canManage && (
+                                                    <Icon
+                                                        icon="add-outline"
+                                                        size={20}
+                                                        color="brand"
+                                                    />
+                                                )}
+                                            </Pressable>
+                                        ) : null;
+                                    }),
+                                )}
+                                {placedWidgets.map(({ position, widget }) => (
+                                    <WidgetView
+                                        key={widgetPositionKey(dashboardId, position)}
+                                        calculatedWidget={widget}
+                                        positionedWidget={position}
+                                        itemHeight={rowHeight}
+                                        itemWidth={cellWidth}
+                                        gap={GAP}
+                                        disabled={unlinking}
+                                        onRemove={
+                                            canManage
+                                                ? () => openUnlinkConfirmation(widget)
+                                                : undefined
+                                        }
+                                        onFeedbackHeightChange={(height) => {
+                                            const key = widgetPositionKey(dashboardId, position);
+                                            setFeedbackHeights((current) => {
+                                                const previous = current[key] ?? 0;
+                                                if (previous === height) return current;
+                                                if (height <= 0) {
+                                                    if (!(key in current)) return current;
+                                                    const next = { ...current };
+                                                    delete next[key];
+                                                    return next;
+                                                }
+                                                return { ...current, [key]: height };
+                                            });
+                                        }}
+                                    />
+                                ))}
+                            </View>
+                        </ScrollView>
+                    </View>
                 </ScrollView>
             </View>
         </AlertDialog>
@@ -794,9 +468,7 @@ const styles = StyleSheet.create({
     root: { flex: 1 },
     scroll: { flex: 1 },
     title: { fontSize: 20, lineHeight: 28, fontWeight: "600" },
-    sectionTitle: { fontSize: 16, lineHeight: 24, fontWeight: "600" },
     helper: { fontSize: 14, lineHeight: 20 },
-    controlLabel: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
     scrollContent: {
         flexGrow: 1,
         paddingHorizontal: 16,
@@ -804,65 +476,21 @@ const styles = StyleSheet.create({
         paddingBottom: 16,
         gap: 16,
     },
-    headingRow: {
-        minHeight: 48,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 8,
-    },
-    placePanel: { gap: 12 },
-    placeHeading: { flexDirection: "row", alignItems: "center", gap: 8 },
-    placeCopy: { flex: 1, minWidth: 0, gap: 2 },
-    sizeControls: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
-    sizeControl: { flex: 1, minWidth: 142, gap: 4 },
-    sizeActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-    sizeButtonSlot: {
-        width: 50,
-        height: 50,
-        borderWidth: 1,
-        borderRadius: 12,
-        position: "relative",
-        overflow: "hidden",
-    },
-    sizeButton: {
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    sizeValue: { minWidth: 32, fontSize: 16, lineHeight: 24, textAlign: "center" },
-    placementActions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    changePositionButton: { flex: 1, minWidth: 160 },
-    chooseWidgetButton: { flex: 1, minWidth: 160 },
+    heading: { gap: 4 },
+    recovery: { flexGrow: 1, justifyContent: "center", gap: 16 },
     unlinkError: { gap: 8 },
-    emptyState: {
-        flexGrow: 1,
-        justifyContent: "center",
-        alignItems: "stretch",
-        gap: 12,
-        padding: 8,
-    },
-    gridSection: { width: "100%", gap: 12 },
+    gridSection: { width: "100%" },
     horizontalGrid: { flexGrow: 1 },
     grid: { position: "relative", alignSelf: "flex-start", gap: GAP },
-    gridRow: { flexDirection: "row", gap: GAP },
-    gridCellSlot: { position: "relative" },
     horizontalViewport: { width: "100%" },
     emptyCell: {
+        position: "absolute",
         borderWidth: 1,
         borderStyle: "dashed",
         borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
     },
-    placementPreview: {
-        position: "absolute",
-        opacity: 0.2,
-        borderWidth: 2,
-        borderStyle: "dashed",
-        borderRadius: 12,
-        zIndex: 1,
-    },
-    recovery: { flexGrow: 1, justifyContent: "center", gap: 16 },
-    dialogContent: { maxHeight: "90%" },
-    dialogBody: { flexShrink: 1, maxHeight: "75%" },
+    dialogContent: { width: "100%", maxHeight: "90%" },
+    dialogBody: { flexShrink: 1 },
 });

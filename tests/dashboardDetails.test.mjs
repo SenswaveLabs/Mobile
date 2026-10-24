@@ -337,7 +337,11 @@ function mountDashboardDetailsNavigation() {
     });
     const edit = device
         .elements()
-        .find((node) => node.type === "Button" && node.props.name === "Dashboard details");
+        .find(
+            (node) =>
+                node.type === "SectionHeaderAction" &&
+                node.props.accessibilityLabel === "Dashboard details",
+        );
     edit.props.onPress();
     return pushed;
 }

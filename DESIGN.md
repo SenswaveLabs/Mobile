@@ -178,6 +178,12 @@ Widget creation and read-only details follow the existing FormSection layout,
 outlined fields, selection sheets and inline feedback. Destructive definition
 deletion stays below configuration; dashboard unlink has its separate confirmation.
 The dashboard's identity, selector, management and widget grid share one scroll.
+The complete grid is visible even when empty, with quiet dashed free cells and
+neutral add icons for managers. Tapping a free cell opens widget choice immediately.
+The placement editor uses a neutral selected preview with the existing teal focus
+outline, a move affordance and a contrasting 48 dp corner resize handle. Geometry
+snaps to grid cells; no numeric size form or +/- toolbar appears on the dashboard.
+One amber Add widget action confirms the unsaved layout.
 
 ## Do's and Don'ts
 

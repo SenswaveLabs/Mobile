@@ -73,6 +73,9 @@ function mountPlace({
             "@/components/common/Loading": "Loading",
             "@/components/common/Text": "Text",
             "@/components/device/widgets/WidgetList": "WidgetList",
+            "@/components/device/dashboards/Grid/WidgetPlacementCanvas": "WidgetPlacementCanvas",
+            "@/components/common/SectionHeaderAction": "SectionHeaderAction",
+            "@/components/common/Icon": "Icon",
             "@/components/ui/alert": { Alert: "Alert", AlertDescription: "AlertDescription" },
             "@/contexts/custom/DeviceProvider": { useDevice: () => device },
             "@/contexts/domain/HomeProvider": { useHomes: () => home },
@@ -91,6 +94,7 @@ function mountPlace({
         router,
         focus: () => focusEffect?.(),
         widgetList: () => route.elements().find((node) => node.type === "WidgetList"),
+        canvas: () => route.elements().find((node) => node.type === "WidgetPlacementCanvas"),
         button: (name) =>
             route.elements().find((node) => node.type === "Button" && node.props.name === name),
     };
@@ -104,6 +108,7 @@ async function loadReadyRoute(mounted) {
     mounted.route.flushEffects();
     await settle();
     mounted.route.render();
+    mounted.focus();
 }
 
 test("placement uses explicit dashboard and device despite a mismatched provider selection", async () => {
@@ -163,17 +168,12 @@ test("widget selection only selects, then Place sends exact captured geometry on
 
     await mounted.widgetList().props.overrideOnClick("widget-a");
     mounted.route.render();
-    assert.equal(mounted.widgetList().props.selectedWidgetId, "widget-a");
+    assert.equal(mounted.canvas().props.widget.id, "widget-a");
     assert.deepEqual(mounted.requests.put, []);
-    assert.equal(mounted.button("Place widget").props.disabled, false);
+    assert.equal(mounted.button("Add widget").props.disabled, false);
 
-    mounted.button("Add operation").props.onPress();
-    assert.deepEqual(JSON.parse(JSON.stringify(mounted.pushes)), [
-        { pathname: "device/operation/add", params: { deviceId: "device-a" } },
-    ]);
-
-    mounted.button("Place widget").props.onPress();
-    mounted.button("Place widget").props.onPress();
+    mounted.button("Add widget").props.onPress();
+    mounted.button("Add widget").props.onPress();
     await settle();
 
     assert.deepEqual(JSON.parse(JSON.stringify(mounted.requests.put)), [
@@ -183,12 +183,9 @@ test("widget selection only selects, then Place sends exact captured geometry on
         ],
     ]);
     assert.deepEqual(mounted.refreshes, [false]);
-    assert.deepEqual(JSON.parse(JSON.stringify(mounted.pushes)), [
-        { pathname: "device/operation/add", params: { deviceId: "device-a" } },
-        "back",
-    ]);
+    assert.deepEqual(JSON.parse(JSON.stringify(mounted.pushes)), ["back"]);
     mounted.route.render();
-    assert.equal(mounted.button("Place widget").props.disabled, true);
+    assert.equal(mounted.button("Add widget").props.disabled, true);
 });
 
 test("rejected placement keeps the selected widget and offers inline retry", async () => {
@@ -196,14 +193,14 @@ test("rejected placement keeps the selected widget and offers inline retry", asy
     await loadReadyRoute(mounted);
     await mounted.widgetList().props.overrideOnClick("widget-a");
     mounted.route.render();
-    mounted.button("Place widget").props.onPress();
+    mounted.button("Add widget").props.onPress();
     await settle();
     mounted.route.render();
 
     assert.match(mounted.route.text(), /Couldn't place this widget\. Try again\./);
-    assert.equal(mounted.widgetList().props.selectedWidgetId, "widget-a");
-    assert.equal(mounted.button("Place widget").props.disabled, false);
-    mounted.button("Place widget").props.onPress();
+    assert.equal(mounted.canvas().props.widget.id, "widget-a");
+    assert.equal(mounted.button("Add widget").props.disabled, false);
+    mounted.button("Add widget").props.onPress();
     await settle();
     assert.equal(mounted.requests.put.length, 2);
 });
@@ -295,12 +292,123 @@ test("accepted placement with failed navigation offers navigation-only recovery"
     mounted.focus();
     await mounted.widgetList().props.overrideOnClick("widget-a");
     mounted.route.render();
-    mounted.button("Place widget").props.onPress();
+    mounted.button("Add widget").props.onPress();
     await settle();
     mounted.route.render();
 
     assert.match(mounted.route.text(), /Widget placed\. Return to the dashboard to continue\./);
     assert.equal(mounted.button("Return to dashboard").props.name, "Return to dashboard");
     assert.equal(mounted.requests.put.length, 1);
-    assert.equal(mounted.button("Place widget").props.disabled, true);
+    assert.equal(mounted.button("Add widget").props.disabled, true);
+});
+
+test("the editor saves the latest drag rectangle even through a retained submit callback", async () => {
+    const mounted = mountPlace();
+    await loadReadyRoute(mounted);
+    await mounted.widgetList().props.overrideOnClick("widget-a", {
+        id: "widget-a",
+        name: "Ceiling light",
+        type: "Switch",
+        enabled: true,
+    });
+    mounted.route.render();
+    const submit = mounted.button("Add widget").props.onPress;
+    mounted.canvas().props.onChange({ row: 1, column: 0, rowSpan: 1, columnSpan: 2 });
+    mounted.route.render();
+    submit();
+    await settle();
+    assert.deepEqual(JSON.parse(JSON.stringify(mounted.requests.put[0])), [
+        "v1/devices/dashboards/dashboard-a/widgets",
+        { widgetId: "widget-a", row: 1, column: 0, rowSpan: 1, columnSpan: 2 },
+    ]);
+});
+
+test("already placed widgets are excluded and cannot be selected through a retained picker callback", async () => {
+    const mounted = mountPlace({
+        getResults: [
+            success({
+                configuration: {
+                    ...gridConfiguration,
+                    positionedWidgets: [
+                        { widgetId: "existing", row: 1, column: 0, rowSpan: 1, columnSpan: 1 },
+                    ],
+                },
+            }),
+        ],
+    });
+    await loadReadyRoute(mounted);
+    assert.deepEqual(Array.from(mounted.widgetList().props.excludedWidgetIds), ["existing"]);
+    await mounted.widgetList().props.overrideOnClick("existing");
+    mounted.route.render();
+    assert.equal(mounted.canvas(), undefined);
+    assert.deepEqual(mounted.requests.put, []);
+});
+
+test("leaving the editor blocks a retained save callback", async () => {
+    const mounted = mountPlace();
+    await loadReadyRoute(mounted);
+    await mounted.widgetList().props.overrideOnClick("widget-a");
+    mounted.route.render();
+    const submit = mounted.button("Add widget").props.onPress;
+    const blur = mounted.focus();
+    blur();
+    submit();
+    await settle();
+    assert.deepEqual(mounted.requests.put, []);
+});
+
+test("canvas move and resize responders update grid geometry and block changes while pending", () => {
+    const changes = [];
+    const props = {
+        grid: gridConfiguration,
+        widget: { id: "new", name: "Light", type: "Switch" },
+        placement: { row: 0, column: 0, rowSpan: 1, columnSpan: 1 },
+        onChange: (value) => changes.push(value),
+    };
+    const canvas = mountNativeComponent(
+        "src/components/device/dashboards/Grid/WidgetPlacementCanvas.tsx",
+        {
+            props,
+            modules: {
+                "react-native": {
+                    PanResponder: { create: (handlers) => ({ panHandlers: handlers }) },
+                    StyleSheet: { create: (styles) => styles },
+                    View: "View",
+                    Pressable: "Pressable",
+                    ScrollView: "ScrollView",
+                    useWindowDimensions: () => ({ width: 320 }),
+                },
+                "lucide-react-native": { Move: "Move", MoveDiagonal2: "MoveDiagonal2" },
+                "@/components/ui/text": { Text: "Text" },
+                "@/contexts/ThemeProvider": { useTheme: () => ({ current: { colors: {} } }) },
+            },
+        },
+    );
+    const target = (label) =>
+        canvas.elements().find((node) => node.props.accessibilityLabel === label);
+    const move = target("Move Light");
+    move.props.onPanResponderGrant();
+    move.props.onPanResponderMove(null, { dx: 148, dy: 0 });
+    assert.deepEqual(JSON.parse(JSON.stringify(changes.at(-1))), {
+        row: 0,
+        column: 1,
+        rowSpan: 1,
+        columnSpan: 1,
+    });
+    canvas.render({ ...props, placement: changes.at(-1) });
+    const resize = target("Resize Light");
+    resize.props.onPanResponderGrant();
+    resize.props.onPanResponderMove(null, { dx: 0, dy: 104 });
+    assert.equal(changes.at(-1).rowSpan, 2);
+    canvas.render({ ...props, placement: changes.at(-1) });
+    const scrolls = [];
+    const viewport = canvas.elements().find((node) => node.type === "ScrollView" && node.props.ref);
+    viewport.props.ref.current = { scrollTo: (value) => scrolls.push(value) };
+    resize.props.onPanResponderRelease();
+    viewport.props.onLayout({ nativeEvent: { layout: { height: 150 } } });
+    assert.equal(scrolls.at(-1).y, 50);
+    const count = changes.length;
+    canvas.render({ ...props, placement: changes.at(-1), disabled: true });
+    resize.props.onPanResponderMove(null, { dx: -148, dy: -104 });
+    assert.equal(changes.length, count);
 });

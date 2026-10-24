@@ -25,11 +25,12 @@ const EmptyWidget: WidgetListDto = {
 };
 
 interface WidgetListProps {
-    overrideOnClick?: (widgetId: string) => Promise<void>;
+    overrideOnClick?: (widgetId: string, widget?: WidgetListDto) => Promise<void>;
     hideAddButtons?: boolean;
     deviceId?: string;
     selectedWidgetId?: string;
     disabled?: boolean;
+    excludedWidgetIds?: string[];
 }
 
 const isOperationGroupList = (value: unknown): value is OperationGroup[] =>
@@ -60,6 +61,7 @@ const WidgetList: FC<WidgetListProps> = ({
     deviceId: explicitDeviceId,
     selectedWidgetId,
     disabled = false,
+    excludedWidgetIds = [],
 }) => {
     const httpClient = useHttpClient();
     const device = useDevice();
@@ -211,7 +213,9 @@ const WidgetList: FC<WidgetListProps> = ({
             return (
                 <View style={styles.emptyOperation}>
                     <Text size="small" color="onBackground">
-                        Operation has no widgets yet.
+                        {excludedWidgetIds.length > 0
+                            ? "No unplaced widgets for this operation."
+                            : "Operation has no widgets yet."}
                     </Text>
                 </View>
             );
@@ -225,7 +229,7 @@ const WidgetList: FC<WidgetListProps> = ({
                 enabled={item.enabled}
                 deviceId={deviceId}
                 canManage={canManage}
-                overrideOnClick={overrideOnClick}
+                overrideOnClick={overrideOnClick ? (id) => overrideOnClick(id, item) : undefined}
                 selected={item.id === selectedWidgetId}
                 disablePress={disabled}
                 separator={separator}
@@ -237,10 +241,15 @@ const WidgetList: FC<WidgetListProps> = ({
         <SectionList
             style={styles.list}
             stickySectionHeadersEnabled={false}
-            sections={groups.map((group) => ({
-                operation: group.operation,
-                data: group.widgets.length > 0 ? group.widgets : [EmptyWidget],
-            }))}
+            sections={groups.map((group) => {
+                const available = group.widgets.filter(
+                    (widget) => !excludedWidgetIds.includes(widget.id),
+                );
+                return {
+                    operation: group.operation,
+                    data: available.length > 0 ? available : [EmptyWidget],
+                };
+            })}
             keyExtractor={(item, index) => `${item.id}-${index}`}
             renderItem={({ item, index, section }) =>
                 displayWidget(item, index < section.data.length - 1)

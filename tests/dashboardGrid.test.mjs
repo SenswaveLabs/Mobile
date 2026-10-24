@@ -5,6 +5,7 @@ import {
     parseDashboardPlacement,
     readGridConfiguration,
     unlinkDashboardWidget,
+    dragDashboardPlacement,
 } from "../src/utils/dashboardGrid.ts";
 
 const grid = {
@@ -13,6 +14,44 @@ const grid = {
     calculatedWidgets: [{ id: "widget-a", name: "Light", type: "Switch", configuration: {} }],
     positionedWidgets: [{ widgetId: "widget-a", row: 0, column: 1, rowSpan: 1, columnSpan: 1 }],
 };
+
+test("placement gestures snap from their starting rectangle and clamp to grid edges", () => {
+    const empty = { ...grid, rows: 4, columns: 5, positionedWidgets: [] };
+    const placement = { row: 1, column: 1, rowSpan: 1, columnSpan: 2 };
+    const drag = (mode, deltaX, deltaY) =>
+        dragDashboardPlacement({
+            grid: empty,
+            placement,
+            mode,
+            deltaX,
+            deltaY,
+            columnPitch: 60,
+            rowPitch: 104,
+        });
+    assert.deepEqual(drag("move", 61, 105), { ...placement, row: 2, column: 2 });
+    assert.deepEqual(drag("move", 10000, -10000), { ...placement, row: 0, column: 3 });
+    assert.deepEqual(drag("resize", 60, 104), { ...placement, rowSpan: 2, columnSpan: 3 });
+    assert.deepEqual(drag("resize", -10000, -10000), { ...placement, rowSpan: 1, columnSpan: 1 });
+    assert.deepEqual(drag("resize", 10000, 10000), { ...placement, rowSpan: 3, columnSpan: 4 });
+});
+
+test("placement gestures reject collisions and malformed movement without changing the draft", () => {
+    const placement = { row: 0, column: 0, rowSpan: 1, columnSpan: 1 };
+    const input = {
+        grid,
+        placement,
+        mode: "move",
+        deltaX: 60,
+        deltaY: 0,
+        columnPitch: 60,
+        rowPitch: 104,
+    };
+    assert.equal(dragDashboardPlacement(input), undefined);
+    assert.equal(dragDashboardPlacement({ ...input, mode: "resize" }), undefined);
+    assert.equal(dragDashboardPlacement({ ...input, deltaX: NaN }), undefined);
+    assert.equal(dragDashboardPlacement({ ...input, columnPitch: 0 }), undefined);
+    assert.deepEqual(placement, { row: 0, column: 0, rowSpan: 1, columnSpan: 1 });
+});
 
 test("dashboard grid validator keeps supported dimensions and rejects malformed geometry", () => {
     assert.equal(readGridConfiguration(grid), grid);

@@ -146,24 +146,30 @@ Accessibility and task completion take priority over matching a visual pattern.
   offline devices; never render controls for a stale device/dashboard response.
   Every home role may choose and view dashboards and use permitted live widget
   controls. Only owners/managers see Device details, dashboard Add/details,
-  Place widget, widget creation or dashboard unlink. Direct configuration routes
+  widget placement, widget creation or dashboard unlink. Direct configuration routes
   deny Display before reads/forms and recheck permission in retained callbacks.
-- Grid keeps its Widgets heading, place action, geometry and inline recovery in
-  one vertical scroll with device identity, dashboard selection and management
-  actions. Reveal the measured Widgets heading when starting or selecting a
-  placement, so the device header does not consume the narrow-screen workspace.
-  Use measured width, 8 dp gaps and at least 96 dp rows.
-  Empty-cell targets are named with one-based row/column numbers; placement grows
-  down/right from the selected top-left cell. Keep Height/Width and
-  Change position/Choose widget/Cancel in normal flow, and let Android Back
-  cancel place mode. Validate saved geometry before indexing; malformed geometry
-  stays visible with local Retry.
+- Grid keeps its Widgets heading, geometry and inline recovery in one vertical
+  scroll with device identity, dashboard selection and management actions.
+  Render Device/Dashboard settings as quiet foreground icon-and-label actions that fit one
+  row on narrow screens, keeping the grid prominent. Render
+  every grid row immediately, including an empty dashboard; managers tap a free
+  48 dp cell to choose a widget. Read-only roles see the grid without add actions.
+  Use measured width, 8 dp gaps and at least 96 dp rows. Validate saved geometry
+  before indexing; malformed geometry stays visible with local Retry. Do not add
+  a separate placement mode, numeric size inputs or +/- controls to this page.
 - `/device/dashboard/placeWidget` reads the routed dashboard ID and validates
-  the captured area before presenting the explicit-device picker. Picker rows
-  select only: no power request and no operation navigation. Use a visible
-  selected state and persistent footer action. Place sends the selected widget
-  and unchanged zero-based geometry once. Failure retains the selection and
-  offers inline retry; accepted writes recover navigation without repeating PUT.
+  the captured initial cell before presenting the explicit-device picker. Exclude
+  widget IDs already placed on this dashboard. Picker rows choose immediately,
+  without power requests or operation navigation, then show a focused grid editor.
+  Drag the selected preview to move it, tap a free cell for an alternate move, and
+  drag its 48 dp bottom-right handle to resize. Snap geometry to whole cells, clamp
+  it to the grid and block collisions. Keep native canvas scrolling available outside
+  an active gesture; expose named movement and resizing accessibility actions.
+  Occupied widgets are noninteractive context in this editor. Show one Add widget
+  action and persistent inline save feedback. Save the latest valid draft once;
+  failures retain it and accepted writes recover return without another PUT.
+  Back leaves without saving. The API adds placements and rejects duplicate IDs,
+  so this editor covers unsaved placements rather than changing existing ones.
 - Grid owns dashboard-only widget unlink in one confirmed native dialog. Capture
   device, dashboard and widget IDs, DELETE only the placement, retain the widget
   definition, and remove the local placement after acceptance. Failure keeps the

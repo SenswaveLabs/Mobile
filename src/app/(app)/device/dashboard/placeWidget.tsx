@@ -1,5 +1,10 @@
 import Button from "@/components/common/Button";
 import Loading from "@/components/common/Loading";
+import Icon from "@/components/common/Icon";
+import SectionHeaderAction from "@/components/common/SectionHeaderAction";
+import WidgetPlacementCanvas from "@/components/device/dashboards/Grid/WidgetPlacementCanvas";
+import type { WidgetListDto } from "@/types/DeviceTypes";
+import type { DashboardPlacement } from "@/utils/dashboardGrid";
 import WidgetList from "@/components/device/widgets/WidgetList";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Text } from "@/components/ui/text";
@@ -57,7 +62,7 @@ const PlaceWidget: FC = () => {
     const deviceId =
         routeDeviceId ??
         (device.currentDashboardId === dashboardId ? firstRouteValue(device.deviceId) : undefined);
-    const placement = useMemo(
+    const initialPlacement = useMemo(
         () =>
             parseDashboardPlacement({
                 row: placementRow,
@@ -67,9 +72,17 @@ const PlaceWidget: FC = () => {
             }),
         [placementColumn, placementColumnSpan, placementRow, placementRowSpan],
     );
-    const resourceKey = JSON.stringify([deviceId ?? null, dashboardId ?? null]);
+    const resourceKey = JSON.stringify([
+        deviceId ?? null,
+        dashboardId ?? null,
+        placementRow,
+        placementColumn,
+        placementRowSpan,
+        placementColumnSpan,
+    ]);
     const resourceRef = useRef(resourceKey);
-    const canManage = home.current?.isOwner === true || home.current?.canManage === true;
+    const canManage =
+        !home.loading && (home.current?.isOwner === true || home.current?.canManage === true);
     const canManageRef = useRef(canManage);
     const deviceRef = useRef(device);
     const focusedRef = useRef(false);
@@ -83,6 +96,13 @@ const PlaceWidget: FC = () => {
         status: "loading",
     });
     const [selectedWidgetId, setSelectedWidgetId] = useState<string>();
+    const [selectedWidget, setSelectedWidget] = useState<WidgetListDto>();
+    const [placement, setPlacement] = useState(initialPlacement);
+    const draftRef = useRef({
+        resourceKey,
+        placement: initialPlacement,
+        widgetId: undefined as string | undefined,
+    });
     const [submitting, setSubmitting] = useState(false);
     const [actionError, setActionError] = useState("");
     const [returnError, setReturnError] = useState(false);
@@ -94,24 +114,29 @@ const PlaceWidget: FC = () => {
 
     useEffect(() => {
         setSelectedWidgetId(undefined);
+        setSelectedWidget(undefined);
+        setPlacement(initialPlacement);
+        draftRef.current = { resourceKey, placement: initialPlacement, widgetId: undefined };
         setActionError("");
         setReturnError(false);
         if (acceptedResourceRef.current !== resourceKey) {
             acceptedRef.current = false;
             returnPendingRef.current = false;
         }
-    }, [resourceKey]);
+    }, [resourceKey, initialPlacement]);
 
     useEffect(() => {
         if (!canManage) {
             setSelectedWidgetId(undefined);
+            setSelectedWidget(undefined);
+            draftRef.current.widgetId = undefined;
             setActionError("");
         }
     }, [canManage]);
 
     useEffect(() => {
         const request = ++requestRef.current;
-        if (!canManage || !dashboardId || !deviceId || !placement) return;
+        if (!canManage || !dashboardId || !deviceId || !initialPlacement) return;
         setDashboardRead({ key: resourceKey, status: "loading" });
         let active = true;
         const isCurrent = () =>
@@ -139,7 +164,7 @@ const PlaceWidget: FC = () => {
         return () => {
             active = false;
         };
-    }, [canManage, dashboardId, deviceId, httpClient, placement, resourceKey, retryRead]);
+    }, [canManage, dashboardId, deviceId, httpClient, initialPlacement, resourceKey, retryRead]);
 
     const returnToDashboard = useCallback(() => {
         try {
@@ -185,28 +210,69 @@ const PlaceWidget: FC = () => {
     const areaAvailable =
         readReady && Boolean(placement && isPlacementAvailable(dashboardRead.grid, placement));
 
-    const selectWidget = async (widgetId: string) => {
-        if (!canManageRef.current || submitPendingRef.current || acceptedRef.current) return;
+    const selectWidget = async (widgetId: string, widget?: WidgetListDto) => {
+        if (
+            !canManageRef.current ||
+            !focusedRef.current ||
+            submitPendingRef.current ||
+            acceptedRef.current ||
+            resourceRef.current !== resourceKey ||
+            !readReady ||
+            dashboardRead.grid.positionedWidgets.some((item) => item.widgetId === widgetId)
+        )
+            return;
         setSelectedWidgetId(widgetId);
+        setSelectedWidget(
+            widget ?? { id: widgetId, name: "Selected widget", type: "Invalid", enabled: true },
+        );
+        draftRef.current = { resourceKey, placement, widgetId };
+        setActionError("");
+    };
+
+    const changePlacement = (next: DashboardPlacement) => {
+        if (
+            !canManageRef.current ||
+            !focusedRef.current ||
+            submitPendingRef.current ||
+            acceptedRef.current ||
+            resourceRef.current !== resourceKey ||
+            !readReady ||
+            !isPlacementAvailable(dashboardRead.grid, next)
+        )
+            return;
+        draftRef.current.placement = next;
+        setPlacement(next);
         setActionError("");
     };
 
     const addOperation = () => {
-        if (!canManageRef.current || submitPendingRef.current || acceptedRef.current || !deviceId)
+        if (
+            !canManageRef.current ||
+            !focusedRef.current ||
+            submitPendingRef.current ||
+            acceptedRef.current ||
+            !deviceId
+        )
             return;
         router.push({ pathname: "device/operation/add", params: { deviceId } });
     };
 
     const placeSelectedWidget = async () => {
+        const draft = draftRef.current;
         if (
             submitPendingRef.current ||
             acceptedRef.current ||
             !canManageRef.current ||
+            !focusedRef.current ||
             !deviceId ||
             !dashboardId ||
-            !placement ||
-            !selectedWidgetId ||
-            !areaAvailable
+            !draft.placement ||
+            !draft.widgetId ||
+            draft.resourceKey !== resourceKey ||
+            resourceRef.current !== resourceKey ||
+            !readReady ||
+            !isPlacementAvailable(dashboardRead.grid, draft.placement) ||
+            dashboardRead.grid.positionedWidgets.some((item) => item.widgetId === draft.widgetId)
         )
             return;
 
@@ -215,11 +281,11 @@ const PlaceWidget: FC = () => {
         setActionError("");
         const capturedResource = resourceKey;
         const values = {
-            widgetId: selectedWidgetId,
-            row: placement.row,
-            column: placement.column,
-            rowSpan: placement.rowSpan,
-            columnSpan: placement.columnSpan,
+            widgetId: draft.widgetId,
+            row: draft.placement.row,
+            column: draft.placement.column,
+            rowSpan: draft.placement.rowSpan,
+            columnSpan: draft.placement.columnSpan,
         };
 
         try {
@@ -313,76 +379,117 @@ const PlaceWidget: FC = () => {
     return (
         <View style={[styles.screen, { backgroundColor: colors.background }]}>
             <View style={styles.heading}>
-                <Text
-                    accessibilityRole="header"
-                    style={[styles.title, { color: colors.authForeground }]}>
-                    Choose widget
-                </Text>
-                <Text style={[styles.helper, { color: colors.authMuted }]}>
-                    Choose a widget for the selected dashboard area.
-                </Text>
-                <Text style={[styles.helper, { color: colors.authMuted }]}>
-                    Row {placement.row + 1} · Column {placement.column + 1} · {placement.rowSpan}{" "}
-                    {placement.rowSpan === 1 ? "row" : "rows"} × {placement.columnSpan}{" "}
-                    {placement.columnSpan === 1 ? "column" : "columns"}
-                </Text>
-                <Button
-                    name="Add operation"
-                    type="brand-outline"
-                    loading={false}
-                    disabled={submitting || acceptedRef.current}
-                    onPress={addOperation}
-                />
-            </View>
-
-            <WidgetList
-                deviceId={deviceId}
-                overrideOnClick={selectWidget}
-                selectedWidgetId={selectedWidgetId}
-                disabled={submitting || acceptedRef.current}
-            />
-
-            <View style={styles.footer}>
-                {!!actionError && (
-                    <Alert
-                        icon={CircleAlert}
-                        compact
-                        variant="destructive"
-                        accessibilityRole="alert"
-                        accessibilityLiveRegion="polite">
-                        <AlertDescription compact>{actionError}</AlertDescription>
-                    </Alert>
+                <View style={styles.headingRow}>
+                    <Text
+                        accessibilityRole="header"
+                        style={[styles.title, { color: colors.authForeground }]}>
+                        {selectedWidget ? "Position widget" : "Choose widget"}
+                    </Text>
+                    {selectedWidget && !acceptedRef.current && (
+                        <SectionHeaderAction
+                            label="Change"
+                            accessibilityLabel="Choose another widget"
+                            icon={<Icon icon="swap-horizontal-outline" size={20} color="brand" />}
+                            disabled={submitting}
+                            onPress={() => {
+                                if (submitPendingRef.current || acceptedRef.current) return;
+                                setSelectedWidgetId(undefined);
+                                setSelectedWidget(undefined);
+                                draftRef.current.widgetId = undefined;
+                                setActionError("");
+                            }}
+                        />
+                    )}
+                </View>
+                {selectedWidget && (
+                    <Text style={[styles.widgetName, { color: colors.authForeground }]}>
+                        {selectedWidget.name}
+                    </Text>
                 )}
-                {returnError && (
-                    <Alert
-                        icon={CircleAlert}
-                        compact
-                        variant="destructive"
-                        accessibilityRole="alert"
-                        accessibilityLiveRegion="polite">
-                        <AlertDescription compact>
-                            Widget placed. Return to the dashboard to continue.
-                        </AlertDescription>
-                    </Alert>
-                )}
-                <Button
-                    name="Place widget"
-                    type="auth"
-                    loading={submitting}
-                    disabled={!selectedWidgetId || submitting || acceptedRef.current}
-                    onPress={() => void placeSelectedWidget()}
-                />
-                {returnError && (
-                    <Button
-                        name="Return to dashboard"
-                        type="brand-outline"
-                        loading={false}
-                        onPress={() => {
-                            if (!returnToDashboard()) setReturnError(true);
-                        }}
+                <Text style={[styles.helper, { color: colors.authMuted }]}>
+                    {selectedWidget
+                        ? "Drag to move or tap a free cell. Drag the corner to resize."
+                        : "Choose a widget, then place and resize it on the grid."}
+                </Text>
+                {!selectedWidget && (
+                    <SectionHeaderAction
+                        label="Add operation"
+                        accessibilityLabel="Add operation"
+                        icon={<Icon icon="add-outline" size={20} color="brand" />}
+                        disabled={submitting || acceptedRef.current}
+                        onPress={addOperation}
                     />
                 )}
             </View>
+            {selectedWidget ? (
+                <WidgetPlacementCanvas
+                    key={selectedWidget.id}
+                    grid={dashboardRead.grid}
+                    widget={selectedWidget}
+                    placement={placement}
+                    onChange={changePlacement}
+                    disabled={submitting || acceptedRef.current}
+                />
+            ) : (
+                <WidgetList
+                    deviceId={deviceId}
+                    overrideOnClick={selectWidget}
+                    excludedWidgetIds={dashboardRead.grid.positionedWidgets.map(
+                        (item) => item.widgetId,
+                    )}
+                    disabled={submitting || acceptedRef.current}
+                />
+            )}
+
+            {selectedWidgetId && (
+                <View style={styles.footer}>
+                    <Text
+                        style={[styles.helper, { color: colors.authMuted }]}
+                        accessibilityLiveRegion="polite">
+                        {placement.columnSpan} {placement.columnSpan === 1 ? "column" : "columns"} ×{" "}
+                        {placement.rowSpan} {placement.rowSpan === 1 ? "row" : "rows"}
+                    </Text>
+                    {!!actionError && (
+                        <Alert
+                            icon={CircleAlert}
+                            compact
+                            variant="destructive"
+                            accessibilityRole="alert"
+                            accessibilityLiveRegion="polite">
+                            <AlertDescription compact>{actionError}</AlertDescription>
+                        </Alert>
+                    )}
+                    {returnError && (
+                        <Alert
+                            icon={CircleAlert}
+                            compact
+                            variant="destructive"
+                            accessibilityRole="alert"
+                            accessibilityLiveRegion="polite">
+                            <AlertDescription compact>
+                                Widget placed. Return to the dashboard to continue.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                    <Button
+                        name="Add widget"
+                        type="auth"
+                        loading={submitting}
+                        disabled={!selectedWidgetId || submitting || acceptedRef.current}
+                        onPress={() => void placeSelectedWidget()}
+                    />
+                    {returnError && (
+                        <Button
+                            name="Return to dashboard"
+                            type="brand-outline"
+                            loading={false}
+                            onPress={() => {
+                                if (!returnToDashboard()) setReturnError(true);
+                            }}
+                        />
+                    )}
+                </View>
+            )}
         </View>
     );
 };
@@ -391,9 +498,16 @@ export default PlaceWidget;
 
 const styles = StyleSheet.create({
     screen: { flex: 1, minHeight: 0 },
-    title: { fontSize: 24, lineHeight: 32, fontWeight: "600" },
+    title: { flexShrink: 1, fontSize: 24, lineHeight: 32, fontWeight: "600" },
     helper: { fontSize: 14, lineHeight: 20 },
-    heading: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
+    widgetName: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
+    heading: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
+    headingRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+    },
     footer: { gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 },
     recovery: { flex: 1, justifyContent: "center", gap: 16, padding: 16 },
 });

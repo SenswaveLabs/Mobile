@@ -269,7 +269,11 @@ test("device route normalizes identity, keeps display controls and hides configu
         .props.onPress();
     manager
         .elements()
-        .find((node) => node.type === "Button" && node.props.name === "Dashboard details")
+        .find(
+            (node) =>
+                node.type === "SectionHeaderAction" &&
+                node.props.accessibilityLabel === "Dashboard details",
+        )
         .props.onPress();
     assert.deepEqual(
         JSON.parse(JSON.stringify(pushed.map(({ pathname, params }) => [pathname, params]))),

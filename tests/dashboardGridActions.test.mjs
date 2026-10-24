@@ -20,6 +20,7 @@ function mountGrid({
     header,
 } = {}) {
     const requests = [];
+    const pushes = [];
     const refreshes = [];
     const device = {
         deviceId: "device-a",
@@ -35,7 +36,7 @@ function mountGrid({
             modules: {
                 "expo-router": {
                     useFocusEffect: () => {},
-                    useRouter: () => ({ push: () => {} }),
+                    useRouter: () => ({ push: (value) => pushes.push(value) }),
                 },
                 "react-native": {
                     BackHandler: { addEventListener: () => ({ remove: () => {} }) },
@@ -113,6 +114,7 @@ function mountGrid({
     return {
         grid,
         requests,
+        pushes,
         refreshes,
         device,
         widget: () => grid.elements().find((node) => node.type === "WidgetView"),
@@ -136,158 +138,85 @@ test("manager gets the dashboard-scoped unlink callback; Display gets none", () 
     assert.equal(display.button("Place widget"), undefined);
 });
 
-test("place grid measures the viewport and groups empty cells into rows", () => {
+test("empty dashboard shows the whole grid immediately and a cell opens the picker directly", () => {
     const mounted = mountGrid({
         gridConfiguration: { ...configuration, rows: 2, columns: 3, positionedWidgets: [] },
-    });
-    mounted.button("Place widget").props.onPress();
-    mounted.grid.render();
-
-    const styleObject = (style) => Object.assign({}, ...(Array.isArray(style) ? style : [style]));
-    const section = mounted.grid
-        .elements()
-        .find(
-            (element) =>
-                element.type === "View" &&
-                typeof element.props.onLayout === "function" &&
-                styleObject(element.props.style).width === "100%",
-        );
-    assert.ok(section, "grid section measures available viewport width");
-    section.props.onLayout({ nativeEvent: { layout: { width: 300 } } });
-    mounted.grid.render();
-
-    const rows = mounted.grid
-        .elements()
-        .filter(
-            (element) =>
-                element.type === "View" &&
-                styleObject(element.props.style).flexDirection === "row" &&
-                styleObject(element.props.style).height === 96,
-        );
-    assert.equal(rows.length, 2);
-    for (const row of rows) {
-        const style = styleObject(row.props.style);
-        assert.equal(style.width, 300);
-        assert.equal(style.height, 96);
-        assert.equal(
-            mounted.grid
-                .elements(row)
-                .filter(
-                    (child) =>
-                        child.type === "View" &&
-                        styleObject(child.props.style).position === "relative",
-                ).length,
-            3,
-        );
-    }
-
-    const cellSlot = mounted.grid
-        .elements()
-        .find(
-            (element) =>
-                element.type === "View" &&
-                styleObject(element.props.style).position === "relative" &&
-                styleObject(element.props.style).width === (300 - 16) / 3,
-        );
-    assert.ok(cellSlot);
-    assert.equal(styleObject(cellSlot.props.style).height, 96);
-    const cell = mounted.grid
-        .elements(cellSlot)
-        .find((element) => element.props.accessibilityLabel === "Row 1, column 1, empty");
-    assert.deepEqual(styleObject(cell.props.style), {
-        position: "absolute",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0,
-        borderWidth: 1,
-        borderStyle: "dashed",
-        borderRadius: 12,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#ffffff",
-        borderColor: "#777777",
-    });
-});
-
-test("narrow dashboard cells and the placement preview share first-render geometry", () => {
-    const mounted = mountGrid({
-        gridConfiguration: { ...configuration, rows: 1, columns: 4, positionedWidgets: [] },
-        windowWidth: 320,
-    });
-    mounted.button("Place widget").props.onPress();
-    mounted.grid.render();
-
-    const styleObject = (style) => Object.assign({}, ...(Array.isArray(style) ? style : [style]));
-    const cellSlot = mounted.grid
-        .elements()
-        .find(
-            (element) =>
-                element.type === "View" &&
-                styleObject(element.props.style).position === "relative" &&
-                styleObject(element.props.style).flexShrink === 0 &&
-                styleObject(element.props.style).height === 96,
-        );
-    assert.ok(cellSlot);
-    assert.equal(styleObject(cellSlot.props.style).width, 66);
-
-    mounted.grid
-        .elements(cellSlot)
-        .find((element) => element.props.accessibilityLabel)
-        ?.props.onPress();
-    mounted.grid.render();
-    const preview = mounted.grid.elements().find((element) => {
-        const style = styleObject(element.props.style);
-        return style.position === "absolute" && style.opacity === 0.2;
-    });
-    assert.equal(styleObject(preview.props.style).width, 66);
-});
-
-test("placement reveals its controls below the scrollable device header", () => {
-    const mounted = mountGrid({
-        gridConfiguration: { ...configuration, rows: 2, positionedWidgets: [] },
         header: "Device header",
     });
+    const cells = mounted.grid
+        .elements()
+        .filter((node) => node.props.accessibilityLabel?.endsWith(", empty"));
+    assert.equal(cells.length, 6);
+    assert.equal(mounted.button("Place widget"), undefined);
+    assert.equal(mounted.button("Choose widget"), undefined);
+    assert.equal(
+        mounted.grid.elements().some((node) => node.props.children?.includes("Height")),
+        false,
+    );
+    cells[4].props.onPress();
+    assert.deepEqual(JSON.parse(JSON.stringify(mounted.pushes)), [
+        {
+            pathname: "device/dashboard/placeWidget",
+            params: {
+                deviceId: "device-a",
+                dashboardId: "dashboard-a",
+                row: "1",
+                column: "1",
+                rowSpan: "1",
+                columnSpan: "1",
+            },
+        },
+    ]);
+    assert.deepEqual(mounted.requests, []);
     const scroll = mounted.grid
         .elements()
-        .find((element) => element.type === "ScrollView" && element.props.refreshControl);
+        .find((node) => node.type === "ScrollView" && node.props.refreshControl);
     assert.ok(
         mounted.grid
             .elements(scroll)
-            .some((element) => element.props?.children?.includes("Device header")),
+            .some((node) => node.props.children?.includes("Device header")),
     );
+});
 
-    const scrolls = [];
-    scroll.props.ref.current = {
-        scrollTo: ({ y, animated }) => scrolls.push({ y, animated }),
-    };
-    const widgetsHeading = mounted.grid
+test("occupied cells are never offered, and Display keeps a read-only grid", () => {
+    const mounted = mountGrid({ gridConfiguration: { ...configuration, rows: 2 } });
+    const cell = mounted.grid
         .elements()
-        .find(
-            (element) =>
-                element.type === "View" &&
-                element.props.children?.some((child) =>
-                    child?.props?.children?.includes("Widgets"),
-                ),
-        );
-    widgetsHeading.props.onLayout({ nativeEvent: { layout: { y: 360 } } });
-    mounted.button("Place widget").props.onPress();
-    mounted.grid.render();
-    mounted.grid
+        .find((node) => node.props.accessibilityLabel === "Row 2, column 1, empty");
+    assert.ok(cell);
+    assert.equal(
+        mounted.grid
+            .elements()
+            .some((node) => node.props.accessibilityLabel === "Row 1, column 1, empty"),
+        false,
+    );
+    mounted.grid.render({ deviceId: "device-a", dashboardId: "dashboard-a", canManage: false });
+    cell.props.onPress();
+    assert.deepEqual(mounted.pushes, []);
+    const viewerCell = mounted.grid
         .elements()
-        .find((element) => element.type === "ScrollView" && element.props.refreshControl)
-        .props.onContentSizeChange();
-    mounted.grid
-        .elements()
-        .find((element) => element.props.accessibilityLabel === "Row 2, column 1, empty")
-        .props.onPress();
-    mounted.grid.render();
+        .find((node) => node.props.accessibilityLabel === "Row 2, column 1, empty");
+    assert.equal(viewerCell.props.disabled, true);
+    assert.equal(viewerCell.props.accessibilityRole, "text");
+});
 
-    assert.deepEqual(scrolls, [
-        { y: 360, animated: false },
-        { y: 360, animated: false },
-    ]);
-    assert.ok(mounted.button("Choose widget"));
+test("grid uses measured width and every cell retains a 48 dp target at 320 dp", () => {
+    const mounted = mountGrid({
+        gridConfiguration: { ...configuration, rows: 2, columns: 5, positionedWidgets: [] },
+        windowWidth: 320,
+    });
+    const styleObject = (style) => Object.assign({}, ...(Array.isArray(style) ? style : [style]));
+    const cellSlot = () =>
+        mounted.grid
+            .elements()
+            .find((node) => node.props.accessibilityLabel === "Row 1, column 1, empty");
+    assert.equal(styleObject(cellSlot().props.style).width, 51.2);
+    const section = mounted.grid
+        .elements()
+        .find((node) => node.type === "View" && typeof node.props.onLayout === "function");
+    section.props.onLayout({ nativeEvent: { layout: { width: 300 } } });
+    mounted.grid.render();
+    assert.equal(styleObject(cellSlot().props.style).width, 53.6);
 });
 
 test("malformed grid keeps the device header and retry in one scroll", () => {
@@ -295,41 +224,11 @@ test("malformed grid keeps the device header and retry in one scroll", () => {
         gridConfiguration: { ...configuration, rows: 0 },
         header: "Device header",
     });
-    const scrolls = mounted.grid.elements().filter((element) => element.type === "ScrollView");
+    const scrolls = mounted.grid.elements().filter((node) => node.type === "ScrollView");
     assert.equal(scrolls.length, 1);
-    assert.equal(scrolls[0].props.children.filter((child) => child === "Device header").length, 1);
+    assert.ok(scrolls[0].props.children.includes("Device header"));
     assert.ok(mounted.button("Retry"));
     assert.equal(mounted.widget(), undefined);
-});
-
-test("placement reveal waits for the native scroll content to grow", () => {
-    const mounted = mountGrid({
-        gridConfiguration: { ...configuration, positionedWidgets: [] },
-        header: "Device header",
-    });
-    const scroll = () =>
-        mounted.grid
-            .elements()
-            .find((element) => element.type === "ScrollView" && element.props.refreshControl);
-    let maxScroll = 0;
-    const scrolls = [];
-    scroll().props.ref.current = { scrollTo: ({ y }) => scrolls.push(Math.min(maxScroll, y)) };
-    const heading = mounted.grid
-        .elements()
-        .find(
-            (element) =>
-                element.type === "View" &&
-                element.props.children?.some((child) =>
-                    child?.props?.children?.includes("Widgets"),
-                ),
-        );
-    heading.props.onLayout({ nativeEvent: { layout: { y: 360 } } });
-    mounted.button("Place widget").props.onPress();
-    assert.deepEqual(scrolls, []);
-    mounted.grid.render();
-    maxScroll = 1000;
-    scroll().props.onContentSizeChange();
-    assert.deepEqual(scrolls, [360]);
 });
 
 test("canceling the grid-owned unlink confirmation sends no request", () => {
