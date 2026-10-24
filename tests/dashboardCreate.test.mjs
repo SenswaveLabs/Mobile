@@ -3,6 +3,24 @@ import test from "node:test";
 import { mountNativeComponent } from "./nativeComponentHarness.mjs";
 
 const dashboardPath = "v1/devices/dashboards";
+const dashboardIcons = [
+    "grid-outline",
+    "apps-outline",
+    "layers-outline",
+    "albums-outline",
+    "pie-chart-outline",
+    "stats-chart-outline",
+    "analytics-outline",
+    "bar-chart-outline",
+    "list-outline",
+    "clipboard-outline",
+    "document-text-outline",
+    "options-outline",
+    "settings-outline",
+    "construct-outline",
+    "briefcase-outline",
+    "filter-outline",
+];
 const theme = {
     current: {
         colors: {
@@ -213,6 +231,7 @@ test("dashboard creation matches the Home icon selector and preserves the existi
     assert.ok(form.text().includes("1–5 columns"));
     assert.equal(form.iconSelector().props.defaultIcon, "grid-outline");
     assert.equal(form.iconSelector().props.variant, "brand");
+    assert.deepEqual(Array.from(form.iconSelector().props.iconList), dashboardIcons);
     assert.equal(form.alert(), undefined);
 
     const defaultGrid = mountForm();

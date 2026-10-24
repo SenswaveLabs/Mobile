@@ -81,7 +81,7 @@ const IconSelector: React.FC<IconProps> = ({
     const unavailable =
         disabled ||
         (!!catalog && (catalog.loading || !!catalog.error || catalog.keys.length === 0));
-    const availableIcons = catalog ? catalog.keys : AllIcons;
+    const availableIcons = catalog ? catalog.keys : brand ? iconList : AllIcons;
     const quickIcons = catalog ? catalog.keys.filter((icon) => icon !== selectedIcon) : iconList;
     const showResourceLabels = !!(resource && catalog);
     const iconLabel = (key: string) => {
@@ -89,7 +89,8 @@ const IconSelector: React.FC<IconProps> = ({
             const labelKey = catalog?.entries?.find((entry) => entry.key === key)?.labelKey;
             return labelKey ? getEnglishIconLabel(labelKey, key) : key;
         }
-        return key.replace(/-outline$/, "").replace(/-/g, " ");
+        const label = key.replace(/-outline$/, "").replace(/-/g, " ");
+        return label.charAt(0).toUpperCase() + label.slice(1);
     };
 
     const triggerPulse = () => {

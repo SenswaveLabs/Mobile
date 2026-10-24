@@ -166,6 +166,25 @@ test("legacy Dashboard, Radio and Automation selectors retain the global full br
     assert.deepEqual(Array.from(lists[1].props.data), globalIcons);
 });
 
+test("brand selector uses only its supplied icons, capitalizes labels and preserves icon keys", () => {
+    const selected = [];
+    const form = mountSelector({
+        defaultIcon: "grid-outline",
+        iconList: ["grid-outline", "pie-chart-outline"],
+        variant: "brand",
+        onIconSelected: (key) => selected.push(key),
+    });
+    const picker = form.elements().find((node) => node.type === "BottomSheetSelect");
+    const options = picker.props.renderOptions(() => true);
+    const cells = form.elements(options).filter((node) => node.type === "TouchableOpacity");
+
+    assert.equal(cells.length, 2);
+    assert.equal(cells[0].props.accessibilityLabel, "Grid icon");
+    assert.equal(cells[1].props.accessibilityLabel, "Pie chart icon");
+    cells[1].props.onPress();
+    assert.deepEqual(selected, ["pie-chart-outline"]);
+});
+
 test("the selected preview follows the parent's restored or reset key", () => {
     const props = { defaultIcon: "building", resource: "homes", catalog: readyCatalog };
     const form = mountSelector(props);

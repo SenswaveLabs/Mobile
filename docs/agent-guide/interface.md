@@ -117,8 +117,9 @@ Accessibility and task completion take priority over matching a visual pattern.
   once after acceptance.
 - Dashboard creation uses one keyboard-aware `FormSection` with Name, Icon, Rows
   and Columns plus a full-width amber Create dashboard action. Match Home creation's
-  brand icon selector while keeping dashboard icons on the global icon set; they do
-  not use the Home API catalog. Trim Name to 3–64 characters, and retain Rows/Columns
+  brand icon selector and offer only the same 16 dashboard icons as its former quick
+  list. Capitalize their labels while keeping the submitted keys lowercase; dashboards
+  do not use the Home API catalog. Trim Name to 3–64 characters, and retain Rows/Columns
   as string drafts validated as decimal digits in the 1–10 and 1–5 bounds. Go and
   touch share a synchronous submit lock; text fields stay natively editable while
   pending but ignore changes, and accepted creation returns once after a best-effort

@@ -18,6 +18,25 @@ interface AddDashboardFormProps {
     deviceId: string;
 }
 
+const DefaultDashboardIcons = [
+    "grid-outline",
+    "apps-outline",
+    "layers-outline",
+    "albums-outline",
+    "pie-chart-outline",
+    "stats-chart-outline",
+    "analytics-outline",
+    "bar-chart-outline",
+    "list-outline",
+    "clipboard-outline",
+    "document-text-outline",
+    "options-outline",
+    "settings-outline",
+    "construct-outline",
+    "briefcase-outline",
+    "filter-outline",
+];
+
 const parseDimension = (draft: string, min: number, max: number): number | undefined => {
     const value = draft.trim();
     if (!/^\d+$/.test(value)) return undefined;
@@ -241,6 +260,7 @@ const AddDashboardForm: FC<AddDashboardFormProps> = ({ deviceId }) => {
                     />
                     <IconSelector
                         defaultIcon={icon}
+                        iconList={DefaultDashboardIcons}
                         variant="brand"
                         onIconSelected={(value) => {
                             if (
