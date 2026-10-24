@@ -486,7 +486,7 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
                             <SectionHeaderAction
                                 label="Place widget"
                                 accessibilityLabel="Place widget"
-                                icon={<Icon icon="add-outline" size={20} color="complementary" />}
+                                icon={<Icon icon="add-outline" size={20} color="brand" />}
                                 disabled={unlinking}
                                 onPress={startPlaceMode}
                             />
@@ -511,13 +511,7 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
                                 <SectionHeaderAction
                                     label="Cancel"
                                     accessibilityLabel="Cancel widget placement"
-                                    icon={
-                                        <Icon
-                                            icon="close-outline"
-                                            size={20}
-                                            color="complementary"
-                                        />
-                                    }
+                                    icon={<Icon icon="close-outline" size={20} color="brand" />}
                                     onPress={cancelPlaceMode}
                                 />
                             </View>
@@ -722,7 +716,7 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
                                                                 <Icon
                                                                     icon="add-outline"
                                                                     size={24}
-                                                                    color="complementary"
+                                                                    color="brand"
                                                                 />
                                                             </Pressable>
                                                         </View>

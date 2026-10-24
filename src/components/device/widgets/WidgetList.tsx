@@ -267,7 +267,7 @@ const WidgetList: FC<WidgetListProps> = ({
                             android_ripple={{ color: colors.deviceTileSubtle }}
                             style={[styles.addWidgetButton, disabled && styles.pressed]}
                             onPress={() => addWidgetClicked(section.operation.id)}>
-                            <Icon icon="add-outline" size={24} color="complementary" />
+                            <Icon icon="add-outline" size={24} color="brand" />
                         </Pressable>
                     )}
                 </View>

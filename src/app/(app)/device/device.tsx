@@ -143,7 +143,7 @@ const Device: FC = () => {
                     <SectionHeaderAction
                         label="Add"
                         accessibilityLabel="Add dashboard"
-                        icon={<Icon icon="add-outline" size={20} color="complementary" />}
+                        icon={<Icon icon="add-outline" size={20} color="brand" />}
                         disabled={home.loading}
                         onPress={addDashboard}
                     />
