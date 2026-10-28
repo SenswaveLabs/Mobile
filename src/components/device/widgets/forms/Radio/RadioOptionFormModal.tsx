@@ -1,5 +1,6 @@
 import React, { FC, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import Button from "@/components/common/Button";
 import BottomSheetSelect from "@/components/common/BottomSheetSelect";
 import IconSelector from "@/components/common/IconSelector";
@@ -7,6 +8,7 @@ import Input from "@/components/common/Input";
 import FormSection from "@/components/common/FormSection";
 import { useWidgetDetails } from "@/contexts/custom/WidgetDetailsProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
+import { keyboardOffset } from "@/styles/defaultStyles";
 import type { RadioOption } from "./RadioForm";
 import type { OptionInfo } from "@/contexts/custom/OperationFormProvider";
 import { getRadioOptionErrors } from "./radioValidation";
@@ -96,21 +98,13 @@ const RadioOptionFormModal: FC<Props> = ({
     };
 
     return (
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+        <KeyboardAwareScrollView
+            bottomOffset={keyboardOffset}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.content}>
             <FormSection
                 title="Option details"
-                helper="Choose the operation option, then give it a short name for the dashboard."
-                actions={
-                    <Button
-                        name="Add option"
-                        loading={false}
-                        type="auth"
-                        disabled={
-                            edit || disabled || acceptedRef.current || availableOptions.length === 0
-                        }
-                        onPress={addOption}
-                    />
-                }>
+                helper="Choose the operation option, then give it a short name for the dashboard.">
                 <View style={styles.field}>
                     <BottomSheetSelect
                         title="Operation option"
@@ -163,7 +157,18 @@ const RadioOptionFormModal: FC<Props> = ({
                     )}
                 </View>
             </FormSection>
-        </ScrollView>
+            <View style={styles.actions}>
+                <Button
+                    name="Add option"
+                    loading={false}
+                    type="auth"
+                    disabled={
+                        edit || disabled || acceptedRef.current || availableOptions.length === 0
+                    }
+                    onPress={addOption}
+                />
+            </View>
+        </KeyboardAwareScrollView>
     );
 };
 
@@ -178,6 +183,7 @@ const styles = StyleSheet.create({
         maxWidth: 448,
         alignSelf: "center",
     },
+    actions: { paddingTop: 32, marginTop: "auto" },
     field: { gap: 6 },
     support: { fontSize: 14, lineHeight: 20 },
 });

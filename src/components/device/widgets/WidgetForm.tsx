@@ -110,22 +110,6 @@ const WidgetForm: FC<WidgetFormProps> = ({
                         edit
                             ? "View the saved configuration for this widget."
                             : "Choose how this operation appears on your dashboards."
-                    }
-                    actions={
-                        edit ? undefined : (
-                            <>
-                                {feedback}
-                                {returnAction ?? (
-                                    <Button
-                                        name="Create widget"
-                                        type="auth"
-                                        loading={busy}
-                                        disabled={busy || disabled}
-                                        onPress={submit}
-                                    />
-                                )}
-                            </>
-                        )
                     }>
                     {field("Operation", operation.name, operation.type)}
                     {edit ? (
@@ -175,6 +159,20 @@ const WidgetForm: FC<WidgetFormProps> = ({
                         {widget.type === "Color" && <ColorForm {...formProps} />}
                     </View>
                 </FormSection>
+                {!edit && (
+                    <View style={styles.actions}>
+                        {feedback}
+                        {returnAction ?? (
+                            <Button
+                                name="Create widget"
+                                type="auth"
+                                loading={busy}
+                                disabled={busy || disabled}
+                                onPress={submit}
+                            />
+                        )}
+                    </View>
+                )}
                 {children}
             </View>
         </KeyboardAwareScrollView>
@@ -191,7 +189,8 @@ const styles = StyleSheet.create({
         paddingTop: 24,
         paddingBottom: 24,
     },
-    content: { width: "100%", maxWidth: 448 },
+    content: { flexGrow: 1, width: "100%", maxWidth: 448 },
+    actions: { paddingTop: 32, gap: 12, marginTop: "auto" },
     summary: { gap: 4 },
     label: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
     value: { fontSize: 16, lineHeight: 24 },

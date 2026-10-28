@@ -95,6 +95,11 @@ Accessibility and task completion take priority over matching a visual pattern.
 
 ## Forms, feedback and state
 
+The [PR #29 correction plan](../superpowers/plans/2026-10-28-dashboard-pr29-corrections.md)
+tracks implementation of the required action, icon, operation, color and stable-grid
+feedback rules below. These are policy requirements; the plan records which code
+and verification remain outstanding.
+
 - Ask only for data needed by the task. Use explicit labels, useful hints, suitable
   controls, and errors next to the affected field that explain how to recover.
 - Preserve valid input after errors. Never communicate validation only through color.
@@ -129,18 +134,29 @@ Accessibility and task completion take priority over matching a visual pattern.
   while a refreshed nonempty list has no matching current ID.
 - Native `/device/dashboard/details` uses one keyboard-aware `DashboardForm` for
   Name, Icon, read-only grid size and full-width Save changes, followed by a
-  confirmed Delete dashboard section in the same scroll. Preserve global icon
-  keys, its 16 quick icons and global search. Trim Name to 3–64 characters and
+  confirmed Delete dashboard section in the same scroll. Use `IconSelector`
+  `variant="brand"`, matching Create Home's compact field and four-column bottom
+  sheet, with only the historical 16 dashboard icons and no global search. Preserve
+  a saved icon outside the offered set and omit an unchanged icon from PATCH.
+  Trim Name to 3–64 characters and
   PATCH only changed Name/Icon values to the route dashboard ID. Show Retry for
   invalid or failed reads; keep drafts and inline errors after failed saves/deletes,
   update the saved baseline on accepted saves, and never repeat accepted deletion
   after refresh/navigation failure. Cancellation and Android Back send no DELETE;
   dashboard/details suppresses legacy toast overlays.
-- Dashboard command errors opt into compact `Alert` and `AlertDescription`; keep
-  feedback unboxed and wrapping, 12 dp below controls, with a 12 dp horizontal
-  inset for Slider. The Grid grows rows to include measured feedback. Preserve
-  each widget's endpoint and primitive value, synchronously block duplicates,
-  and keep retry on the same control. Display is read-only and does not toast.
+- Dashboard command errors use one nonmodal snackbar in the dashboard root,
+  outside scroll/grid layout, above the bottom safe area. Include the widget
+  identity, a short explanation, guarded Retry and an accessible close target.
+  Keep it until dismissal, accepted retry, a newer failure or leaving the dashboard;
+  only one message is shown. Preserve each widget's endpoint and failed primitive
+  value. Retry must recheck focus, identity, permission and pending state, and a
+  late success from another widget must not dismiss the current failure. Keep
+  live commands/Retry available to Display; `canManage` gates configuration only.
+  Actual access loss or a route/home identity change invalidates retained retries.
+  Keep bottom controls reachable without changing row heights, card bounds or scroll
+  position. Color errors stay inside its already-open editor without a duplicate
+  snackbar. The Display widget is read-only; the Display home role retains command
+  permission. Home tile inline-error rules remain separate.
 - The native Device dashboard binds dashboard selection to the routed device.
   It distinguishes loading, failed reads with Retry, empty dashboards and known
   offline devices; never render controls for a stale device/dashboard response.
@@ -170,6 +186,10 @@ Accessibility and task completion take priority over matching a visual pattern.
   failures retain it and accepted writes recover return without another PUT.
   Back leaves without saving. The API adds placements and rejects duplicate IDs,
   so this editor covers unsaved placements rather than changing existing ones.
+  Use a neutral surface and 1 dp outline for the resting selected draft, `authFocus`
+  for an active gesture/focus, and error color plus text for blocked movement.
+  A subdued 16 dp diagonal icon and subtle handle surface sit within the 48 dp
+  hit target; avoid a large inverse corner block or a thick permanent focus ring.
 - Grid owns dashboard-only widget unlink in one confirmed native dialog. Capture
   device, dashboard and widget IDs, DELETE only the placement, retain the widget
   definition, and remove the local placement after acceptance. Failure keeps the
@@ -179,7 +199,10 @@ Accessibility and task completion take priority over matching a visual pattern.
   treatment remains unchanged.
 - Widget creation uses one keyboard-aware `FormSection`, with operation context,
   Name, a compatible Widget type sheet, type configuration and full-width Create
-  widget in the same scroll. Preserve exact operation option/icon keys and command
+  widget in the same scroll. Put the creation feedback/action group after the
+  fields with growing space above it, following `HomeForm`: bottom aligned on tall
+  screens and fully scrollable on short screens/with the keyboard. Apply this to
+  every widget type. Preserve exact operation option/icon keys and command
   values; trim Name to 3–64 characters. Pending requests guard draft changes and
   duplicates, errors stay inline, and accepted creation can only return once.
   Read failures offer Retry. Display cannot mount configuration routes or their
@@ -192,14 +215,56 @@ Accessibility and task completion take priority over matching a visual pattern.
 - Widget fields use the same outlined native inputs and selection sheets as other
   forms. Numeric drafts clear invalid payload values; Slider requires a finite
   operation range and a valid step within the existing 10,000-step limit. Radio
-  uses 2–10 unique, valid operation options with inline errors; Color stores the
-  chosen value immediately. Keep read-only details free of configuration writes.
+  uses 2–10 unique, valid operation options with inline errors. Its option form
+  uses a keyboard-aware scroll, a bottom-aligned Add option action and the brand
+  icon bottom sheet restricted to the historical 15 Radio icons. Keep saved keys
+  unchanged and read-only details free of configuration writes.
+- Button/HexColor configuration and live Color widgets use a compact swatch/HEX
+  trigger and the same themed bottom-sheet color editor. Keep HEX input, preview,
+  the installed rectangular color panel/hue control and Cancel/Confirm reachable.
+  Accept the existing `#RGB`/`#RRGGBB` strings without rewriting an unchanged value.
+  Typing/dragging changes only a draft; Button-form Confirm applies configuration
+  locally, and live Confirm sends once. Failed sends preserve the chosen draft
+  and show feedback beside Confirm; success updates the accepted value and closes
+  once. Cancel/scrim/Back discard unsent drafts, and pending sends block duplicate
+  confirmation/dismissal. All live Color cell sizes use this editor; do not embed
+  a different picker based on a tile-size threshold.
 - Live widgets reuse neutral device-tile surfaces, 12 dp corners, readable value
   hierarchy and amber controls. Keep action names and accepted values visible
   while pending. Color Cancel/Back discard its unsent draft; Radio options keep
   at least 48 dp targets and the correct scroll direction. Widget list status
   changes use a separate 48 dp target and persistent local error feedback; picker
   rows remain selection-only.
+- Operation creation uses the brand header, one keyboard-aware FormSection page
+  capped at 448 dp, native auth fields, selection sheets, inline field/action
+  feedback and a growing bottom Create operation action. Include Boolean custom
+  values, numeric range/separator fields, Options and their option modal, and JSON
+  path editing; do not leave legacy controls inside a redesigned outer shell.
+  Remove creation previews, detached sticky actions and toast validation from this
+  flow. Preserve exact topics, type keys and primitive payload values, validate
+  only active fields, guard pending drafts/duplicate writes and return once after
+  acceptance even if refresh/navigation fails. Shared read-only details remain
+  nonmutating. The implementation/validation boundaries are recorded in the
+  [correction design](../superpowers/specs/2026-10-28-dashboard-pr29-corrections-design.md).
+
+### Contextual icon palettes
+
+Dashboard creation/details offer exactly their historical set:
+`grid-outline`, `apps-outline`, `layers-outline`, `albums-outline`,
+`pie-chart-outline`, `stats-chart-outline`, `analytics-outline`, `bar-chart-outline`,
+`list-outline`, `clipboard-outline`, `document-text-outline`, `options-outline`,
+`settings-outline`, `construct-outline`, `briefcase-outline`, `filter-outline`.
+
+Radio option creation offers exactly:
+`bulb-outline`, `flash-outline`, `power-outline`, `checkmark-outline`,
+`close-outline`, `play-outline`, `pause-outline`, `stop-outline`, `moon-outline`,
+`sunny-outline`, `snow-outline`, `flame-outline`, `thermometer-outline`,
+`water-outline`, `leaf-outline`.
+
+Use readable labels while preserving these keys. Existing historical selections
+outside the palettes remain renderable; opening or cancelling a sheet cannot
+replace them. Restrict offered choices, not the stored data. Home/Device catalogs
+and Automation's existing global browser keep their own contracts.
 
 ### Form error placement — Senswave design decision
 
@@ -396,8 +461,11 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
   details validate the server status before rendering the badge; unknown values
   stay unavailable and offer Retry rather than being presented as disconnected.
 - Quiet creation actions reuse `SectionHeaderAction`, including dashboard Add
-  device, Add room and broker Subscriptions Add. Preserve each caller's permissions,
-  loading states and navigation.
+  device, Add room, broker Subscriptions Add and widget-list/picker Add operation.
+  Pass secondary list actions to `ContentSection.headerAction` beside the heading;
+  its `actions` slot is for deliberate body/footer actions, not a substitute header.
+  Let long headings wrap without overlapping the named 48 dp action. Preserve each
+  caller's permissions, loading states and navigation.
 - Re-fetch trigger: increment a numeric state counter.
 - Home/Device `IconSelector` receives the fetched resource catalog for both its quick
   strip and searchable browser, with local glyphs/labels, named 48 dp targets and
@@ -405,7 +473,8 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
   icon field, with a visible Retry icons action. Preserve the current historical key
   and let unrelated existing-resource edits proceed without a catalog; new or
   changed choices require a loaded matching key. Defaults are validated rather than
-  replaced automatically. Dashboard, Radio and Automation retain the global browser.
+  replaced automatically. Dashboard and Radio use the contextual brand icon sheets
+  above; Automation retains its existing global browser.
 
 ## Profile and account settings
 
@@ -415,7 +484,7 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
 
 | Component              | Purpose                                                                                                             |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `JsonPathSelector`     | Define JSON field path list for parsing MQTT messages. Validates: no `"` or `\`, no control chars, max 64 chars/key |
+| `JsonPathSelector`     | Define ordered JSON field paths for parsing MQTT messages: at most five segments, 1–63 chars/key, no `"`, `\` or control chars |
 | `Icon`                 | Wrapper over `@expo/vector-icons`, curated set                                                                      |
 | `Modal`                | Generic modal via `ModalProvider`                                                                                   |
 | `PasswordInput`        | Native secure input + show/hide toggle                                                                              |

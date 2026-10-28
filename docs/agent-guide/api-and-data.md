@@ -204,8 +204,13 @@ English label selected by each entry's `labelKey`; unknown labels fall back to t
 opaque key. `resourceIcons.ts` maps resource keys to native Lucide symbols for
 presentation only, including safe Home/Device fallbacks. It is not an allowed list.
 Unknown or historical selections keep their original stored keys; their display
-fallback must never become a submitted replacement. Other selector callers retain
-their existing global icon browser.
+fallback must never become a submitted replacement. Dashboard and Radio selection
+use their historical local palettes (16 and 15 keys) in brand bottom sheets; these
+are UI choice restrictions, not backend catalogs or a data migration. Existing
+saved keys outside those palettes remain readable and unchanged on unrelated
+saves. Automation retains its existing global icon browser. See the
+[UI policy](interface.md) and the [PR #29 correction plan](../superpowers/plans/2026-10-28-dashboard-pr29-corrections.md)
+for the required presentation and implementation status.
 
 Create requires a nonempty catalog key, including validation of `home-outline` and
 `bulb-outline` defaults. PATCH omits an unchanged icon, so unrelated edits remain

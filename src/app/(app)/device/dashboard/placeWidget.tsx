@@ -385,7 +385,7 @@ const PlaceWidget: FC = () => {
                         style={[styles.title, { color: colors.authForeground }]}>
                         {selectedWidget ? "Position widget" : "Choose widget"}
                     </Text>
-                    {selectedWidget && !acceptedRef.current && (
+                    {selectedWidget && !acceptedRef.current ? (
                         <SectionHeaderAction
                             label="Change"
                             accessibilityLabel="Choose another widget"
@@ -399,7 +399,15 @@ const PlaceWidget: FC = () => {
                                 setActionError("");
                             }}
                         />
-                    )}
+                    ) : !selectedWidget ? (
+                        <SectionHeaderAction
+                            label="Add operation"
+                            accessibilityLabel="Add operation"
+                            icon={<Icon icon="add-outline" size={20} color="brand" />}
+                            disabled={submitting || acceptedRef.current}
+                            onPress={addOperation}
+                        />
+                    ) : null}
                 </View>
                 {selectedWidget && (
                     <Text style={[styles.widgetName, { color: colors.authForeground }]}>
@@ -411,15 +419,6 @@ const PlaceWidget: FC = () => {
                         ? "Drag to move or tap a free cell. Drag the corner to resize."
                         : "Choose a widget, then place and resize it on the grid."}
                 </Text>
-                {!selectedWidget && (
-                    <SectionHeaderAction
-                        label="Add operation"
-                        accessibilityLabel="Add operation"
-                        icon={<Icon icon="add-outline" size={20} color="brand" />}
-                        disabled={submitting || acceptedRef.current}
-                        onPress={addOperation}
-                    />
-                )}
             </View>
             {selectedWidget ? (
                 <WidgetPlacementCanvas

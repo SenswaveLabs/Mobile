@@ -78,6 +78,14 @@ their primitive configuration values and register/clean up provider validation.
 inline load recovery; it does not display toasts. Live widget surfaces share the
 local `widgets/widgetStyles` scale and existing device-tile theme roles.
 
+The [PR #29 correction plan](../superpowers/plans/2026-10-28-dashboard-pr29-corrections.md)
+tracks the next implementation against the UI policy. Reuse existing header-action,
+form and brand icon-sheet APIs before adding a wrapper. Its planned shared color
+field and dashboard-local command snackbar are not yet part of the source
+inventory. Operation creation must modernize its conditional/nested fields too;
+preserve the shared read-only details caller and exact operation payload types.
+Dashboard command feedback must not feed measurement state back into grid geometry.
+
 `dashboards/Grid/GridDashboardView` always renders the dashboard canvas and routes
 free-cell taps directly to the picker. `WidgetPlacementCanvas` owns native move and
 corner-resize gestures for unsaved placements; `utils/dashboardGrid` validates,

@@ -34,7 +34,7 @@ const List: FC = () => {
                         <ContentSection
                             title="Device widgets"
                             helper="Add a widget to an operation, or open a widget to view its configuration."
-                            actions={
+                            headerAction={
                                 <SectionHeaderAction
                                     label="Add operation"
                                     accessibilityLabel="Add operation"
