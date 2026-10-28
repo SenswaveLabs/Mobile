@@ -66,6 +66,7 @@ function mountForm(file, { operation, configuration = {}, props = {} } = {}) {
                 [
                     "InputNumber",
                     "BottomSheetSelect",
+                    "ColorPickerField",
                     "Dropdown",
                     "SwitchDropdown",
                     "UserNote",
@@ -165,14 +166,14 @@ test("Button Boolean and Options selectors preserve exact primitive keys", () =>
     assert.equal(stale.validate(), false);
 });
 
-test("Button color picker saves selected hex without one-change delay", () => {
+test("Button color confirmation saves the exact hex value locally", () => {
     const form = mountForm("ButtonForm", {
         operation: { type: "HexColor", configuration: {} },
         configuration: { value: "#000000" },
     });
-    form.elements()
-        .find((node) => node.type === "ColorPicker")
-        .props.onCompleteJS({ hex: "#12AB34" });
+    const editor = form.elements().find((node) => node.type === "ColorPickerField");
+    assert.equal(editor.props.value, "#000000");
+    assert.equal(editor.props.onConfirm("#12AB34"), true);
     assert.equal(form.widget().configuration.value, "#12AB34");
     assert.equal(form.validate(), true);
 });

@@ -3,15 +3,10 @@ import { StyleSheet, Text, View } from "react-native";
 import Input from "@/components/common/Input";
 import InputNumber from "@/components/common/InputNumber";
 import BottomSheetSelect from "@/components/common/BottomSheetSelect";
+import ColorPickerField from "@/components/common/ColorPickerField";
 import { useWidgetDetails } from "@/contexts/custom/WidgetDetailsProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { OperationType } from "@/types/DeviceTypes";
-import ColorPicker, {
-    BlueSlider,
-    ColorFormatsObject,
-    GreenSlider,
-    RedSlider,
-} from "reanimated-color-picker";
 
 export const ButtonOperationTypes: OperationType[] = [
     "Text",
@@ -198,74 +193,19 @@ const ButtonForm: FC<Props> = ({ edit = false, disabled = false }) => {
     }
 
     if (operationType === "HexColor") {
-        const hexColor = typeof value === "string" ? value : "";
-        const validHex = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(hexColor);
         return (
-            <View style={styles.colorField}>
-                <View style={styles.colorValue}>
-                    <View
-                        accessible={false}
-                        style={[
-                            styles.swatch,
-                            {
-                                backgroundColor: validHex ? hexColor : "transparent",
-                                borderColor: colors.authBorder,
-                            },
-                        ]}
-                    />
-                    <View style={styles.colorLabel}>
-                        <Text style={[styles.label, { color: colors.authForeground }]}>
-                            Color to send
-                        </Text>
-                        <Text selectable style={[styles.support, { color: colors.authMuted }]}>
-                            {hexColor || "No color selected"}
-                        </Text>
-                    </View>
-                </View>
-                {!edit && (
-                    <View
-                        pointerEvents={disabled ? "none" : "auto"}
-                        accessibilityState={{ disabled, busy: disabled }}
-                        style={disabled && styles.disabled}>
-                        <ColorPicker
-                            value={validHex ? hexColor : "#000000"}
-                            onCompleteJS={(color: ColorFormatsObject) => changeValue(color.hex)}
-                            sliderThickness={32}
-                            thumbSize={32}
-                            thumbShape="circle"
-                            thumbAnimationDuration={100}
-                            adaptSpectrum
-                            boundedThumb
-                            style={styles.colorField}>
-                            <View style={styles.colorChannel}>
-                                <Text style={[styles.label, { color: colors.authForeground }]}>
-                                    Red
-                                </Text>
-                                <RedSlider style={styles.colorSlider} />
-                            </View>
-                            <View style={styles.colorChannel}>
-                                <Text style={[styles.label, { color: colors.authForeground }]}>
-                                    Green
-                                </Text>
-                                <GreenSlider style={styles.colorSlider} />
-                            </View>
-                            <View style={styles.colorChannel}>
-                                <Text style={[styles.label, { color: colors.authForeground }]}>
-                                    Blue
-                                </Text>
-                                <BlueSlider style={styles.colorSlider} />
-                            </View>
-                        </ColorPicker>
-                    </View>
-                )}
-                {!!valueError && (
-                    <Text
-                        accessibilityLiveRegion="polite"
-                        style={[styles.support, { color: colors.error }]}>
-                        {valueError}
-                    </Text>
-                )}
-            </View>
+            <ColorPickerField
+                title="Color to send"
+                value={typeof value === "string" ? value : ""}
+                disabled={disabled}
+                readOnly={edit}
+                error={valueError}
+                onConfirm={(hex) => {
+                    if (lockedRef.current) return false;
+                    changeValue(hex);
+                    return true;
+                }}
+            />
         );
     }
 
@@ -276,13 +216,5 @@ export default ButtonForm;
 
 const styles = StyleSheet.create({
     field: { gap: 6 },
-    label: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
     support: { fontSize: 14, lineHeight: 20 },
-    colorField: { gap: 24 },
-    colorValue: { flexDirection: "row", alignItems: "center", gap: 12 },
-    colorLabel: { flex: 1, gap: 4 },
-    swatch: { width: 48, height: 48, borderWidth: 1, borderRadius: 8 },
-    colorChannel: { gap: 8 },
-    colorSlider: { borderRadius: 8 },
-    disabled: { opacity: 0.55 },
 });

@@ -222,6 +222,8 @@ and verification remain outstanding.
 - Button/HexColor configuration and live Color widgets use a compact swatch/HEX
   trigger and the same themed bottom-sheet color editor. Keep HEX input, preview,
   the installed rectangular color panel/hue control and Cancel/Confirm reachable.
+  Use a small 20 dp selection handle and a slim 24 dp hue track with a 48 dp touch
+  area; hide HEX text in narrow tiles while keeping the color in the control's label.
   Accept the existing `#RGB`/`#RRGGBB` strings without rewriting an unchanged value.
   Typing/dragging changes only a draft; Button-form Confirm applies configuration
   locally, and live Confirm sends once. Failed sends preserve the chosen draft

@@ -347,57 +347,28 @@ test("slider and radio handlers send the configured primitive values", async () 
     );
 });
 
-test("color handlers keep the exact hex value and dashboard unlink uses the native action", async () => {
-    const colorActions = [];
+test("Color confirms the exact hex value and retains dashboard unlink", async () => {
+    const actions = [];
+    let removed = 0;
     const color = mountNativeComponent("src/components/device/widgets/widgets/ColorWidget.tsx", {
         props: {
             widget: widget("Color", { runtime: { value: "#000000" } }),
             disabled: false,
             pending: false,
-            onAction: async (value) => (colorActions.push(value), true),
-        },
-        modules: {
-            ...commonModules,
-            "reanimated-color-picker": {
-                __esModule: true,
-                default: "ColorPicker",
-                HueCircular: "HueCircular",
-                Panel1: "Panel1",
-                Preview: "Preview",
-            },
-        },
-    });
-    const colorContainer = findElement(
-        color,
-        (element) => element.type === "Pressable" && element.props.onLayout,
-    );
-    colorContainer.props.onLayout({ nativeEvent: { layout: { width: 160, height: 160 } } });
-    color.render();
-    findElement(color, (element) => element.type === "ColorPicker").props.onCompleteJS({
-        hex: "#Ab12Ef",
-    });
-    await settleHandler();
-    assert.deepEqual(colorActions, ["#Ab12Ef"]);
-    color.render();
-    assert.equal(
-        findElement(color, (element) => element.type === "ColorPicker").props.value,
-        "#Ab12Ef",
-    );
-
-    let removed = 0;
-    const button = mountNativeComponent("src/components/device/widgets/widgets/ButtonWidget.tsx", {
-        props: {
-            widget: widget("Button"),
-            disabled: false,
-            pending: false,
-            onAction: async () => true,
+            onAction: async (value) => (actions.push(value), true),
             operations: () => removed++,
         },
-        modules: commonModules,
+        modules: { ...commonModules, "@/components/common/ColorPickerField": "ColorPickerField" },
     });
-    pressableWithLabel(button, "Test widget").props.onAccessibilityAction({
-        nativeEvent: { actionName: "longpress" },
-    });
+    const editor = () => findElement(color, (element) => element.type === "ColorPickerField");
+    assert.equal(editor().props.variant, "tile");
+    assert.equal(editor().props.value, "#000000");
+    assert.deepEqual(actions, []);
+    assert.equal(await editor().props.onConfirm("#Ab12Ef"), true);
+    color.render();
+    assert.equal(editor().props.value, "#Ab12Ef");
+    assert.deepEqual(actions, ["#Ab12Ef"]);
+    editor().props.triggerProps.onAccessibilityAction({ nativeEvent: { actionName: "longpress" } });
     assert.equal(removed, 1);
 });
 
@@ -518,102 +489,25 @@ test("Display keeps zero and missing readings visible with the configured unit",
     }
 });
 
-test("Color cancellation and Android Back discard the draft before reopening", () => {
+test("rejected Color confirmation keeps the reported color and forwards inline feedback", async () => {
     const actions = [];
-    const color = mountNativeComponent("src/components/device/widgets/widgets/ColorWidget.tsx", {
-        props: {
-            widget: widget("Color", { runtime: { value: "#000000" } }),
-            disabled: false,
-            pending: false,
-            onAction: async (value) => (actions.push(value), true),
-        },
-        modules: {
-            ...commonModules,
-            "reanimated-color-picker": {
-                __esModule: true,
-                default: "ColorPicker",
-                HueCircular: "HueCircular",
-                Panel1: "Panel1",
-                Preview: "Preview",
-            },
-        },
-    });
-    const modalPicker = () =>
-        findElement(color, (element) => element.type === "ColorPicker" && element.props.onChangeJS);
-    const open = () => {
-        pressableWithLabel(color, "Choose color for Test widget").props.onPress();
-        color.render();
-        assert.equal(findElement(color, (element) => element.type === "Modal").props.visible, true);
+    const props = {
+        widget: widget("Color", { runtime: { value: "#000000" } }),
+        disabled: false,
+        pending: false,
+        error: "Couldn't control this widget. Try again.",
+        onAction: async (value) => (actions.push(value), false),
     };
-
-    open();
-    modalPicker().props.onChangeJS({ hex: "#Ab12Ef" });
-    color.render();
-    findElement(color, (element) => element.type === "Modal").props.onRequestClose();
-    color.render();
-    open();
-    assert.equal(modalPicker().props.value, "#000000");
-
-    modalPicker().props.onChangeJS({ hex: "#aBcDeF" });
-    color.render();
-    findElement(
-        color,
-        (element) => element.type === "Button" && element.props.name === "Cancel",
-    ).props.onPress();
-    color.render();
-    open();
-    assert.equal(modalPicker().props.value, "#000000");
-    assert.deepEqual(actions, []);
-});
-
-test("failed Color confirmation keeps the chosen draft and inline modal retry", async () => {
-    let accepted = false;
-    const actions = [];
     const color = mountNativeComponent("src/components/device/widgets/widgets/ColorWidget.tsx", {
-        props: {
-            widget: widget("Color", { runtime: { value: "#000000" } }),
-            disabled: false,
-            pending: false,
-            error: "Couldn't control this widget. Try again.",
-            onAction: async (value) => {
-                actions.push(value);
-                return accepted;
-            },
-        },
-        modules: {
-            ...commonModules,
-            "reanimated-color-picker": {
-                __esModule: true,
-                default: "ColorPicker",
-                HueCircular: "HueCircular",
-                Panel1: "Panel1",
-                Preview: "Preview",
-            },
-        },
+        props,
+        modules: { ...commonModules, "@/components/common/ColorPickerField": "ColorPickerField" },
     });
-    pressableWithLabel(color, "Choose color for Test widget").props.onPress();
+    const editor = () => findElement(color, (element) => element.type === "ColorPickerField");
+    assert.equal(await editor().props.onConfirm("#aBcDeF"), false);
     color.render();
-    const picker = () =>
-        findElement(color, (element) => element.type === "ColorPicker" && element.props.onChangeJS);
-    const confirm = () =>
-        findElement(
-            color,
-            (element) => element.type === "Button" && element.props.name === "Confirm",
-        );
-    picker().props.onChangeJS({ hex: "#Ab12Ef" });
-    color.render();
-    await confirm().props.onPress();
-    await settleHandler();
-    color.render();
-    assert.equal(findElement(color, (element) => element.type === "Modal").props.visible, true);
-    assert.equal(picker().props.value, "#Ab12Ef");
-    assert.match(color.text(), /Couldn't control this widget/);
-    accepted = true;
-    await confirm().props.onPress();
-    await settleHandler();
-    color.render();
-    assert.equal(findElement(color, (element) => element.type === "Modal").props.visible, false);
-    assert.deepEqual(actions, ["#Ab12Ef", "#Ab12Ef"]);
+    assert.equal(editor().props.value, "#000000");
+    assert.match(editor().props.error, /Try again/);
+    assert.deepEqual(actions, ["#aBcDeF"]);
 });
 
 test("Radio keeps vertical options reachable and ignores the selected option", async () => {

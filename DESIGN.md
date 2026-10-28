@@ -180,7 +180,8 @@ bottom-sheet editor at every cell size. Button/HexColor configuration uses that
 same field/editor, with local configuration confirmation instead of a live send.
 Keep the rectangular color control, HEX input, preview and named Cancel/Confirm
 actions on the sheet; valid input, gesture drafts, failure recovery and keyboard
-reachability follow the [UI policy](docs/agent-guide/interface.md).
+reachability follow the [UI policy](docs/agent-guide/interface.md). Use a quiet
+20 dp color handle and a 24 dp hue track with a 48 dp touch area.
 
 Widget creation and read-only details follow the existing FormSection layout,
 outlined fields, selection sheets and inline feedback. Destructive definition

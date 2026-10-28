@@ -7,6 +7,7 @@ import {
     Modal as NativeModal,
     Platform,
     Pressable,
+    PressableProps,
     ScrollView,
     StyleSheet,
     Text,
@@ -16,6 +17,7 @@ import {
 } from "react-native";
 import { Check, ChevronDown, Circle, CircleDot, X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import Animated, {
     cancelAnimation,
     Easing,
@@ -45,6 +47,12 @@ export interface BottomSheetSelectProps {
     onClosed?: () => void;
     variant?: "field" | "tile";
     busy?: boolean;
+    dismissDisabled?: boolean | (() => boolean);
+    keyboardAware?: boolean;
+    triggerProps?: Pick<
+        PressableProps,
+        "onLongPress" | "accessibilityActions" | "onAccessibilityAction"
+    >;
 }
 
 const focusNativeElement = (element: View | Text | null) => {
@@ -64,12 +72,16 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
     onClosed,
     variant = "field",
     busy = false,
+    dismissDisabled = false,
+    keyboardAware = false,
+    triggerProps,
 }) => {
     const { colors } = useTheme().current;
     const insets = useSafeAreaInsets();
     const { height } = useWindowDimensions();
     const [visible, setVisible] = useState(false);
     const [focused, setFocused] = useState(false);
+    const [triggerWidth, setTriggerWidth] = useState(0);
     const progress = useSharedValue(0);
     const sheetHeight = useSharedValue(height);
     const dismissing = useRef(false);
@@ -117,7 +129,11 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
         );
     };
     const close = () => {
-        if (dismissing.current) return false;
+        if (
+            dismissing.current ||
+            (typeof dismissDisabled === "function" ? dismissDisabled() : dismissDisabled)
+        )
+            return false;
         dismissing.current = true;
         progress.value = withTiming(
             0,
@@ -129,18 +145,25 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
         return true;
     };
 
+    const SheetScroll = keyboardAware ? KeyboardAwareScrollView : ScrollView;
+    const compactLeading = variant === "tile" && !!leading && triggerWidth < 96;
+
     return (
         <View style={styles.container}>
             {variant === "field" && (
                 <Text style={[styles.label, { color: colors.authForeground }]}>{title}</Text>
             )}
             <Pressable
+                {...triggerProps}
                 ref={triggerRef}
                 cssInterop={false}
                 disabled={disabled}
                 onPress={open}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
+                onLayout={({ nativeEvent }) => {
+                    if (variant === "tile" && leading) setTriggerWidth(nativeEvent.layout.width);
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={`${title}, ${value}`}
                 accessibilityHint={`Opens ${title} options`}
@@ -154,19 +177,27 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                         opacity: disabled ? 0.55 : 1,
                     },
                     variant === "tile" && styles.tileTrigger,
+                    variant === "tile" && !!leading && styles.tileLeadingTrigger,
                     pressed && !disabled && styles.pressed,
                 ]}>
-                {leading}
-                <Text
-                    numberOfLines={variant === "tile" ? undefined : 1}
-                    style={[
-                        styles.value,
-                        variant === "tile" && styles.tileValue,
-                        { color: colors.authForeground },
-                    ]}>
-                    {value}
-                </Text>
-                {variant === "tile" ? (
+                {!(compactLeading && busy) && leading}
+                {!compactLeading && (
+                    <Text
+                        numberOfLines={variant === "tile" && !leading ? undefined : 1}
+                        style={[
+                            styles.value,
+                            variant === "tile" && styles.tileValue,
+                            variant === "tile" && !!leading && styles.tileLeadingValue,
+                            { color: colors.authForeground },
+                        ]}>
+                        {value}
+                    </Text>
+                )}
+                {variant === "tile" && leading ? (
+                    busy ? (
+                        <ActivityIndicator size="small" color={colors.authForeground} />
+                    ) : null
+                ) : variant === "tile" ? (
                     <View
                         style={[
                             styles.tileIcon,
@@ -204,7 +235,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                 onDismiss={
                     Platform.OS === "ios" ? () => focusNativeElement(triggerRef.current) : undefined
                 }>
-                <View style={styles.overlay}>
+                <View style={[styles.overlay, keyboardAware && { paddingTop: insets.top }]}>
                     <Animated.View style={[styles.scrim, scrimStyle]}>
                         <Pressable
                             cssInterop={false}
@@ -221,6 +252,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                         }}
                         style={[
                             styles.sheet,
+                            keyboardAware && styles.keyboardSheet,
                             {
                                 backgroundColor: colors.authFieldBackground,
                                 maxHeight: Math.min(height * 0.9, height - insets.top),
@@ -249,7 +281,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                                 <X size={20} color={colors.authForeground} accessible={false} />
                             </Pressable>
                         </View>
-                        <ScrollView
+                        <SheetScroll
                             style={[styles.options, { maxHeight: height * 0.68 }]}
                             contentContainerStyle={styles.optionsContent}
                             keyboardShouldPersistTaps="handled">
@@ -315,7 +347,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                                           )}
                                       </Pressable>
                                   ))}
-                        </ScrollView>
+                        </SheetScroll>
                     </Animated.View>
                 </View>
             </NativeModal>
@@ -351,6 +383,8 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     tileValue: { fontSize: 17, lineHeight: 24, fontWeight: "500", textAlign: "right" },
+    tileLeadingValue: { fontSize: 12, lineHeight: 18, fontWeight: "400", flexShrink: 1 },
+    tileLeadingTrigger: { justifyContent: "center", gap: 4 },
     tileIcon: {
         width: 32,
         height: 32,
@@ -374,6 +408,7 @@ const styles = StyleSheet.create({
         paddingTop: 16,
         paddingHorizontal: 24,
     },
+    keyboardSheet: { flexShrink: 1 },
     header: {
         minHeight: 56,
         flexDirection: "row",

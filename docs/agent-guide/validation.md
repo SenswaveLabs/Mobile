@@ -185,8 +185,9 @@ The [PR #29 correction plan](../superpowers/plans/2026-10-28-dashboard-pr29-corr
 maps these required checks to implementation tasks. `operationCreate.test.mjs`
 and `operationForm.test.mjs` run in `test:device-details` and cover route identity,
 accepted-once creation, active-field validation and typed option/path boundaries.
-The color field and snackbar suites remain planned. A plan or handler assertion is
-not evidence of native fit.
+`colorPickerField.test.mjs` covers draft confirmation, cancellation, HEX boundaries,
+pending locks and recovery. The snackbar suite remains planned. A plan or handler
+assertion is not evidence of native fit.
 
 For every affected UI change, check the relevant items before delivery:
 
