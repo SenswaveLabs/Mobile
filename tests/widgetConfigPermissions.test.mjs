@@ -10,6 +10,7 @@ function mountOperationAdd({ canManage, deviceId = ["device-a", "ignored"] }) {
         modules: {
             "expo-router": {
                 useLocalSearchParams: () => ({ deviceId }),
+                useFocusEffect: (callback) => callback(),
                 useRouter: () => ({
                     canGoBack: () => true,
                     back: () => navigation.push("back"),
@@ -84,7 +85,7 @@ test("operation creation uses captured device ID and is denied to Display", asyn
     assert.equal(form.props.deviceId, "device-a");
     await form.props.onSubmit({ name: "Living room" });
     assert.deepEqual(JSON.parse(JSON.stringify(manager.posts)), [
-        ["v1/devices/operations", { name: "Living room" }],
+        ["v1/devices/operations", { name: "Living room", deviceId: "device-a" }],
     ]);
     assert.deepEqual(manager.navigation, ["back"]);
 

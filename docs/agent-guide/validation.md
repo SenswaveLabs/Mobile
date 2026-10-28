@@ -182,9 +182,11 @@ substitute for emulator screenshots or touch behavior.
 ### Preventing configuration UI regressions
 
 The [PR #29 correction plan](../superpowers/plans/2026-10-28-dashboard-pr29-corrections.md)
-maps these required checks to implementation tasks. The planned operation, color
-field and snackbar tests do not exist yet; add them to `test:device-details` with
-their implementations. A plan or handler assertion is not evidence of native fit.
+maps these required checks to implementation tasks. `operationCreate.test.mjs`
+and `operationForm.test.mjs` run in `test:device-details` and cover route identity,
+accepted-once creation, active-field validation and typed option/path boundaries.
+The color field and snackbar suites remain planned. A plan or handler assertion is
+not evidence of native fit.
 
 For every affected UI change, check the relevant items before delivery:
 

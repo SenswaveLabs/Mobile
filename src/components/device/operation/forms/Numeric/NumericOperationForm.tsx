@@ -1,20 +1,11 @@
-import React from "react";
-import { View } from "react-native";
-import Dropdown, { Option } from "@/components/common/Dropdown";
+import React, { FC } from "react";
+import { StyleSheet, View } from "react-native";
+import BottomSheetSelect from "@/components/common/BottomSheetSelect";
 import InputNumber from "@/components/common/InputNumber";
-
-const NumericTypeCheckOptions: Option[] = [
-    { name: "Enable Range Check", value: "check" },
-    { name: "Disable Range Check", value: "nocheck" },
-];
-
-const SeparatorOptions: Option[] = [
-    { name: "Dot (.)", value: "." },
-    { name: "Comma (,)", value: "," },
-];
 
 interface NumericOperationFormProps {
     edit: boolean;
+    disabled?: boolean;
     showSeparator: boolean;
     separator: string;
     typeCheck: string;
@@ -27,8 +18,9 @@ interface NumericOperationFormProps {
     onMaxValueChange: (value: number | undefined) => void;
 }
 
-const NumericOperationForm = ({
+const NumericOperationForm: FC<NumericOperationFormProps> = ({
     edit,
+    disabled = false,
     showSeparator,
     separator,
     typeCheck,
@@ -39,55 +31,78 @@ const NumericOperationForm = ({
     onTypeCheckChange,
     onMinValueChange,
     onMaxValueChange,
-}: NumericOperationFormProps) => {
-    return (
-        <>
-            {showSeparator && (
-                <Dropdown
-                    title={"Separator Type"}
-                    options={SeparatorOptions}
-                    selectedValue={separator}
-                    onSelected={onSeparatorChange}
-                    disablePress={edit}
-                    style={{ marginBottom: 10 }}
-                />
-            )}
-
-            {!edit && (
-                <Dropdown
-                    title={"Numeric Value Check"}
-                    options={NumericTypeCheckOptions}
-                    selectedValue={typeCheck}
-                    onSelected={onTypeCheckChange}
-                    style={{ marginBottom: 10 }}
-                />
-            )}
-
-            {typeCheck === "check" && (
-                <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
-                    <View style={{ width: "50%" }}>
-                        <InputNumber
-                            error={minValueError}
-                            value={minValue}
-                            title="Min Value"
-                            placeholder="0"
-                            onChange={onMinValueChange}
-                            editable={!edit}
-                        />
-                    </View>
-                    <View style={{ width: "50%" }}>
-                        <InputNumber
-                            value={maxValue}
-                            title="Max Value"
-                            placeholder="100"
-                            onChange={onMaxValueChange}
-                            editable={!edit}
-                        />
-                    </View>
+}) => (
+    <View style={styles.fields}>
+        {showSeparator && (
+            <BottomSheetSelect
+                title="Decimal separator"
+                value={separator === "," ? "Comma (,)" : "Dot (.)"}
+                disabled={edit || disabled}
+                options={[
+                    {
+                        label: "Dot (.)",
+                        selected: separator === ".",
+                        onPress: () => onSeparatorChange("."),
+                    },
+                    {
+                        label: "Comma (,)",
+                        selected: separator === ",",
+                        onPress: () => onSeparatorChange(","),
+                    },
+                ]}
+            />
+        )}
+        {!edit && (
+            <BottomSheetSelect
+                title="Value range"
+                value={typeCheck === "check" ? "Limited" : "Unlimited"}
+                disabled={disabled}
+                options={[
+                    {
+                        label: "Unlimited",
+                        selected: typeCheck === "nocheck",
+                        onPress: () => onTypeCheckChange("nocheck"),
+                    },
+                    {
+                        label: "Limited",
+                        selected: typeCheck === "check",
+                        onPress: () => onTypeCheckChange("check"),
+                    },
+                ]}
+            />
+        )}
+        {typeCheck === "check" && (
+            <View style={styles.range}>
+                <View style={styles.column}>
+                    <InputNumber
+                        variant="auth"
+                        error={minValueError}
+                        value={minValue}
+                        title="Minimum"
+                        placeholder="0"
+                        onChange={onMinValueChange}
+                        editable={!edit}
+                        disabled={disabled}
+                    />
                 </View>
-            )}
-        </>
-    );
-};
-
+                <View style={styles.column}>
+                    <InputNumber
+                        variant="auth"
+                        value={maxValue}
+                        title="Maximum"
+                        placeholder="100"
+                        onChange={onMaxValueChange}
+                        editable={!edit}
+                        disabled={disabled}
+                    />
+                </View>
+            </View>
+        )}
+    </View>
+);
 export default NumericOperationForm;
+const styles = StyleSheet.create({
+    fields: { gap: 24 },
+    range: { flexDirection: "row", gap: 12 },
+    column: { flex: 1, minWidth: 0 },
+});

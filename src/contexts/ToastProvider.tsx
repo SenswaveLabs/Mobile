@@ -20,6 +20,7 @@ const usesInlineFeedback = (pathname: string) =>
         "/device/dashboard/add",
         "/device/dashboard/details",
         "/device/dashboard/placeWidget",
+        "/device/operation/add",
         "/device/widget/add",
         "/device/widget/details",
         "/device/widget/list",

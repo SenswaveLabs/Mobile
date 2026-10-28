@@ -484,7 +484,7 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
 
 | Component              | Purpose                                                                                                             |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `JsonPathSelector`     | Define ordered JSON field paths for parsing MQTT messages: at most five segments, 1–63 chars/key, no `"`, `\` or control chars |
+| `JsonPathSelector`     | Define ordered JSON field paths for parsing MQTT messages: at most five segments, 1–63 chars/key, no `"`, `\` or control chars. `utils/jsonPath.ts` shares segment validation with operation submission. |
 | `Icon`                 | Wrapper over `@expo/vector-icons`, curated set                                                                      |
 | `Modal`                | Generic modal via `ModalProvider`                                                                                   |
 | `PasswordInput`        | Native secure input + show/hide toggle                                                                              |

@@ -339,6 +339,7 @@ test("redesigned forms and home selection suppress legacy overlays without dismi
         "/device/dashboard/add",
         "/device/dashboard/details",
         "/device/dashboard/placeWidget",
+        "/device/operation/add",
         "/dataSource/add",
         "/dataSource/brokers/startBrokerClient",
         "/dataSource/brokers/addSubscription",

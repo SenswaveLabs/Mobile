@@ -1,106 +1,114 @@
-import ImageButton from "@/components/common/ImageButton";
-import { OptionInfo, useOperationForm } from "@/contexts/custom/OperationFormProvider";
-import React, { useState } from "react";
-import { View } from "react-native";
-import Text from "@/components/common/Text";
-import { shadowStyles } from "@/styles/shadowStyles";
-import { useTheme } from "@/contexts/ThemeProvider";
+import React, { FC, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import Icon from "@/components/common/Icon";
+import ListRow from "@/components/common/ListRow";
+import SectionHeaderAction from "@/components/common/SectionHeaderAction";
 import SenswaveModal from "@/components/common/SenswaveModal";
+import { useTheme } from "@/contexts/ThemeProvider";
+import { useOperationForm } from "@/contexts/custom/OperationFormProvider";
 import OptionsOperationFormModal from "./OptionsOperationFormModal";
 
 interface OptionOperationFormProps {
     edit?: boolean;
+    disabled?: boolean;
+    onChange?: () => void;
 }
-
-const OptionOperationForm = ({ edit }: OptionOperationFormProps) => {
-    const theme = useTheme();
+const OptionOperationForm: FC<OptionOperationFormProps> = ({
+    edit = false,
+    disabled = false,
+    onChange,
+}) => {
     const [dialogOpen, setDialogOpen] = useState(false);
     const operationForm = useOperationForm();
-
+    const { colors } = useTheme().current;
+    const options = operationForm.getOptions();
+    const locked = useRef(false);
+    locked.current = edit || disabled;
+    const currentForm = useRef(operationForm);
+    currentForm.current = operationForm;
     return (
-        <View style={{ paddingHorizontal: 15 }}>
-            <SenswaveModal
-                visible={dialogOpen}
-                onClose={() => setDialogOpen(false)}
-                title="Add Option">
-                <OptionsOperationFormModal onClose={() => setDialogOpen(false)} />
-            </SenswaveModal>
-
-            <View style={{ flexDirection: "row", marginBottom: 6, alignItems: "center" }}>
-                <Text size={"medium"} color={"onBackground"} bold={true} style={{ flex: 1 }}>
-                    Configured Options
+        <View style={styles.group}>
+            {!edit && (
+                <SenswaveModal
+                    visible={dialogOpen}
+                    onClose={() => setDialogOpen(false)}
+                    title="Add option"
+                    variant="brand">
+                    {dialogOpen && (
+                        <OptionsOperationFormModal
+                            disabled={disabled}
+                            onChange={onChange}
+                            onClose={() => setDialogOpen(false)}
+                        />
+                    )}
+                </SenswaveModal>
+            )}
+            <View style={styles.header}>
+                <Text
+                    accessibilityRole="header"
+                    style={[styles.label, { color: colors.authForeground }]}>
+                    Options
                 </Text>
-                <ImageButton
-                    icon="add-outline"
-                    size={20}
-                    onPress={() => {
-                        if (edit) {
-                            return;
-                        }
-                        setDialogOpen(true);
-                    }}
-                    style={{ opacity: edit ? 0 : 1 }}
+                {!edit && (
+                    <SectionHeaderAction
+                        label="Add"
+                        accessibilityLabel="Add operation option"
+                        icon={<Icon icon="add-outline" size={20} color="brand" />}
+                        disabled={disabled || options.length >= 10}
+                        onPress={() => {
+                            if (!locked.current && currentForm.current.getOptions().length < 10)
+                                setDialogOpen(true);
+                        }}
+                    />
+                )}
+            </View>
+            <Text style={[styles.support, { color: colors.authMuted }]}>
+                Choose 2–10 unique names and values.
+            </Text>
+            {options.length === 0 && (
+                <Text style={[styles.support, { color: colors.authMuted }]}>
+                    No options configured.
+                </Text>
+            )}
+            {options.map((option, index) => (
+                <ListRow
+                    key={index}
+                    title={option.name}
+                    description={String(option.value)}
+                    separator={index < options.length - 1}
+                    trailing={
+                        !edit && (
+                            <Pressable
+                                cssInterop={false}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Remove ${option.name}`}
+                                accessibilityState={{ disabled, busy: disabled }}
+                                disabled={disabled}
+                                onPress={() => {
+                                    if (locked.current) return;
+                                    currentForm.current.removeOption(option.name);
+                                    onChange?.();
+                                }}
+                                style={styles.remove}>
+                                <Icon icon="remove-outline" size={24} color="brand" />
+                            </Pressable>
+                        )
+                    }
                 />
-            </View>
-
-            <View>
-                {operationForm.getOptions().map((option: OptionInfo, idx: number) => (
-                    <View
-                        key={idx}
-                        style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-                        <View
-                            style={[
-                                {
-                                    marginTop: 0,
-                                    marginBottom: 5,
-                                    borderRadius: 12,
-                                    padding: 8,
-                                    height: 40,
-                                    marginRight: 10,
-                                    backgroundColor: theme.current.colors.primary,
-                                    justifyContent: "center",
-                                },
-                                shadowStyles.default,
-                            ]}>
-                            <Text size={"medium"} color={"onPrimary"} bold={false}>
-                                {option.name}
-                            </Text>
-                        </View>
-                        <View
-                            style={[
-                                {
-                                    marginTop: 0,
-                                    marginBottom: 5,
-                                    borderRadius: 12,
-                                    padding: 8,
-                                    height: 40,
-                                    flex: 1,
-                                    marginRight: edit ? 0 : 10,
-                                    backgroundColor: theme.current.colors.primary,
-                                    justifyContent: "center",
-                                },
-                                shadowStyles.default,
-                            ]}>
-                            <Text
-                                size={"medium"}
-                                color={"onPrimary"}
-                                bold={false}
-                                numberOfLines={1}>
-                                Value: {option.value.toString()}
-                            </Text>
-                        </View>
-                        {!edit && (
-                            <ImageButton
-                                size={24}
-                                icon="remove-outline"
-                                onPress={() => operationForm.removeOption(option.name)}
-                            />
-                        )}
-                    </View>
-                ))}
-            </View>
+            ))}
         </View>
     );
 };
-
 export default OptionOperationForm;
+const styles = StyleSheet.create({
+    group: { gap: 8 },
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+    },
+    label: { flex: 1, fontSize: 16, lineHeight: 24, fontWeight: "600" },
+    support: { fontSize: 14, lineHeight: 20 },
+    remove: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+});

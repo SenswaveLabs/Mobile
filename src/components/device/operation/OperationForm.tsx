@@ -1,11 +1,17 @@
-import React, { useEffect, useImperativeHandle, useState } from "react";
-import { View, StyleSheet } from "react-native";
-import OperationTile from "./OperationTile";
+import React, { ReactNode, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { StyleSheet, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import BottomSheetSelect from "@/components/common/BottomSheetSelect";
+import Button from "@/components/common/Button";
+import FormSection from "@/components/common/FormSection";
 import Input from "@/components/common/Input";
-import Dropdown, { Option } from "@/components/common/Dropdown";
 import JsonPathSelector from "@/components/common/JsonPathSelector";
-import { useToast } from "@/contexts/ToastProvider";
-import OptionOperationForm from "./forms/Options/OptionsOperationForm";
+import { Text } from "@/components/ui/text";
+import { useTheme } from "@/contexts/ThemeProvider";
+import { OperationFormProvider, useOperationForm } from "@/contexts/custom/OperationFormProvider";
+import { keyboardOffset } from "@/styles/defaultStyles";
+import { OperationType } from "@/types/DeviceTypes";
+import { isValidJsonPathSegment } from "@/utils/jsonPath";
 import BooleanOperationForm, {
     BoolValueType,
     defaultBoolValue,
@@ -13,31 +19,18 @@ import BooleanOperationForm, {
     inferBoolValueType,
 } from "./forms/Boolean/BooleanOperationForm";
 import NumericOperationForm from "./forms/Numeric/NumericOperationForm";
-import { OperationFormProvider, useOperationForm } from "@/contexts/custom/OperationFormProvider";
-import SwitchDropdown from "@/components/common/SwitchDropdown";
-import Divider from "@/components/common/Divider";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { keyboardOffset } from "@/styles/defaultStyles";
-import { OperationType } from "@/types/DeviceTypes";
+import OptionOperationForm from "./forms/Options/OptionsOperationForm";
 
-const TypeOptions: Option[] = [
-    { name: "Boolean Value", value: "Boolean" },
-    { name: "Number Value", value: "Number" },
-    { name: "Integer Value", value: "Integer" },
-    { name: "Text Value", value: "Text" },
-    { name: "Hex Color Value", value: "HexColor" },
-    { name: "Option Value", value: "Options" },
+const typeOptions: { label: string; value: OperationType }[] = [
+    { label: "Boolean", value: "Boolean" },
+    { label: "Number", value: "Number" },
+    { label: "Integer", value: "Integer" },
+    { label: "Text", value: "Text" },
+    { label: "Hex color", value: "HexColor" },
+    { label: "Options", value: "Options" },
 ];
-
-const MappingOptions: Option[] = [
-    { name: "Plain Text", value: "text" },
-    { name: "Json", value: "json" },
-];
-
 const INT32_MIN = -2147483648;
 const INT32_MAX = 2147483647;
-const DOUBLE_MIN = -Number.MAX_VALUE;
-const DOUBLE_MAX = Number.MAX_VALUE;
 
 export interface OperationFormHandle {
     triggerSave: () => void;
@@ -49,13 +42,17 @@ interface OperationFormProps {
     initTopic?: string;
     initType?: OperationType;
     initConfiguration?: any;
-
     onSubmit: (values: any) => Promise<void>;
     onValidChange?: (valid: boolean) => void;
+    onChange?: () => void;
     edit?: boolean;
+    pending?: boolean;
+    disabled?: boolean;
+    feedback?: ReactNode;
+    returnAction?: ReactNode;
 }
 
-const OperationFormInternal = React.forwardRef<OperationFormHandle, OperationFormProps>(
+export const OperationFormInternal = React.forwardRef<OperationFormHandle, OperationFormProps>(
     function OperationFormInternal(
         {
             deviceId,
@@ -65,393 +62,410 @@ const OperationFormInternal = React.forwardRef<OperationFormHandle, OperationFor
             initConfiguration,
             onSubmit,
             onValidChange,
+            onChange,
             edit = false,
+            pending = false,
+            disabled = false,
+            feedback,
+            returnAction,
         },
         ref,
     ) {
-        const toast = useToast();
         const operationForm = useOperationForm();
-        const optionsCount = operationForm.getOptions().length;
-
-        const [loading, setLoading] = useState(false);
-        const [name, setName] = useState<string>(initName ?? "");
-        const [nameError, setNameError] = useState<string>("");
-
-        const [topic, setTopic] = useState<string>(initTopic ?? "");
-        const [topicError, setTopicError] = useState<string>("");
-
+        const { colors } = useTheme().current;
+        const [name, setName] = useState(initName ?? "");
+        const [topic, setTopic] = useState(initTopic ?? "");
         const [type, setType] = useState<OperationType>(initType ?? "Boolean");
-        const [mapping, setMapping] = useState<string>(initConfiguration?.isJson ? "json" : "text");
-        const [separator, setSeparator] = useState<string>(
-            initConfiguration?.decimalSeparator ?? ".",
-        );
+        const [mapping, setMapping] = useState(initConfiguration?.isJson ? "json" : "text");
+        const [separator, setSeparator] = useState(initConfiguration?.decimalSeparator ?? ".");
         const [jsonNames, setJsonNames] = useState<string[]>(initConfiguration?.jsonNames ?? []);
-        const [saveOnUserAction, setSaveOnUserAction] = useState<boolean>(
+        const [jsonDraftValid, setJsonDraftValid] = useState(true);
+        const jsonNamesRef = useRef(jsonNames);
+        const jsonDraftValidRef = useRef(true);
+        const [saveOnUserAction, setSaveOnUserAction] = useState(
             initConfiguration?.saveOnUserAction ?? true,
         );
-        const [numericTypeCheck, setNumericTypeCheck] = useState<string>(() => {
+        const [numericTypeCheck, setNumericTypeCheck] = useState(() => {
             if (initConfiguration?.min === undefined) return "nocheck";
-            const isInt32FullRange =
+            const fullInteger =
                 initConfiguration.min === INT32_MIN && initConfiguration.max === INT32_MAX;
-            const isDoubleFullRange =
-                initConfiguration.min === DOUBLE_MIN && initConfiguration.max === DOUBLE_MAX;
-            return isInt32FullRange || isDoubleFullRange ? "nocheck" : "check";
+            const fullDouble =
+                initConfiguration.min === -Number.MAX_VALUE &&
+                initConfiguration.max === Number.MAX_VALUE;
+            return fullInteger || fullDouble ? "nocheck" : "check";
         });
-
         const [minValue, setMinValue] = useState<number | undefined>(initConfiguration?.min ?? 0);
-        const [minValueError, setMinValueError] = useState<string>("");
         const [maxValue, setMaxValue] = useState<number | undefined>(initConfiguration?.max ?? 100);
-
-        const [booleanOverride, setBooleanOverride] = useState<string>(() => {
-            const tv = initConfiguration?.trueValue;
-            const fv = initConfiguration?.falseValue;
-            if (tv === undefined && fv === undefined) return "default";
-            if (tv === false && fv === true) return "inversed";
-            if ((tv === undefined || tv === true) && (fv === undefined || fv === false))
+        const [booleanOverride, setBooleanOverride] = useState(() => {
+            const trueValue = initConfiguration?.trueValue;
+            const falseValue = initConfiguration?.falseValue;
+            if (
+                (trueValue === undefined || trueValue === true) &&
+                (falseValue === undefined || falseValue === false)
+            )
                 return "default";
-            return "custom";
+            return trueValue === false && falseValue === true ? "inversed" : "custom";
         });
         const [boolTrueType, setBoolTrueType] = useState<BoolValueType>(() =>
             inferBoolValueType(initConfiguration?.trueValue),
         );
-        const [boolTrueValue, setBoolTrueValue] = useState<string | boolean>(() => {
-            const tv = initConfiguration?.trueValue;
-            return tv !== undefined ? tv : defaultBoolValue(inferBoolValueType(tv));
-        });
         const [boolFalseType, setBoolFalseType] = useState<BoolValueType>(() =>
             inferBoolValueType(initConfiguration?.falseValue),
         );
-        const [boolFalseValue, setBoolFalseValue] = useState<string | boolean>(() => {
-            const fv = initConfiguration?.falseValue;
-            return fv !== undefined ? fv : defaultBoolValue(inferBoolValueType(fv));
-        });
-
-        const handleBoolTrueTypeChange = (newType: BoolValueType) => {
-            setBoolTrueType(newType);
-            setBoolTrueValue(defaultBoolValue(newType));
-        };
-
-        const handleBoolFalseTypeChange = (newType: BoolValueType) => {
-            setBoolFalseType(newType);
-            setBoolFalseValue(defaultBoolValue(newType));
-        };
-
-        const typeSelected = (value: string) => {
-            setType(value as OperationType);
-        };
-
-        const mappingSelected = (value: string) => {
-            setMapping(value);
-        };
-
-        const buttonClicked = async () => {
-            if (loading) {
-                console.info("[OperationForm] Form is processing");
-                return;
-            }
-
-            if (!validateForm()) {
-                console.info("[OperationForm] Form is invalid");
-                toast.error("Please fix the errors and fill fields in the form.");
-                return;
-            }
-
-            setLoading(true);
-
-            const values: any = {
-                deviceId: deviceId,
-                name: name,
-                topic: topic,
-                type: type,
-                configuration: {
-                    isJson: mapping === "json",
-                    saveOnUserAction: saveOnUserAction,
-                },
-            };
-
-            if (values.configuration.isJson) {
-                values.configuration.jsonNames = jsonNames;
-            }
-
-            if (type === "Number" || type === "Integer") {
-                if (numericTypeCheck === "check") {
-                    values.configuration.min = minValue!;
-                    values.configuration.max = maxValue!;
-                }
-            }
-
-            if (type === "Number" && mapping === "text") {
-                values.configuration.decimalSeparator = separator;
-            }
-
-            if (type === "Boolean" && booleanOverride === "inversed") {
-                values.configuration.trueValue = false;
-                values.configuration.falseValue = true;
-            }
-
-            if (type === "Boolean" && booleanOverride === "custom") {
-                values.configuration.trueValue = getBoolOverrideValue(boolTrueType, boolTrueValue);
-                values.configuration.falseValue = getBoolOverrideValue(
-                    boolFalseType,
-                    boolFalseValue,
-                );
-            }
-
-            if (type === "Options") {
-                const options = operationForm.getOptions();
-                if (options.length < 2) {
-                    toast.info("Please add at least two options.");
-                    setLoading(false);
-                    return;
-                }
-                values.configuration.options = options;
-            }
-
-            console.debug("[DeviceForm] Submitting form with values: ", values);
-            await onSubmit(values);
-
-            setLoading(false);
-        };
-
-        const validateForm = (): boolean => {
-            let valid: boolean = true;
-
-            if (name === "") {
-                valid = false;
-                setNameError("");
-            } else if (name.length > 64) {
-                valid = false;
-                setNameError("Name is too long.");
-            } else if (name.length < 3) {
-                valid = false;
-                setNameError("Name is too short.");
-            } else {
-                setNameError("");
-            }
-
-            if (topic === "") {
-                valid = false;
-                setTopicError("");
-            } else if (topic.length > 256) {
-                valid = false;
-                setTopicError("Topic is too long.");
-            } else if (topic.length < 3) {
-                valid = false;
-                setTopicError("Topic is too short.");
-            } else {
-                setTopicError("");
-            }
-
-            if (minValue === undefined || maxValue === undefined) {
-                valid = false;
-                setMinValueError("Both values are required.");
-            } else if (minValue >= maxValue) {
-                valid = false;
-                setMinValueError("Min value must be less than max value.");
-            } else {
-                setMinValueError("");
-            }
-
-            if (mapping === "json" && jsonNames.length === 0) {
-                valid = false;
-                toast.info("Please add json field.");
-            }
-
-            if (type === "Options" && optionsCount < 2) {
-                valid = false;
-            }
-
-            if (type === "Boolean" && booleanOverride === "custom") {
-                if (boolTrueType !== "boolean" && boolTrueValue.toString().trim() === "") {
-                    valid = false;
-                }
-                if (boolFalseType !== "boolean" && boolFalseValue.toString().trim() === "") {
-                    valid = false;
-                }
-            }
-
-            return valid;
-        };
-
-        useImperativeHandle(ref, () => ({ triggerSave: buttonClicked }));
+        const [boolTrueValue, setBoolTrueValue] = useState<string | boolean>(
+            () =>
+                initConfiguration?.trueValue ??
+                defaultBoolValue(inferBoolValueType(initConfiguration?.trueValue)),
+        );
+        const [boolFalseValue, setBoolFalseValue] = useState<string | boolean>(
+            () =>
+                initConfiguration?.falseValue ??
+                defaultBoolValue(inferBoolValueType(initConfiguration?.falseValue)),
+        );
+        const [submitted, setSubmitted] = useState(false);
+        const [localPending, setLocalPending] = useState(false);
+        const submitLock = useRef(false);
+        const locked = useRef(false);
+        locked.current = edit || disabled || pending;
+        const nameInput = useRef<TextInput>(null);
+        const topicInput = useRef<TextInput>(null);
+        const options = operationForm.getOptions();
+        const invalidBool = (valueType: BoolValueType, value: string | boolean) =>
+            valueType !== "boolean" &&
+            (!String(value).trim() || (valueType === "number" && !Number.isFinite(Number(value))));
+        const nameError = !name.trim()
+            ? "Name is required."
+            : name.trim().length < 3 || name.trim().length > 64
+              ? "Use 3–64 characters."
+              : "";
+        const topicError = !topic.trim()
+            ? "Topic is required."
+            : topic.length < 3 || topic.length > 256
+              ? "Use 3–256 characters."
+              : "";
+        const rangeActive =
+            (type === "Number" || type === "Integer") && numericTypeCheck === "check";
+        const rangeError =
+            rangeActive &&
+            (minValue === undefined ||
+                maxValue === undefined ||
+                !Number.isFinite(minValue) ||
+                !Number.isFinite(maxValue) ||
+                minValue >= maxValue ||
+                (type === "Integer" &&
+                    (!Number.isInteger(minValue) ||
+                        !Number.isInteger(maxValue) ||
+                        minValue < INT32_MIN ||
+                        maxValue > INT32_MAX)))
+                ? "Use a valid range with minimum less than maximum."
+                : "";
+        const pathError =
+            mapping === "json" &&
+            (!jsonDraftValid ||
+                jsonNames.length < 1 ||
+                jsonNames.length > 5 ||
+                jsonNames.some((value) => !isValidJsonPathSegment(value)))
+                ? "Add 1–5 valid JSON path segments."
+                : "";
+        const optionError =
+            type === "Options" &&
+            (options.length < 2 ||
+                options.length > 10 ||
+                options.some(
+                    (option, index) =>
+                        !option.name ||
+                        option.name.length > 12 ||
+                        options.findIndex(
+                            (other) => other.name === option.name || other.value === option.value,
+                        ) !== index ||
+                        (typeof option.value === "number" && !Number.isFinite(option.value)) ||
+                        (typeof option.value === "string" &&
+                            (!option.value.trim() || option.value.length > 127)),
+                ))
+                ? "Use 2–10 unique, valid options."
+                : "";
+        const boolError =
+            type === "Boolean" &&
+            booleanOverride === "custom" &&
+            (invalidBool(boolTrueType, boolTrueValue) || invalidBool(boolFalseType, boolFalseValue))
+                ? "Enter valid true and false values."
+                : "";
+        const valid =
+            !nameError && !topicError && !rangeError && !pathError && !optionError && !boolError;
 
         useEffect(() => {
-            const valid = validateForm();
             onValidChange?.(valid);
-
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [
-            name,
-            topic,
-            minValue,
-            maxValue,
-            type,
-            booleanOverride,
-            boolTrueType,
-            boolTrueValue,
-            boolFalseType,
-            boolFalseValue,
-            optionsCount,
-        ]);
-
+        }, [valid, onValidChange]);
         useEffect(() => {
-            if (initType === "Options") {
-                operationForm.setConfiguration(initConfiguration);
-            }
-
+            if (initType === "Options") operationForm.setConfiguration(initConfiguration);
+            // Initialize the read-only option snapshot once per form instance.
             // eslint-disable-next-line react-hooks/exhaustive-deps
         }, []);
 
+        const change =
+            <T,>(setter: (value: T) => void) =>
+            (value: T) => {
+                if (locked.current || submitLock.current) return;
+                setter(value);
+                onChange?.();
+            };
+        const submit = async () => {
+            if (locked.current || submitLock.current) return;
+            setSubmitted(true);
+            if (!valid || (mapping === "json" && !jsonDraftValidRef.current)) {
+                if (nameError) nameInput.current?.focus();
+                else if (topicError) topicInput.current?.focus();
+                return;
+            }
+            submitLock.current = true;
+            setLocalPending(true);
+            const configuration: Record<string, unknown> = {
+                isJson: mapping === "json",
+                saveOnUserAction,
+            };
+            if (mapping === "json") configuration.jsonNames = jsonNamesRef.current;
+            if (rangeActive) {
+                configuration.min = minValue;
+                configuration.max = maxValue;
+            }
+            if (type === "Number" && mapping === "text") configuration.decimalSeparator = separator;
+            if (type === "Boolean" && booleanOverride === "inversed") {
+                configuration.trueValue = false;
+                configuration.falseValue = true;
+            }
+            if (type === "Boolean" && booleanOverride === "custom") {
+                configuration.trueValue = getBoolOverrideValue(boolTrueType, boolTrueValue);
+                configuration.falseValue = getBoolOverrideValue(boolFalseType, boolFalseValue);
+            }
+            if (type === "Options") configuration.options = options;
+            try {
+                await onSubmit({ deviceId, name: name.trim(), topic, type, configuration });
+            } finally {
+                submitLock.current = false;
+                setLocalPending(false);
+            }
+        };
+        useImperativeHandle(ref, () => ({ triggerSave: submit }));
+        const busy = pending || localPending;
+        const selectionDisabled = edit || disabled || busy;
+        const inputEditable = !edit && !disabled;
+        const errorText = (message: string) =>
+            submitted &&
+            !!message && (
+                <Text
+                    accessibilityLiveRegion="polite"
+                    style={[styles.error, { color: colors.error }]}>
+                    {message}
+                </Text>
+            );
+
         return (
-            <View style={styles.container}>
-                <View style={{ paddingHorizontal: 15, paddingTop: 5, paddingBottom: 5 }}>
-                    <OperationTile id={""} name={name} type={type} disablePress={true} />
-                </View>
-
-                <Divider style={{ paddingHorizontal: 15 }} />
-
-                <KeyboardAwareScrollView
-                    bottomOffset={keyboardOffset}
-                    style={styles.scrollContainer}
-                    contentContainerStyle={{ paddingBottom: 16 }}>
-                    <View style={{ paddingHorizontal: 15 }}>
-                        <Input
-                            error={nameError}
-                            value={name}
-                            title="Name"
-                            placeholder="Operation name"
-                            setValue={setName}
-                            editable={!edit}
+            <KeyboardAwareScrollView
+                bottomOffset={keyboardOffset}
+                keyboardShouldPersistTaps="handled"
+                style={styles.screen}
+                contentContainerStyle={styles.content}>
+                <FormSection
+                    title={edit ? "Operation details" : "Create operation"}
+                    helper={
+                        edit
+                            ? "View this operation's configuration."
+                            : "Define the topic and values for this device operation."
+                    }>
+                    <Input
+                        variant="auth"
+                        title="Name"
+                        placeholder="Operation name"
+                        value={name}
+                        setValue={change(setName)}
+                        error={submitted ? nameError : ""}
+                        inputRef={nameInput}
+                        editable={inputEditable}
+                        accessibilityState={{ busy }}
+                        returnKeyType="next"
+                        onSubmitEditing={() => topicInput.current?.focus()}
+                    />
+                    <Input
+                        variant="auth"
+                        title="Topic"
+                        placeholder="example/nested/topic"
+                        value={topic}
+                        setValue={change(setTopic)}
+                        error={submitted ? topicError : ""}
+                        inputRef={topicInput}
+                        editable={inputEditable}
+                        accessibilityState={{ busy }}
+                        returnKeyType="done"
+                        onSubmitEditing={submit}
+                    />
+                    <BottomSheetSelect
+                        title="Operation type"
+                        value={typeOptions.find((option) => option.value === type)?.label ?? type}
+                        disabled={selectionDisabled}
+                        options={typeOptions.map((option) => ({
+                            label: option.label,
+                            selected: option.value === type,
+                            onPress: () => change(setType)(option.value),
+                        }))}
+                    />
+                    <View style={styles.field}>
+                        <BottomSheetSelect
+                            title="Save on user action"
+                            value={saveOnUserAction ? "Enabled" : "Disabled"}
+                            disabled={selectionDisabled}
+                            options={[
+                                {
+                                    label: "Enabled",
+                                    selected: saveOnUserAction,
+                                    onPress: () => change(setSaveOnUserAction)(true),
+                                },
+                                {
+                                    label: "Disabled",
+                                    selected: !saveOnUserAction,
+                                    onPress: () => change(setSaveOnUserAction)(false),
+                                },
+                            ]}
                         />
-
-                        <Input
-                            error={topicError}
-                            value={topic}
-                            title="Topic"
-                            placeholder="example/nested/topic"
-                            setValue={setTopic}
-                            editable={!edit}
-                        />
-
-                        <Dropdown
-                            title={"Operation Type"}
-                            options={TypeOptions}
-                            selectedValue={type}
-                            onSelected={typeSelected}
-                            disablePress={edit}
-                            style={{ marginBottom: 10 }}
-                        />
-
-                        <SwitchDropdown
-                            title="Save on User Action"
-                            value={saveOnUserAction}
-                            onSelected={setSaveOnUserAction}
-                            trueLabel="Enabled — instantly synced to all users"
-                            falseLabel="Disabled — device must retransmit to sync"
-                            disablePress={edit}
-                            style={{ marginBottom: 10 }}
-                        />
-
-                        <Dropdown
-                            title={"Data Mapping Type"}
-                            options={MappingOptions}
-                            selectedValue={mapping}
-                            onSelected={mappingSelected}
-                            disablePress={edit}
-                            style={{ marginBottom: 10 }}
-                        />
-
-                        {mapping === "json" && (
+                        <Text style={[styles.helper, { color: colors.authMuted }]}>
+                            {saveOnUserAction
+                                ? "Changes sync to all users immediately."
+                                : "The device must retransmit before changes sync."}
+                        </Text>
+                    </View>
+                    <BottomSheetSelect
+                        title="Data mapping"
+                        value={mapping === "json" ? "JSON" : "Plain text"}
+                        disabled={selectionDisabled}
+                        options={[
+                            {
+                                label: "Plain text",
+                                selected: mapping === "text",
+                                onPress: () =>
+                                    change((value: string) => {
+                                        jsonDraftValidRef.current = true;
+                                        setJsonDraftValid(true);
+                                        setMapping(value);
+                                    })("text"),
+                            },
+                            {
+                                label: "JSON",
+                                selected: mapping === "json",
+                                onPress: () => change(setMapping)("json"),
+                            },
+                        ]}
+                    />
+                    {mapping === "json" && (
+                        <View style={styles.field}>
                             <JsonPathSelector
-                                editable={!edit}
+                                editable={inputEditable}
+                                disabled={busy}
                                 jsonNames={jsonNames}
-                                setJsonNames={setJsonNames}
+                                setJsonNames={change((next: string[]) => {
+                                    jsonNamesRef.current = next;
+                                    setJsonNames(next);
+                                })}
+                                onValidChange={(next) => {
+                                    jsonDraftValidRef.current = next;
+                                    setJsonDraftValid(next);
+                                }}
                             />
-                        )}
-
-                        {type === "Boolean" && (
+                            {errorText(pathError)}
+                        </View>
+                    )}
+                    {type === "Boolean" && (
+                        <View style={styles.field}>
                             <BooleanOperationForm
                                 edit={edit}
+                                disabled={disabled || busy}
                                 override={booleanOverride}
                                 trueType={boolTrueType}
                                 trueValue={boolTrueValue}
                                 falseType={boolFalseType}
                                 falseValue={boolFalseValue}
-                                onOverrideChange={setBooleanOverride}
-                                onTrueTypeChange={handleBoolTrueTypeChange}
-                                onTrueValueChange={setBoolTrueValue}
-                                onFalseTypeChange={handleBoolFalseTypeChange}
-                                onFalseValueChange={setBoolFalseValue}
+                                onOverrideChange={change(setBooleanOverride)}
+                                onTrueTypeChange={change((value) => {
+                                    setBoolTrueType(value);
+                                    setBoolTrueValue(defaultBoolValue(value));
+                                })}
+                                onTrueValueChange={change(setBoolTrueValue)}
+                                onFalseTypeChange={change((value) => {
+                                    setBoolFalseType(value);
+                                    setBoolFalseValue(defaultBoolValue(value));
+                                })}
+                                onFalseValueChange={change(setBoolFalseValue)}
                             />
-                        )}
-
-                        {(type === "Number" || type === "Integer") && (
-                            <NumericOperationForm
+                            {errorText(boolError)}
+                        </View>
+                    )}
+                    {(type === "Number" || type === "Integer") && (
+                        <NumericOperationForm
+                            edit={edit}
+                            disabled={disabled || busy}
+                            showSeparator={type === "Number" && mapping === "text"}
+                            separator={separator}
+                            typeCheck={numericTypeCheck}
+                            minValue={minValue}
+                            maxValue={maxValue}
+                            minValueError={submitted ? rangeError : ""}
+                            onSeparatorChange={change(setSeparator)}
+                            onTypeCheckChange={change(setNumericTypeCheck)}
+                            onMinValueChange={change(setMinValue)}
+                            onMaxValueChange={change(setMaxValue)}
+                        />
+                    )}
+                    {type === "Options" && (
+                        <View style={styles.field}>
+                            <OptionOperationForm
                                 edit={edit}
-                                showSeparator={type === "Number" && mapping === "text"}
-                                separator={separator}
-                                typeCheck={numericTypeCheck}
-                                minValue={minValue}
-                                maxValue={maxValue}
-                                minValueError={minValueError}
-                                onSeparatorChange={setSeparator}
-                                onTypeCheckChange={setNumericTypeCheck}
-                                onMinValueChange={setMinValue}
-                                onMaxValueChange={setMaxValue}
+                                disabled={disabled || busy}
+                                onChange={onChange}
                             />
-                        )}
+                            {errorText(optionError)}
+                        </View>
+                    )}
+                </FormSection>
+                {!edit && (
+                    <View style={styles.actions}>
+                        {feedback}
+                        {returnAction}
+                        <Button
+                            name="Create operation"
+                            type="auth"
+                            loading={busy}
+                            disabled={disabled || busy}
+                            onPress={submit}
+                        />
                     </View>
-
-                    {type === "Options" && <OptionOperationForm edit={edit} />}
-                </KeyboardAwareScrollView>
-            </View>
+                )}
+            </KeyboardAwareScrollView>
         );
     },
 );
 
 const OperationForm = React.forwardRef<OperationFormHandle, OperationFormProps>(
-    function OperationForm(
-        {
-            deviceId,
-            initName,
-            initTopic,
-            initType,
-            initConfiguration,
-            onSubmit,
-            onValidChange,
-            edit = false,
-        },
-        ref,
-    ) {
+    function OperationForm(props, ref) {
         return (
             <OperationFormProvider>
-                <OperationFormInternal
-                    ref={ref}
-                    deviceId={deviceId}
-                    initName={initName}
-                    initTopic={initTopic}
-                    initType={initType}
-                    initConfiguration={initConfiguration}
-                    onSubmit={onSubmit}
-                    onValidChange={onValidChange}
-                    edit={edit}
-                />
+                <OperationFormInternal {...props} ref={ref} />
             </OperationFormProvider>
         );
     },
 );
+export default OperationForm;
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 0,
-        margin: 0,
-        marginTop: 0,
+    screen: { flex: 1 },
+    content: {
+        flexGrow: 1,
+        width: "100%",
+        maxWidth: 448,
+        alignSelf: "center",
+        paddingHorizontal: 16,
+        paddingTop: 24,
+        paddingBottom: 16,
     },
-    scrollContainer: {
-        paddingHorizontal: 0,
-        margin: 0,
-    },
+    actions: { marginTop: "auto", paddingTop: 32, gap: 12 },
+    field: { gap: 6 },
+    helper: { fontSize: 14, lineHeight: 20 },
+    error: { fontSize: 14, lineHeight: 20 },
 });
-
-export default OperationForm;

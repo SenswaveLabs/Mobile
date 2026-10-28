@@ -181,7 +181,7 @@ function InternalLayout() {
                 name="device/operation/add"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Add" titleSuffix="Operation" />,
+                    header: () => <DefaultHeader titlePrefix="Operation" variant="brand" />,
                 }}
             />
 
