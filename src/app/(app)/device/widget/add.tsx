@@ -1,67 +1,79 @@
+import React, { FC } from "react";
+import { StyleSheet, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { CircleAlert } from "lucide-react-native";
 import Button from "@/components/common/Button";
 import Loading from "@/components/common/Loading";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
-import { useToast } from "@/contexts/ToastProvider";
-import { useHttpClient } from "@/contexts/HttpClientProvider";
-import WidgetForm, { WidgetFormHandle } from "@/components/device/widgets/WidgetForm";
-import { useWidgetDetails, WidgetDetailsProvider } from "@/contexts/custom/WidgetDetailsProvider";
+import AddWidgetForm from "@/components/device/widgets/AddWidgetForm";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { WidgetDetailsProvider } from "@/contexts/custom/WidgetDetailsProvider";
+import { useDevice } from "@/contexts/custom/DeviceProvider";
+import { useHomes } from "@/contexts/domain/HomeProvider";
+import { useTheme } from "@/contexts/ThemeProvider";
 
-function InternalAdd() {
-    const widgetDetails = useWidgetDetails();
-    const httpClient = useHttpClient();
-    const toast = useToast();
+const Add: FC = () => {
+    const params = useLocalSearchParams<{
+        operationId?: string | string[];
+        deviceId?: string | string[];
+    }>();
+    const rawOperationId = Array.isArray(params.operationId)
+        ? params.operationId[0]
+        : params.operationId;
+    const operationId = rawOperationId?.trim() ? rawOperationId : undefined;
+    const device = useDevice();
+    const rawDeviceId = Array.isArray(params.deviceId) ? params.deviceId[0] : params.deviceId;
+    const deviceId = rawDeviceId?.trim() ? rawDeviceId : device.deviceId;
+    const home = useHomes();
     const router = useRouter();
-    const { operationId } = useLocalSearchParams<{ operationId: string }>();
-    const formRef = useRef<WidgetFormHandle>(null);
-    const [loading, setLoading] = useState(false);
+    const { colors } = useTheme().current;
+    const canManage = home.current?.isOwner === true || home.current?.canManage === true;
 
-    const addClicked = async (values: any) => {
-        setLoading(true);
-
-        const response = await httpClient.post("v1/devices/widgets", values);
-
-        if (response.isSuccess) {
-            toast.success("Widget added successfully.");
-            router.back();
-        } else {
-            toast.httpError(response);
-        }
-
-        setLoading(false);
-    };
-
-    useEffect(() => {
-        widgetDetails.initializeForAdd(operationId);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    if (!widgetDetails || widgetDetails.loading) {
-        return <Loading />;
-    }
-
+    if (home.loading) return <Loading />;
     return (
-        <View style={{ flex: 1 }}>
-            <WidgetForm ref={formRef} onSubmit={addClicked} edit={false} hideButton={true} />
-
-            <KeyboardStickyView style={{ paddingHorizontal: 15, paddingVertical: 12 }}>
-                <Button
-                    name="Add Widget"
-                    loading={loading}
-                    onPress={() => formRef.current?.triggerSave()}
-                    style={!widgetDetails.isValid ? { opacity: 0.4 } : undefined}
-                />
-            </KeyboardStickyView>
+        <View style={[styles.screen, { backgroundColor: colors.background }]}>
+            {canManage && operationId ? (
+                <WidgetDetailsProvider key={`${deviceId}:${operationId}`}>
+                    <AddWidgetForm operationId={operationId} deviceId={deviceId} />
+                </WidgetDetailsProvider>
+            ) : (
+                <View style={styles.recovery}>
+                    <Alert icon={CircleAlert} variant="destructive" accessibilityRole="alert">
+                        <AlertDescription>
+                            {canManage
+                                ? "Operation not found. Choose an operation from your widgets."
+                                : "You don't have permission to manage this device."}
+                        </AlertDescription>
+                    </Alert>
+                    <Button
+                        name="Return to device"
+                        type="auth"
+                        loading={false}
+                        onPress={() => {
+                            if (router.canGoBack()) router.back();
+                            else if (deviceId)
+                                router.replace({
+                                    pathname: "/device/device",
+                                    params: { deviceId },
+                                });
+                            else router.replace("/");
+                        }}
+                    />
+                </View>
+            )}
         </View>
     );
-}
+};
 
-export default function Add() {
-    return (
-        <WidgetDetailsProvider>
-            <InternalAdd />
-        </WidgetDetailsProvider>
-    );
-}
+export default Add;
+const styles = StyleSheet.create({
+    screen: { flex: 1 },
+    recovery: {
+        flex: 1,
+        justifyContent: "center",
+        gap: 16,
+        padding: 16,
+        maxWidth: 480,
+        width: "100%",
+        alignSelf: "center",
+    },
+});

@@ -70,6 +70,27 @@ src/
   styles/                   # shared style helpers
 ```
 
+Widget configuration lives in `device/widgets`: `WidgetForm` owns the shared
+keyboard-aware creation/read-only layout, `AddWidgetForm` owns creation and return
+recovery, and `WidgetDetails` owns confirmed definition deletion. Type forms retain
+their primitive configuration values and register/clean up provider validation.
+`WidgetDetailsProvider` validates routed reads, rejects stale responses and exposes
+inline load recovery; it does not display toasts. Live widget surfaces share the
+local `widgets/widgetStyles` scale and existing device-tile theme roles.
+
+Widget and dashboard flows follow the UI policy. Reuse existing header-action,
+form and brand icon-sheet APIs. `common/ColorPickerField` shares the swatch/HEX
+editor between Button configuration and live Color widgets; `WidgetCommandSnackbar`
+owns dashboard-local command feedback. Preserve the shared read-only operation details
+caller and exact operation payload types when changing nested fields.
+Dashboard command feedback must not feed measurement state back into grid geometry.
+
+`dashboards/Grid/GridDashboardView` always renders the dashboard canvas and routes
+free-cell taps directly to the picker. `WidgetPlacementCanvas` owns native move and
+corner-resize gestures for unsaved placements; `utils/dashboardGrid` validates,
+snaps and bounds their geometry. The placement route owns selection, inline save
+recovery and the accepted-once write/return lifecycle.
+
 `package.json` points to `index.js`, which imports Expo's Metro runtime and registers
 `src/App.tsx` through `registerRootComponent`. `App` preserves `Head.Provider` and
 passes the `require.context("./app")` routes and `OptimisticActionProvider` wrapper

@@ -1,21 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { FC, useEffect, useRef, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import Input from "@/components/common/Input";
 import InputNumber from "@/components/common/InputNumber";
-import Text from "@/components/common/Text";
-import SwitchDropdown from "@/components/common/SwitchDropdown";
+import BottomSheetSelect from "@/components/common/BottomSheetSelect";
+import ColorPickerField from "@/components/common/ColorPickerField";
 import { useWidgetDetails } from "@/contexts/custom/WidgetDetailsProvider";
-import { View } from "react-native";
-import { OperationType } from "@/contexts/custom/DeviceListProvider";
-import Dropdown from "@/components/common/Dropdown";
-import ColorPicker, {
-    BlueSlider,
-    ColorFormatsObject,
-    GreenSlider,
-    PreviewText,
-    RedSlider,
-} from "reanimated-color-picker";
-import { colorPickerStyle } from "@/styles/colorPickerStyle";
-import { shadowStyles } from "@/styles/shadowStyles";
+import { useTheme } from "@/contexts/ThemeProvider";
+import { OperationType } from "@/types/DeviceTypes";
 
 export const ButtonOperationTypes: OperationType[] = [
     "Text",
@@ -26,380 +17,204 @@ export const ButtonOperationTypes: OperationType[] = [
     "HexColor",
 ];
 
-interface ButtonFormProps {
+interface Props {
     edit?: boolean;
+    disabled?: boolean;
 }
 
-const ButtonForm = ({ edit }: ButtonFormProps) => {
+const ButtonForm: FC<Props> = ({ edit = false, disabled = false }) => {
     const widgetDetails = useWidgetDetails();
+    const { colors } = useTheme().current;
+    const operationType = widgetDetails.operation?.type;
+    const configurationValue = widgetDetails.widget?.configuration?.value;
+    const options = Array.isArray(widgetDetails.operation?.configuration?.options)
+        ? (widgetDetails.operation.configuration.options as { name: string }[])
+        : [];
+    const initialValue =
+        configurationValue ??
+        (operationType === "Boolean"
+            ? false
+            : operationType === "Number" || operationType === "Integer"
+              ? 0
+              : operationType === "HexColor"
+                ? "#000000"
+                : operationType === "Options"
+                  ? (options[0]?.name ?? "")
+                  : "");
+    const [value, setValue] = useState<string | number | boolean | undefined>(initialValue);
+    const valueRef = useRef(value);
+    const [valueError, setValueError] = useState("");
+    const lockedRef = useRef(edit || disabled);
+    lockedRef.current = edit || disabled;
+    const detailsRef = useRef(widgetDetails);
+    detailsRef.current = widgetDetails;
+    const initialValueRef = useRef(initialValue);
+    initialValueRef.current = initialValue;
 
-    const operationType = widgetDetails.operation?.type || "Invalid";
-    const configValue = widgetDetails.widget?.configuration?.value;
-
-    const [booleanValue, setBooleanValue] = useState<boolean>(
-        operationType === "Boolean" ? configValue : false,
-    );
-
-    const [numberValue, setNumberValue] = useState<number | undefined>(
-        (operationType === "Number" || operationType === "Integer") && !isNaN(configValue)
-            ? configValue
-            : 0,
-    );
-    const numberValidRef = useRef<boolean>(numberValue !== undefined);
-
-    const [value, setValue] = useState<string>(
-        operationType === "Text" || operationType === "HexColor" ? String(configValue ?? "") : "",
-    );
-
-    const [valueError, setValueError] = useState<string>("");
-
-    const validate = (): boolean => {
-        let valid = true;
-
-        console.info("[ButtonForm] Validating button widget.");
-
-        if (widgetDetails.operation?.type === "Boolean") return true;
-
-        if (
-            widgetDetails.operation?.type === "Number" ||
-            widgetDetails.operation?.type === "Integer"
-        ) {
-            if (!numberValidRef.current) {
-                valid = false;
+    const validate = () => {
+        const current = valueRef.current;
+        const operation = detailsRef.current.operation;
+        let error = "";
+        if (operation?.type === "Boolean") {
+            if (typeof current !== "boolean") error = "Choose True or False.";
+        } else if (operation?.type === "Text") {
+            if (typeof current !== "string" || current.length < 1 || current.length > 64) {
+                error = "Enter between 1 and 64 characters.";
             }
-            return valid;
-        }
-
-        if (widgetDetails.operation?.type === "Text") {
-            if (value === "") {
-                setValueError("");
-                valid = false;
-            } else if (value.length < 1 || value.length > 64) {
-                setValueError("Text must be between 1 and 64 characters.");
-                valid = false;
-            } else {
-                setValueError("");
+        } else if (operation?.type === "Options") {
+            const availableOptions = operation.configuration?.options;
+            if (
+                !Array.isArray(availableOptions) ||
+                !availableOptions.some((option: { name: string }) => option.name === current)
+            ) {
+                error = "Choose an available operation option.";
             }
-
-            return valid;
-        }
-
-        if (widgetDetails.operation?.type === "Options") {
-            const options = widgetDetails.operation?.configuration.options || [];
-            const selectedValue = widgetDetails.widget?.configuration.value;
-
-            if (!options.some((x: { name: string }) => x.name === selectedValue)) {
-                setValueError("Selected option is invalid.");
-                valid = false;
-            } else {
-                setValueError("");
+        } else if (operation?.type === "HexColor") {
+            if (
+                typeof current !== "string" ||
+                !/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(current)
+            ) {
+                error = "Choose a valid hex color.";
             }
-
-            return valid;
-        }
-
-        if (widgetDetails.operation?.type === "HexColor") {
-            const hexColorRegex = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
-
-            if (!hexColorRegex.test(configValue)) {
-                setValueError("Invalid hex color format.");
-                valid = false;
-            } else {
-                setValueError("");
+        } else if (operation?.type === "Number" || operation?.type === "Integer") {
+            const { min, max } = operation.configuration ?? {};
+            if (typeof current !== "number" || !Number.isFinite(current)) {
+                error = "Enter a valid number.";
+            } else if (operation.type === "Integer" && !Number.isInteger(current)) {
+                error = "Enter a whole number.";
+            } else if (
+                (min !== undefined && (!Number.isFinite(min) || current < min)) ||
+                (max !== undefined && (!Number.isFinite(max) || current > max))
+            ) {
+                error = "Enter a value within the operation range.";
             }
-
-            return valid;
+        } else {
+            error = "This operation does not support a Button widget.";
         }
+        setValueError(error);
+        return error === "";
+    };
+    const validateRef = useRef(validate);
+    validateRef.current = validate;
 
-        return false;
+    useEffect(() => {
+        const details = detailsRef.current;
+        valueRef.current = initialValueRef.current;
+        setValue(initialValueRef.current);
+        if (!lockedRef.current && details.widget?.configuration?.value === undefined) {
+            details.setWidget({
+                ...details.widget!,
+                configuration: { ...details.widget?.configuration, value: initialValueRef.current },
+            });
+        }
+        details.setAdditionalValidation(() => validateRef.current());
+        details.validateDto();
+        return () => details.setAdditionalValidation(null);
+    }, [operationType, widgetDetails.operation?.id, widgetDetails.widget?.id]);
+
+    const changeValue = (nextValue: string | number | boolean | undefined) => {
+        if (lockedRef.current) return;
+        valueRef.current = nextValue;
+        setValue(nextValue);
+        const details = detailsRef.current;
+        details.setWidget({
+            ...details.widget!,
+            configuration: { ...details.widget?.configuration, value: nextValue },
+        });
+        details.validateDto();
     };
 
-    const options =
-        widgetDetails.operation?.configuration?.options?.map(
-            (option: { name: string; value: string }) => ({
-                name: option.name,
-                value: option.name,
-            }),
-        ) || [];
-
-    const [selectedValue, setSelectedValue] = useState<string>(
-        widgetDetails.widget?.configuration.value || options[0]?.name || "",
-    );
-
-    useEffect(() => {
-        widgetDetails.setAdditionalValidation(validate);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [widgetDetails.widget?.configuration.value]);
-
-    useEffect(() => {
-        widgetDetails.validateDto();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [widgetDetails.widget?.configuration.value]);
-
-    useEffect(() => {
-        widgetDetails.setWidget({
-            ...widgetDetails.widget!,
-            configuration: {
-                ...widgetDetails.widget?.configuration,
-                value: selectedValue,
-            },
-        });
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedValue]);
-
-    // Initialize
-    useEffect(() => {
-        if (widgetDetails.operation?.type === "Boolean" && !edit) {
-            console.log("here");
-
-            widgetDetails.setWidget({
-                ...widgetDetails.widget!,
-                configuration: {
-                    ...widgetDetails.widget?.configuration,
-                    value: configValue ? configValue : false,
-                },
-            });
-        } else if (
-            (widgetDetails.operation?.type === "Number" ||
-                widgetDetails.operation?.type === "Integer") &&
-            !edit
-        ) {
-            widgetDetails.setWidget({
-                ...widgetDetails.widget!,
-                configuration: {
-                    ...widgetDetails.widget?.configuration,
-                    value: !isNaN(configValue) ? configValue : 0,
-                },
-            });
-        } else if (widgetDetails.operation?.type === "Options") {
-            widgetDetails.setWidget({
-                ...widgetDetails.widget!,
-                configuration: {
-                    ...widgetDetails.widget?.configuration,
-                    value: widgetDetails.widget?.configuration.value || options[0]?.name || "",
-                },
-            });
-        } else if (widgetDetails.operation?.type === "Text") {
-            widgetDetails.setWidget({
-                ...widgetDetails.widget!,
-                configuration: {
-                    ...widgetDetails.widget?.configuration,
-                    value: String(configValue ?? ""),
-                },
-            });
-        } else if (widgetDetails.operation?.type === "HexColor") {
-            widgetDetails.setWidget({
-                ...widgetDetails.widget!,
-                configuration: {
-                    ...widgetDetails.widget?.configuration,
-                    value: String(configValue ?? "#000000"),
-                },
-            });
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    const [hexColor, setHexColor] = useState<string>(configValue || "#000000");
-
-    if (widgetDetails.operation?.type === "HexColor") {
-        const onColorPick = (color: ColorFormatsObject) => {
-            console.info("[ButtonForm] Color picked:", color.hex);
-            setHexColor(color.hex);
-            widgetDetails.setWidget({
-                ...widgetDetails.widget!,
-                configuration: {
-                    ...widgetDetails.widget?.configuration,
-                    value: hexColor,
-                },
-            });
-        };
-
-        const getContrastTextColor = (hex: string) => {
-            if (!/^#([A-Fa-f0-9]{6})$/.test(hex)) return "onPrimary";
-
-            const r = parseInt(hex.slice(1, 3), 16) / 255;
-            const g = parseInt(hex.slice(3, 5), 16) / 255;
-            const b = parseInt(hex.slice(5, 7), 16) / 255;
-
-            const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-
-            return luminance > 0.5 ? "onPrimary" : "onSecondary";
-        };
-
+    if (operationType === "Text") {
         return (
-            <View>
-                <Text style={{ paddingBottom: 10 }} size="medium" color="onBackground" bold={true}>
-                    {!edit ? "Select Color" : "Selected Color"}
-                </Text>
+            <Input
+                variant="auth"
+                title="Value to send"
+                placeholder="Enter a value"
+                value={typeof value === "string" ? value : ""}
+                setValue={changeValue}
+                error={valueError}
+                editable={!edit}
+                accessibilityState={{ busy: disabled }}
+                autoCapitalize="none"
+            />
+        );
+    }
 
-                {!edit && (
-                    <View style={[]}>
-                        <ColorPicker
-                            value={hexColor}
-                            onCompleteJS={onColorPick}
-                            sliderThickness={30}
-                            thumbSize={30}
-                            thumbShape="circle"
-                            thumbAnimationDuration={100}
-                            style={colorPickerStyle.picker}
-                            adaptSpectrum
-                            boundedThumb>
-                            <View
-                                style={{
-                                    flexDirection: "column",
-                                    justifyContent: "space-between",
-                                }}>
-                                <View style={{ marginTop: 5 }}>
-                                    <Text
-                                        style={colorPickerStyle.sliderTitle}
-                                        size={"medium"}
-                                        color={"onPrimary"}
-                                        bold>
-                                        Red
-                                    </Text>
-                                    <RedSlider style={colorPickerStyle.sliderStyle} />
-                                </View>
+    if (operationType === "Number" || operationType === "Integer") {
+        return (
+            <InputNumber
+                variant="auth"
+                title="Value to send"
+                placeholder="Enter a number"
+                value={typeof value === "number" ? value : undefined}
+                onChange={changeValue}
+                error={valueError}
+                integer={operationType === "Integer"}
+                min={widgetDetails.operation?.configuration?.min}
+                max={widgetDetails.operation?.configuration?.max}
+                required
+                editable={!edit}
+                disabled={disabled}
+            />
+        );
+    }
 
-                                <View style={{ marginTop: 5 }}>
-                                    <Text
-                                        style={colorPickerStyle.sliderTitle}
-                                        size={"medium"}
-                                        color={"onPrimary"}
-                                        bold>
-                                        Green
-                                    </Text>
-                                    <GreenSlider style={colorPickerStyle.sliderStyle} />
-                                </View>
-
-                                <View style={{ marginTop: 5 }}>
-                                    <Text
-                                        style={colorPickerStyle.sliderTitle}
-                                        size={"medium"}
-                                        color={"onPrimary"}
-                                        bold>
-                                        Blue
-                                    </Text>
-                                    <BlueSlider style={colorPickerStyle.sliderStyle} />
-                                </View>
-                            </View>
-                            <PreviewText colorFormat="rgb" />
-                        </ColorPicker>
-                    </View>
-                )}
-
-                {edit && (
-                    <View
-                        style={[
-                            {
-                                height: 50,
-                                backgroundColor: hexColor,
-                                borderRadius: 10,
-                                flex: 1,
-                                justifyContent: "center",
-                                alignItems: "center",
-                            },
-                            shadowStyles.default,
-                        ]}>
-                        <Text
-                            style={colorPickerStyle.sliderTitle}
-                            size={"medium"}
-                            color={getContrastTextColor(hexColor)}
-                            bold>
-                            {hexColor}
-                        </Text>
-                    </View>
+    if (operationType === "Boolean" || operationType === "Options") {
+        const choices =
+            operationType === "Boolean"
+                ? [
+                      { label: "True", value: true },
+                      { label: "False", value: false },
+                  ]
+                : options.map((option) => ({ label: option.name, value: option.name }));
+        const selected = choices.find((option) => option.value === value);
+        return (
+            <View style={styles.field}>
+                <BottomSheetSelect
+                    title="Value to send"
+                    value={selected?.label ?? String(value || "Choose an option")}
+                    disabled={edit || disabled || choices.length === 0}
+                    busy={disabled}
+                    options={choices.map((option) => ({
+                        label: option.label,
+                        selected: option.value === value,
+                        onPress: () => changeValue(option.value),
+                    }))}
+                />
+                {!!valueError && (
+                    <Text
+                        accessibilityLiveRegion="polite"
+                        style={[styles.support, { color: colors.error }]}>
+                        {valueError}
+                    </Text>
                 )}
             </View>
         );
     }
 
-    if (widgetDetails.operation?.type === "Options") {
+    if (operationType === "HexColor") {
         return (
-            <Dropdown
-                title="Select Option"
-                selectedValue={selectedValue}
-                onSelected={setSelectedValue}
-                options={options}
-                disablePress={edit}
-            />
-        );
-    }
-
-    const onTextValueChange = (value: string) => {
-        widgetDetails.setWidget({
-            ...widgetDetails.widget!,
-            configuration: {
-                ...widgetDetails.widget?.configuration,
-                value: value,
-            },
-        });
-        setValue(value);
-    };
-
-    if (widgetDetails.operation!.type === "Text") {
-        return (
-            <Input
+            <ColorPickerField
+                title="Color to send"
+                value={typeof value === "string" ? value : ""}
+                disabled={disabled}
+                readOnly={edit}
                 error={valueError}
-                value={value}
-                title="Value to send"
-                placeholder="value"
-                setValue={onTextValueChange}
-                editable={!edit}
-            />
-        );
-    }
-
-    if (widgetDetails.operation!.type === "Boolean") {
-        return (
-            <SwitchDropdown
-                title="Value to send"
-                value={booleanValue}
-                onSelected={(v) => {
-                    setBooleanValue(v);
-                    widgetDetails.setWidget({
-                        ...widgetDetails.widget!,
-                        configuration: {
-                            ...widgetDetails.widget?.configuration,
-                            value: v,
-                        },
-                    });
+                onConfirm={(hex) => {
+                    if (lockedRef.current) return false;
+                    changeValue(hex);
+                    return true;
                 }}
-                disablePress={edit}
             />
         );
     }
 
-    const onNumberValueChange = (value: number | undefined) => {
-        numberValidRef.current = value !== undefined;
-        setNumberValue(value);
-        if (value !== undefined) {
-            widgetDetails.setWidget({
-                ...widgetDetails.widget!,
-                configuration: {
-                    ...widgetDetails.widget?.configuration,
-                    value,
-                },
-            });
-        }
-    };
-
-    return (
-        <View
-            style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <InputNumber
-                value={numberValue}
-                title="Value to send"
-                placeholder="value"
-                onChange={onNumberValueChange}
-                integer={widgetDetails.operation?.type === "Integer"}
-                min={widgetDetails.operation?.configuration?.min}
-                max={widgetDetails.operation?.configuration?.max}
-                required
-                editable={!edit}
-            />
-        </View>
-    );
+    return <Text style={[styles.support, { color: colors.error }]}>{valueError}</Text>;
 };
 
 export default ButtonForm;
+
+const styles = StyleSheet.create({
+    field: { gap: 6 },
+    support: { fontSize: 14, lineHeight: 20 },
+});

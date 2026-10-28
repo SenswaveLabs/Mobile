@@ -123,7 +123,7 @@ function InternalLayout() {
             <Stack.Screen
                 name="device/device"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Device" />,
+                    header: () => <DefaultHeader titlePrefix="Device" variant="brand" />,
                 }}
             />
 
@@ -149,7 +149,7 @@ function InternalLayout() {
                 name="device/widget/details"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Widget" titleSuffix="Details" />,
+                    header: () => <DefaultHeader titlePrefix="Widget" variant="brand" />,
                 }}
             />
 
@@ -157,7 +157,7 @@ function InternalLayout() {
                 name="device/widget/add"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Add" titleSuffix="Widget" />,
+                    header: () => <DefaultHeader titlePrefix="Widget" variant="brand" />,
                 }}
             />
 
@@ -165,7 +165,7 @@ function InternalLayout() {
                 name="device/widget/list"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Widgets" />,
+                    header: () => <DefaultHeader titlePrefix="Widgets" variant="brand" />,
                 }}
             />
 
@@ -181,7 +181,7 @@ function InternalLayout() {
                 name="device/operation/add"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Add" titleSuffix="Operation" />,
+                    header: () => <DefaultHeader titlePrefix="Operation" variant="brand" />,
                 }}
             />
 
@@ -197,7 +197,7 @@ function InternalLayout() {
                 name="device/dashboard/details"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Dashboard" titleSuffix="Details" />,
+                    header: () => <DefaultHeader titlePrefix="Dashboard" variant="brand" />,
                 }}
             />
 
@@ -213,7 +213,9 @@ function InternalLayout() {
                 name="device/dashboard/placeWidget"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Select" titleSuffix="Widget" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Add" titleSuffix="Widget" variant="brand" />
+                    ),
                 }}
             />
 

@@ -13,6 +13,7 @@ interface SliderProps {
     max: number;
     step: number;
     initialValue: number;
+    value?: number;
     onValueSlided?: (value: number) => void;
     onValueChange?: (value: number) => void;
     accessibilityLabel?: string;
@@ -24,6 +25,7 @@ const Slider: FC<SliderProps> = ({
     max,
     step,
     initialValue,
+    value: controlledValue,
     onValueSlided,
     onValueChange,
     accessibilityLabel = "Value",
@@ -41,6 +43,13 @@ const Slider: FC<SliderProps> = ({
         ? Math.max(min, Math.min(max, Number.isFinite(initialValue) ? initialValue : min))
         : 0;
     const [value, setValue] = useState(reportedValue);
+    const nativeValue =
+        controlledValue === undefined
+            ? value
+            : Math.max(
+                  min,
+                  Math.min(max, Number.isFinite(controlledValue) ? controlledValue : reportedValue),
+              );
     const previousValue = useRef(reportedValue);
     const dragging = useRef(false);
     const control = useRef<NativeSlider>(null);
@@ -85,7 +94,7 @@ const Slider: FC<SliderProps> = ({
                 minimumValue={min}
                 maximumValue={max}
                 step={step}
-                value={value}
+                value={nativeValue}
                 disabled={disabled}
                 accessibilityLabel={accessibilityLabel}
                 accessibilityRole="adjustable"

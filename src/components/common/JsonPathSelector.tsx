@@ -1,388 +1,150 @@
-import React, { useState } from "react";
-import {
-    View,
-    TextInput,
-    StyleSheet,
-    TouchableOpacity,
-    TextInputEndEditingEvent,
-} from "react-native";
+import React, { FC, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Plus, Trash2 } from "lucide-react-native";
+import Input from "@/components/common/Input";
+import SectionHeaderAction from "@/components/common/SectionHeaderAction";
 import { useTheme } from "@/contexts/ThemeProvider";
-import Text from "@/components/common/Text";
-import Icon from "./Icon";
-import { useToast } from "@/contexts/ToastProvider";
-import { ScrollView } from "react-native-gesture-handler";
-import { shadowStyles } from "@/styles/shadowStyles";
+import { isValidJsonPathSegment } from "@/utils/jsonPath";
 
 interface JsonPathSelectorProps {
     jsonNames: string[];
     setJsonNames: (names: string[]) => void;
     editable?: boolean;
+    disabled?: boolean;
+    onValidChange?: (valid: boolean) => void;
 }
 
-const JsonPathSelector: React.FC<JsonPathSelectorProps> = ({
+const segmentError = (value: string) => {
+    const key = value.trim();
+    if (!key) return "Enter a field name.";
+    if (key.length > 63) return "Use at most 63 characters.";
+    if (!isValidJsonPathSegment(key)) return "Remove quotes, backslashes and control characters.";
+    return "";
+};
+
+const JsonPathSelector: FC<JsonPathSelectorProps> = ({
     jsonNames,
     setJsonNames,
     editable = true,
+    disabled = false,
+    onValidChange,
 }) => {
-    const [newPath, setNewPath] = useState<string>("");
-    const theme = useTheme();
-    const toast = useToast();
+    const { colors } = useTheme().current;
+    const [drafts, setDrafts] = useState(jsonNames);
+    const [newPath, setNewPath] = useState("");
+    const [newError, setNewError] = useState("");
+    const draftsRef = useRef(drafts);
+    const newPathRef = useRef(newPath);
+    const locked = useRef(false);
+    locked.current = !editable || disabled;
 
-    const hasControlChars = (value: string) => [...value].some((ch) => ch.charCodeAt(0) <= 0x1f);
-
-    const validateText = (path: string) => {
-        if (!path || path.trim() === "") {
-            toast.error("Field name not provided!");
-            return false;
-        }
-
-        const key = path.trim();
-
-        if (key.length < 1) {
-            toast.error("Too short!");
-            return false;
-        }
-
-        if (key.length >= 64) {
-            toast.error("Too long field name!");
-            return false;
-        }
-
-        if (key.includes('"') || key.includes("\\")) {
-            toast.error('Invalid JSON key (contains " or \\)');
-            return false;
-        }
-
-        if (hasControlChars(key)) {
-            toast.error("Invalid JSON key (contains control characters)");
-            return false;
-        }
-
-        return true;
+    const updateDrafts = (next: string[]) => {
+        draftsRef.current = next;
+        setDrafts(next);
+        const valid = next.every((item) => !segmentError(item));
+        onValidChange?.(valid && !newPathRef.current.trim());
+        if (valid) setJsonNames(next.map((item) => item.trim()));
     };
-
-    const addPath = () => {
-        if (!validateText(newPath)) {
+    const updateNewPath = (next: string) => {
+        if (locked.current) return;
+        newPathRef.current = next;
+        setNewPath(next);
+        setNewError("");
+        onValidChange?.(draftsRef.current.every((item) => !segmentError(item)) && !next.trim());
+    };
+    const add = () => {
+        if (locked.current || draftsRef.current.length >= 5) return;
+        const error = segmentError(newPathRef.current);
+        setNewError(error);
+        if (error) {
+            onValidChange?.(false);
             return;
         }
-
-        setJsonNames([...jsonNames, newPath.trim()]);
+        const next = [...draftsRef.current, newPathRef.current.trim()];
+        newPathRef.current = "";
         setNewPath("");
-    };
-
-    const removePathAtIndex = (index: number) => {
-        const newArray = [...jsonNames];
-
-        // Remove the item at the specified index
-        if (index >= 0 && index < newArray.length) {
-            newArray.splice(index, 1);
-        }
-
-        setJsonNames(newArray);
-    };
-
-    const editExistingPath = (index: number, oldValue: string, e: TextInputEndEditingEvent) => {
-        const newValue = e.nativeEvent.text?.trim();
-
-        console.debug(`[Field name: ${oldValue}] Old name field name changed:`, newValue);
-
-        if (newValue === oldValue) {
-            return;
-        }
-
-        if (!validateText(newValue)) {
-            const copy = [...jsonNames];
-            copy[index] = oldValue;
-            setJsonNames(copy);
-            return;
-        }
-
-        const copy = [...jsonNames];
-        copy[index] = newValue;
-        setJsonNames(copy);
+        updateDrafts(next);
     };
 
     return (
-        <View style={styles.container}>
-            <Text bold={true} size={"medium"} color={"onBackground"}>
-                Json Fields Path
+        <View style={styles.root}>
+            <Text
+                accessibilityRole="header"
+                style={[styles.title, { color: colors.authForeground }]}>
+                JSON path
             </Text>
-
-            <View style={{ paddingLeft: 5 }}>
-                <View
-                    style={[
-                        {
-                            backgroundColor: theme.current.colors.primary,
-                            marginTop: 10,
-                            borderRadius: 8,
-                            paddingHorizontal: 12,
-                            paddingVertical: 7,
-                            alignSelf: "flex-start",
-                        },
-                        shadowStyles.default,
-                    ]}>
-                    <Text>{"{"}</Text>
+            <Text style={[styles.helper, { color: colors.authMuted }]}>
+                Segments are read in order, from the outer field to the value.
+            </Text>
+            {drafts.map((item, index) => (
+                <View key={index} style={styles.row}>
+                    <View style={styles.input}>
+                        <Input
+                            variant="auth"
+                            title={`Segment ${index + 1}`}
+                            placeholder="Field name"
+                            value={item}
+                            setValue={(value) => {
+                                if (locked.current) return;
+                                const next = [...draftsRef.current];
+                                next[index] = value;
+                                updateDrafts(next);
+                            }}
+                            error={segmentError(item)}
+                            editable={editable}
+                            accessibilityState={{ busy: disabled }}
+                        />
+                    </View>
+                    {editable && (
+                        <Pressable
+                            cssInterop={false}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Remove segment ${index + 1}`}
+                            accessibilityState={{ disabled }}
+                            disabled={disabled}
+                            onPress={() => {
+                                if (!locked.current)
+                                    updateDrafts(
+                                        draftsRef.current.filter((_, current) => current !== index),
+                                    );
+                            }}
+                            style={styles.remove}>
+                            <Trash2 size={20} color={colors.authForeground} accessible={false} />
+                        </Pressable>
+                    )}
                 </View>
-            </View>
-
-            <View style={{ flexDirection: "column", paddingTop: 6 }}>
-                {jsonNames.map((item, index) => (
-                    <View key={index} style={{ flexDirection: "row" }}>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                            <View
-                                style={{
-                                    flexDirection: "row",
-                                    flex: 1,
-                                    justifyContent: "center",
-                                    alignItems: "center",
-                                    paddingBottom: 6,
-                                    paddingLeft: index * 10 + 5,
-                                }}>
-                                <View
-                                    style={[
-                                        {
-                                            backgroundColor: theme.current.colors.primary,
-                                            borderRadius: 8,
-                                            padding: 4,
-                                            flexDirection: "row",
-                                        },
-                                        shadowStyles.default,
-                                    ]}>
-                                    {editable && (
-                                        <View
-                                            style={{
-                                                paddingRight: 4,
-                                                paddingLeft: 8,
-                                                justifyContent: "center",
-                                            }}>
-                                            <Icon icon="pencil-outline" size={14} />
-                                        </View>
-                                    )}
-
-                                    <TextInput
-                                        defaultValue={item}
-                                        placeholderTextColor={
-                                            theme.current.colors.textOnPrimary + "99"
-                                        }
-                                        onEndEditing={(event) =>
-                                            editExistingPath(index, item, event)
-                                        }
-                                        style={{
-                                            color: theme.current.colors.textOnPrimary,
-                                            fontSize: 14,
-                                            padding: 4,
-                                            paddingRight: 12,
-                                            margin: 0,
-                                            height: "auto",
-                                        }}
-                                    />
-                                </View>
-
-                                <View
-                                    style={[
-                                        {
-                                            backgroundColor: theme.current.colors.primary,
-                                            borderRadius: 8,
-                                            padding: 7,
-                                            paddingHorizontal: 12,
-                                            marginLeft: 4,
-                                        },
-                                        shadowStyles.default,
-                                    ]}>
-                                    <Text>{":"}</Text>
-                                </View>
-
-                                {index === jsonNames.length - 1 && (
-                                    <View
-                                        style={[
-                                            {
-                                                backgroundColor: theme.current.colors.primary,
-                                                borderRadius: 8,
-                                                padding: 7,
-                                                paddingHorizontal: 12,
-                                                marginLeft: 4,
-                                            },
-                                            shadowStyles.default,
-                                        ]}>
-                                        <Text>{"<value>"}</Text>
-                                    </View>
-                                )}
-
-                                {index !== jsonNames.length - 1 && (
-                                    <View
-                                        style={[
-                                            {
-                                                backgroundColor: theme.current.colors.primary,
-                                                borderRadius: 8,
-                                                padding: 7,
-                                                paddingHorizontal: 12,
-                                                marginLeft: 4,
-                                            },
-                                            shadowStyles.default,
-                                        ]}>
-                                        <Text>{"{"}</Text>
-                                    </View>
-                                )}
-                            </View>
-                        </ScrollView>
-
-                        {editable && (
-                            <View style={{ marginLeft: 4 }}>
-                                <View
-                                    style={[
-                                        {
-                                            backgroundColor: theme.current.colors.primary,
-                                            borderRadius: 8,
-                                            padding: 7,
-                                            paddingHorizontal: 12,
-                                        },
-                                        shadowStyles.default,
-                                    ]}>
-                                    <TouchableOpacity onPress={() => removePathAtIndex(index)}>
-                                        <Icon icon="trash-outline" size={20} color="error" />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        )}
-                    </View>
-                ))}
-            </View>
-
-            {jsonNames.length < 5 && editable && (
-                <View
-                    style={{
-                        flex: 1,
-                        flexDirection: "row",
-                        paddingLeft: (jsonNames.length - 1) * 10,
-                    }}>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        style={{ height: "100%" }}>
-                        <View
-                            style={{
-                                flexDirection: "row",
-                                flex: 1,
-                                justifyContent: "center",
-                                alignItems: "center",
-                                paddingLeft: 5,
-                                paddingBottom: 6,
-                            }}>
-                            <View
-                                style={[
-                                    {
-                                        backgroundColor: theme.current.colors.primary,
-                                        borderRadius: 8,
-                                        padding: 4,
-                                        flex: 1,
-                                        paddingBottom: 6,
-                                    },
-                                    shadowStyles.default,
-                                ]}>
-                                <TextInput
-                                    value={newPath}
-                                    onChangeText={setNewPath}
-                                    placeholder="Enter value field name"
-                                    placeholderTextColor={theme.current.colors.textOnPrimary + "99"}
-                                    style={{
-                                        flex: 1,
-                                        color: theme.current.colors.textOnPrimary,
-                                        fontSize: 14,
-                                        height: 24,
-                                        padding: 4,
-                                        paddingHorizontal: 12,
-                                        margin: 0,
-                                    }}
-                                />
-                            </View>
-                        </View>
-                    </ScrollView>
-
-                    <View style={{ paddingLeft: 4 }}>
-                        <View
-                            style={[
-                                {
-                                    backgroundColor: theme.current.colors.primary,
-                                    borderRadius: 8,
-                                    padding: 7,
-                                },
-                                shadowStyles.default,
-                            ]}>
-                            <TouchableOpacity
-                                onPress={addPath}
-                                style={{
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    height: "100%",
-                                }}>
-                                <Icon icon="add-outline" size={24} />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
+            ))}
+            {editable && drafts.length < 5 && (
+                <View style={styles.fields}>
+                    <Input
+                        variant="auth"
+                        title="New segment"
+                        placeholder="For example, state"
+                        value={newPath}
+                        setValue={updateNewPath}
+                        error={newError}
+                        accessibilityState={{ busy: disabled }}
+                        onSubmitEditing={add}
+                    />
+                    <SectionHeaderAction
+                        label="Add segment"
+                        accessibilityLabel="Add JSON path segment"
+                        icon={<Plus size={20} color={colors.authForeground} accessible={false} />}
+                        disabled={disabled}
+                        onPress={add}
+                    />
                 </View>
             )}
-            <View style={{ paddingLeft: 5 }}>
-                {jsonNames.map((item, index) => (
-                    <View
-                        key={index}
-                        style={{
-                            paddingLeft: (jsonNames.length - index - 1) * 10,
-                            paddingBottom: 6,
-                        }}>
-                        <View
-                            style={[
-                                {
-                                    backgroundColor: theme.current.colors.primary,
-                                    borderRadius: 8,
-                                    paddingHorizontal: 12,
-                                    paddingVertical: 7,
-                                    alignSelf: "flex-start",
-                                },
-                                shadowStyles.default,
-                            ]}>
-                            <Text>{"}"}</Text>
-                        </View>
-                    </View>
-                ))}
-
-                {jsonNames.length == 0 && (
-                    <View
-                        style={[
-                            {
-                                backgroundColor: theme.current.colors.primary,
-                                borderRadius: 8,
-                                paddingHorizontal: 12,
-                                paddingVertical: 7,
-                                alignSelf: "flex-start",
-                            },
-                            shadowStyles.default,
-                        ]}>
-                        <Text>{"}"}</Text>
-                    </View>
-                )}
-            </View>
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        paddingBottom: 15,
-    },
-    itemContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        padding: 10,
-        marginRight: 5,
-        borderRadius: 10,
-    },
-    inputContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        paddingTop: 10,
-        paddingBottom: 5,
-    },
-});
-
 export default JsonPathSelector;
+const styles = StyleSheet.create({
+    root: { gap: 12 },
+    title: { fontSize: 16, lineHeight: 24, fontWeight: "600" },
+    helper: { fontSize: 14, lineHeight: 20 },
+    fields: { gap: 8 },
+    row: { flexDirection: "row", gap: 8, alignItems: "flex-end" },
+    input: { flex: 1, minWidth: 0 },
+    remove: { width: 48, height: 52, alignItems: "center", justifyContent: "center" },
+});

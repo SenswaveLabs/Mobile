@@ -29,6 +29,9 @@ function mountSelect({
     onClosed,
     variant,
     busy,
+    dismissDisabled,
+    keyboardAware,
+    leading,
 } = {}) {
     const animations = [];
     const options = choices ?? [
@@ -44,6 +47,9 @@ function mountSelect({
             onClosed,
             variant,
             busy,
+            dismissDisabled,
+            keyboardAware,
+            leading,
         },
         modules: {
             "react-native": {
@@ -67,6 +73,9 @@ function mountSelect({
             },
             "react-native-safe-area-context": {
                 useSafeAreaInsets: () => ({ top: 24, bottom: 24 }),
+            },
+            "react-native-keyboard-controller": {
+                KeyboardAwareScrollView: "KeyboardAwareScrollView",
             },
             "react-native-reanimated": {
                 __esModule: true,
@@ -360,4 +369,39 @@ test("focuses the header without a selected option and restores trigger after iO
     trigger(form).props.ref.current = { id: "trigger" };
     sheet.props.onDismiss();
     assert.equal(accessibilityFocus.at(-1).id, "trigger");
+});
+
+test("a guarded sheet blocks Back, scrim and Close until its pending action settles", () => {
+    let locked = true;
+    const form = mountSelect({ dismissDisabled: () => locked, keyboardAware: true });
+    open(form);
+    assert.ok(elements(form).some((node) => node.type === "KeyboardAwareScrollView"));
+    modal(form).props.onRequestClose();
+    scrim(form).props.onPress();
+    elements(form)
+        .find((node) => node.props?.accessibilityLabel === "Close selector")
+        .props.onPress();
+    form.render();
+    assert.equal(modal(form).props.visible, true);
+    locked = false;
+    modal(form).props.onRequestClose();
+    form.render();
+    assert.equal(modal(form).props.visible, false);
+});
+
+test("compact color tiles retain the accessible value without clipping its text", () => {
+    const form = mountSelect({ variant: "tile", leading: { type: "Swatch", props: {} } });
+    trigger(form).props.onLayout({ nativeEvent: { layout: { width: 50 } } });
+    form.render();
+    assert.equal(trigger(form).props.accessibilityLabel, "Transport security, Required");
+    assert.equal(
+        elements(form, trigger(form)).some((node) => node.type === "NativeText"),
+        false,
+    );
+    trigger(form).props.onLayout({ nativeEvent: { layout: { width: 150 } } });
+    form.render();
+    assert.equal(
+        elements(form, trigger(form)).some((node) => node.type === "NativeText"),
+        true,
+    );
 });

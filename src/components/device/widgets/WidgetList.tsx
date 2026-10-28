@@ -1,17 +1,20 @@
-import React, { FC, useCallback, useState } from "react";
-import { View, Pressable, RefreshControl, SectionList } from "react-native";
-import { useFocusEffect } from "expo-router";
-import { useToast } from "@/contexts/ToastProvider";
-import Loading from "@/components/common/Loading";
-import { ListResponse } from "@/utils/httpClient";
-import { useDevice } from "@/contexts/custom/DeviceProvider";
-import { useHttpClient } from "@/contexts/HttpClientProvider";
-import Text from "@/components/common/Text";
-import WidgetListTile from "@/components/device/widgets/WidgetListTile";
+import Button from "@/components/common/Button";
 import Icon from "@/components/common/Icon";
-import { useRouter } from "expo-router";
-import { WidgetListDto, OperationGroup, OperationGroupListDto } from "@/types/DeviceTypes";
-import OperationTile from "../operation/OperationTile";
+import Loading from "@/components/common/Loading";
+import Text from "@/components/common/Text";
+import OperationTile from "@/components/device/operation/OperationTile";
+import WidgetListTile from "@/components/device/widgets/WidgetListTile";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useDevice } from "@/contexts/custom/DeviceProvider";
+import { useHomes } from "@/contexts/domain/HomeProvider";
+import { useHttpClient } from "@/contexts/HttpClientProvider";
+import { useTheme } from "@/contexts/ThemeProvider";
+import type { ListResponse } from "@/utils/httpClient";
+import type { OperationGroup, WidgetListDto } from "@/types/DeviceTypes";
+import { useFocusEffect, useRouter } from "expo-router";
+import { CircleAlert } from "lucide-react-native";
+import React, { FC, useCallback, useRef, useState } from "react";
+import { Pressable, RefreshControl, SectionList, StyleSheet, View } from "react-native";
 
 const EmptyWidget: WidgetListDto = {
     id: "",
@@ -22,83 +25,197 @@ const EmptyWidget: WidgetListDto = {
 };
 
 interface WidgetListProps {
-    overrideOnClick?: (operationId: string) => Promise<void>;
+    overrideOnClick?: (widgetId: string, widget?: WidgetListDto) => Promise<void>;
     hideAddButtons?: boolean;
+    deviceId?: string;
+    selectedWidgetId?: string;
+    disabled?: boolean;
+    excludedWidgetIds?: string[];
 }
 
-const WidgetList: FC<WidgetListProps> = ({ overrideOnClick, hideAddButtons = false }) => {
+const isOperationGroupList = (value: unknown): value is OperationGroup[] =>
+    Array.isArray(value) &&
+    value.every((group) => {
+        if (!group || typeof group !== "object") return false;
+        const item = group as Partial<OperationGroup>;
+        return (
+            item.operation !== undefined &&
+            typeof item.operation.id === "string" &&
+            typeof item.operation.name === "string" &&
+            typeof item.operation.type === "string" &&
+            Array.isArray(item.widgets) &&
+            item.widgets.every(
+                (widget) =>
+                    widget &&
+                    typeof widget.id === "string" &&
+                    typeof widget.name === "string" &&
+                    typeof widget.type === "string" &&
+                    typeof widget.enabled === "boolean",
+            )
+        );
+    });
+
+const WidgetList: FC<WidgetListProps> = ({
+    overrideOnClick,
+    hideAddButtons = false,
+    deviceId: explicitDeviceId,
+    selectedWidgetId,
+    disabled = false,
+    excludedWidgetIds = [],
+}) => {
     const httpClient = useHttpClient();
     const device = useDevice();
-    const toast = useToast();
+    const home = useHomes();
     const router = useRouter();
+    const { colors } = useTheme().current;
+    const canManage = home.current?.isOwner === true || home.current?.canManage === true;
+    const canManageRef = useRef(canManage);
+    canManageRef.current = canManage;
+    const disabledRef = useRef(disabled);
+    disabledRef.current = disabled;
+    const deviceId = explicitDeviceId || device.deviceId;
+    const deviceIdRef = useRef(deviceId);
+    deviceIdRef.current = deviceId;
+    const requestRef = useRef(0);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [groupsDeviceId, setGroupsDeviceId] = useState("");
     const [groups, setGroups] = useState<OperationGroup[]>([]);
+    const [loadError, setLoadError] = useState("");
 
-    const onRefresh = useCallback(() => {
-        setRefreshing(true);
-        const refresh = async () => {
-            const result = await httpClient.get(
-                `v1/devices/widgets/display?deviceId=${device.deviceId}`,
-            );
+    const loadGroups = useCallback(
+        async (showLoading = true) => {
+            const targetDeviceId = deviceId;
+            const request = ++requestRef.current;
+            const isCurrent = () =>
+                request === requestRef.current && targetDeviceId === deviceIdRef.current;
 
-            if (result.isSuccess) {
-                const data = (await result.response!.json()) as ListResponse<OperationGroup>;
-                setGroups(data.items);
-                setRefreshing(false);
-            } else {
-                toast.error("Failed to refresh operations.");
-                setRefreshing(false);
+            if (!targetDeviceId) {
+                if (isCurrent()) {
+                    setGroups([]);
+                    setGroupsDeviceId("");
+                    setLoadError("Choose a device to load its widgets.");
+                    setLoading(false);
+                }
+                return;
             }
-        };
 
-        refresh();
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    const getOperations = async () => {
-        const result = await httpClient.get(
-            `v1/devices/widgets/display?deviceId=${device.deviceId}`,
-        );
-
-        if (result.isSuccess) {
-            const data = (await result.response!.json()) as ListResponse<OperationGroup>;
-            setGroups(data.items);
-            setLoading(false);
-        } else if (result.statusCode === 404) {
-            setGroups([]);
-            setLoading(false);
-            toast.info("Create some operations!");
-        } else {
-            toast.error("Failed to load operations.");
-            setLoading(false);
-        }
-    };
-
-    const addWidgetClicked = async (operationId: string) => {
-        console.info("[WidgetList] Add Widget Clicked.");
-        router.push({ pathname: "device/widget/add", params: { operationId: operationId } });
-    };
+            if (showLoading) setLoading(true);
+            setLoadError("");
+            try {
+                const result = await httpClient.get(
+                    `v1/devices/widgets/display?deviceId=${targetDeviceId}`,
+                );
+                if (result.statusCode === 404 && !result.isSuccess) {
+                    if (isCurrent()) {
+                        setGroups([]);
+                        setGroupsDeviceId(targetDeviceId);
+                    }
+                } else {
+                    if (!result.isSuccess || !result.response)
+                        throw new Error("Widget list read failed");
+                    const content: unknown = await result.response.json();
+                    const items =
+                        content && typeof content === "object" && "items" in content
+                            ? (content as ListResponse<OperationGroup>).items
+                            : undefined;
+                    if (!isOperationGroupList(items)) throw new Error("Widget list is invalid");
+                    if (isCurrent()) {
+                        setGroups(items);
+                        setGroupsDeviceId(targetDeviceId);
+                    }
+                }
+            } catch {
+                if (isCurrent()) setLoadError("Couldn't load widgets. Try again.");
+            } finally {
+                if (isCurrent()) setLoading(false);
+            }
+        },
+        [deviceId, httpClient],
+    );
 
     useFocusEffect(
         useCallback(() => {
-            getOperations();
-
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, []),
+            void loadGroups();
+            return () => {
+                ++requestRef.current;
+            };
+        }, [loadGroups]),
     );
 
-    if (loading) {
-        return <Loading />;
-    }
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await loadGroups(false);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
+    const addWidgetClicked = (operationId: string) => {
+        if (
+            !canManageRef.current ||
+            disabledRef.current ||
+            !deviceId ||
+            deviceIdRef.current !== deviceId
+        )
+            return;
+        router.push({
+            pathname: "device/widget/add",
+            params: { operationId, deviceId },
+        });
+    };
+
+    const dataMatchesDevice = groupsDeviceId === deviceId;
+    if (loading || (!dataMatchesDevice && !loadError))
+        return (
+            <View style={styles.state}>
+                <Loading />
+            </View>
+        );
+
+    if (loadError)
+        return (
+            <View style={styles.state}>
+                <Alert
+                    icon={CircleAlert}
+                    variant="destructive"
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite">
+                    <AlertDescription>{loadError}</AlertDescription>
+                </Alert>
+                <Button
+                    name="Retry"
+                    type="brand-outline"
+                    loading={refreshing}
+                    disabled={refreshing || disabled}
+                    onPress={() => void onRefresh()}
+                />
+            </View>
+        );
+
+    if (groups.length === 0)
+        return (
+            <View style={styles.state}>
+                <Text size="medium" color="onBackground" bold>
+                    No widgets available.
+                </Text>
+                <Text size="small" color="onBackground">
+                    {canManage
+                        ? "Add an operation and widget to this device, then return here."
+                        : "Ask a home manager to add widgets to this device."}
+                </Text>
+            </View>
+        );
 
     const displayWidget = (item: WidgetListDto, separator: boolean) => {
         if (item.empty) {
             return (
-                <View>
-                    <Text size="medium" color="onBackground">
-                        Operation has no widgets!
+                <View style={styles.emptyOperation}>
+                    <Text size="small" color="onBackground">
+                        {excludedWidgetIds.length > 0
+                            ? "No unplaced widgets for this operation."
+                            : "Operation has no widgets yet."}
                     </Text>
                 </View>
             );
@@ -110,8 +227,11 @@ const WidgetList: FC<WidgetListProps> = ({ overrideOnClick, hideAddButtons = fal
                 name={item.name}
                 type={item.type}
                 enabled={item.enabled}
-                overrideOnClick={overrideOnClick}
-                variant="list"
+                deviceId={deviceId}
+                canManage={canManage}
+                overrideOnClick={overrideOnClick ? (id) => overrideOnClick(id, item) : undefined}
+                selected={item.id === selectedWidgetId}
+                disablePress={disabled}
                 separator={separator}
             />
         );
@@ -119,60 +239,49 @@ const WidgetList: FC<WidgetListProps> = ({ overrideOnClick, hideAddButtons = fal
 
     return (
         <SectionList
-            sections={groups.map((x) => ({
-                title: JSON.stringify(x.operation),
-                data: x.widgets.length > 0 ? x.widgets : [EmptyWidget],
-            }))}
-            keyExtractor={(item, index) => item.id + index}
+            style={styles.list}
+            stickySectionHeadersEnabled={false}
+            sections={groups.map((group) => {
+                const available = group.widgets.filter(
+                    (widget) => !excludedWidgetIds.includes(widget.id),
+                );
+                return {
+                    operation: group.operation,
+                    data: available.length > 0 ? available : [EmptyWidget],
+                };
+            })}
+            keyExtractor={(item, index) => `${item.id}-${index}`}
             renderItem={({ item, index, section }) =>
                 displayWidget(item, index < section.data.length - 1)
             }
             renderSectionHeader={({ section }) => (
-                <View
-                    style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        alignContent: "center",
-                        marginTop: 20,
-                        marginBottom: 8,
-                    }}>
-                    <View style={{ flex: 1, marginRight: 10 }}>
+                <View style={styles.sectionHeader}>
+                    <View style={styles.operation}>
                         <OperationTile
-                            id={(JSON.parse(section.title) as OperationGroupListDto).id}
-                            name={(JSON.parse(section.title) as OperationGroupListDto).name}
-                            type={(JSON.parse(section.title) as OperationGroupListDto).type}
+                            id={section.operation.id}
+                            name={section.operation.name}
+                            type={section.operation.type}
                             variant="list"
+                            disablePress={Boolean(overrideOnClick) || disabled || !canManage}
                             separator={false}
                         />
                     </View>
-
-                    {!hideAddButtons && (
+                    {canManage && !hideAddButtons && (
                         <Pressable
+                            cssInterop={false}
                             accessibilityRole="button"
-                            accessibilityLabel="Add widget"
-                            style={{
-                                width: 48,
-                                height: 48,
-                                borderRadius: 24,
-                                alignItems: "center",
-                                justifyContent: "center",
-                            }}
-                            onPress={() => {
-                                addWidgetClicked(
-                                    (JSON.parse(section.title) as OperationGroupListDto).id,
-                                );
-                            }}>
+                            accessibilityLabel={`Add widget to ${section.operation.name}`}
+                            accessibilityState={{ disabled }}
+                            disabled={disabled}
+                            android_ripple={{ color: colors.deviceTileSubtle }}
+                            style={[styles.addWidgetButton, disabled && styles.pressed]}
+                            onPress={() => addWidgetClicked(section.operation.id)}>
                             <Icon icon="add-outline" size={24} color="brand" />
                         </Pressable>
                     )}
                 </View>
             )}
-            contentContainerStyle={{
-                paddingHorizontal: 16,
-                paddingTop: 15,
-                paddingBottom: 120,
-            }}
+            contentContainerStyle={styles.listContent}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             showsVerticalScrollIndicator={false}
         />
@@ -180,3 +289,27 @@ const WidgetList: FC<WidgetListProps> = ({ overrideOnClick, hideAddButtons = fal
 };
 
 export default WidgetList;
+
+const styles = StyleSheet.create({
+    list: { flex: 1, minHeight: 0 },
+    listContent: { paddingHorizontal: 16, paddingBottom: 16 },
+    state: { flex: 1, justifyContent: "center", gap: 12, padding: 16 },
+    sectionHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        marginTop: 12,
+        marginBottom: 8,
+    },
+    operation: { flex: 1, minWidth: 0 },
+    addWidgetButton: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    pressed: { opacity: 0.72 },
+    emptyOperation: { minHeight: 56, justifyContent: "center", paddingHorizontal: 12 },
+});

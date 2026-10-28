@@ -1,16 +1,24 @@
-import { View } from "react-native";
+import React, { FC, useRef, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import Button from "@/components/common/Button";
-import Dropdown from "@/components/common/Dropdown";
+import BottomSheetSelect from "@/components/common/BottomSheetSelect";
 import IconSelector from "@/components/common/IconSelector";
 import Input from "@/components/common/Input";
+import FormSection from "@/components/common/FormSection";
 import { useWidgetDetails } from "@/contexts/custom/WidgetDetailsProvider";
-import { useState } from "react";
-import { RadioOption } from "./RadioForm";
-import { OptionInfo } from "@/contexts/custom/OperationFormProvider";
-interface RadioOptionFormModalProps {
+import { useTheme } from "@/contexts/ThemeProvider";
+import { keyboardOffset } from "@/styles/defaultStyles";
+import type { RadioOption } from "./RadioForm";
+import type { OptionInfo } from "@/contexts/custom/OperationFormProvider";
+import { getRadioOptionErrors } from "./radioValidation";
+
+interface Props {
     onAddOption: (option: RadioOption) => void;
     currentRadioOptions: RadioOption[];
     onClose: () => void;
+    edit?: boolean;
+    disabled?: boolean;
 }
 
 const DefaultIcons = [
@@ -29,108 +37,154 @@ const DefaultIcons = [
     "thermometer-outline",
     "water-outline",
     "leaf-outline",
-] as string[];
+];
 
-const RadioOptionFormModal = ({
+const RadioOptionFormModal: FC<Props> = ({
     onAddOption,
     currentRadioOptions,
     onClose,
-}: RadioOptionFormModalProps) => {
+    edit = false,
+    disabled = false,
+}) => {
     const widgetDetails = useWidgetDetails();
+    const { colors } = useTheme().current;
+    const operationOptions = Array.isArray(widgetDetails.operation?.configuration?.options)
+        ? (widgetDetails.operation.configuration.options as OptionInfo[])
+        : [];
+    const availableOptions = operationOptions.filter(
+        (option) => !currentRadioOptions.some((current) => current.optionName === option.name),
+    );
+    const [draft, setDraft] = useState<RadioOption>({
+        optionName: availableOptions[0]?.name ?? "",
+        displayName: "",
+        icon: "bulb-outline",
+    });
+    const draftRef = useRef(draft);
+    const [errors, setErrors] = useState({ displayName: "", optionName: "", icon: "" });
+    const acceptedRef = useRef(false);
+    const lockedRef = useRef(edit || disabled);
+    lockedRef.current = edit || disabled;
+    const currentOptionsRef = useRef(currentRadioOptions);
+    currentOptionsRef.current = currentRadioOptions;
 
-    const operationOptions =
-        (widgetDetails.operation?.configuration?.options as OptionInfo[] | undefined) ?? [];
-    const options = operationOptions.map((x) => ({
-        name: x.name,
-        value: x.name,
-    }));
-
-    const [name, setName] = useState<string>("");
-    const [nameError, setNameError] = useState<string>("");
-    const [optionError, setOptionError] = useState<string>("");
-    const [icon, setIcon] = useState<string>("bulb-outline");
-    const [selectedOption, setSelectedOption] = useState<string>(options[0]?.value ?? "");
-
-    const validateNewOption = () => {
-        if (name.length < 1) {
-            setNameError("Name options is too short");
-            return false;
-        }
-
-        if (name.length > 12) {
-            setNameError("Option name is too long");
-            return false;
-        }
-
-        setNameError("");
-
-        if (currentRadioOptions.some((option) => option.optionName === selectedOption)) {
-            setOptionError("Option already used.");
-            return false;
-        }
-
-        if (currentRadioOptions.some((option) => option.displayName === name)) {
-            setNameError("Display name already used.");
-            return false;
-        }
-
-        setOptionError("");
-        return true;
+    const changeDraft = (field: keyof RadioOption, value: string) => {
+        if (lockedRef.current || acceptedRef.current) return;
+        const next = { ...draftRef.current, [field]: value };
+        draftRef.current = next;
+        setDraft(next);
+        const nextErrors = getRadioOptionErrors(
+            { ...next, displayName: next.displayName.trim() },
+            operationOptions,
+            currentOptionsRef.current,
+        );
+        setErrors((current) => ({ ...current, [field]: nextErrors[field] }));
     };
 
-    const addOptionPressed = () => {
-        if (!validateNewOption()) return;
-
-        const option: RadioOption = {
-            optionName: selectedOption,
-            displayName: name,
-            icon: icon,
-        };
-
+    const addOption = () => {
+        if (lockedRef.current || acceptedRef.current) return;
+        const option = { ...draftRef.current, displayName: draftRef.current.displayName.trim() };
+        const nextErrors = getRadioOptionErrors(
+            option,
+            operationOptions,
+            currentOptionsRef.current,
+        );
+        if (currentOptionsRef.current.length >= 10)
+            nextErrors.optionName = "Use at most 10 options.";
+        setErrors(nextErrors);
+        if (Object.values(nextErrors).some(Boolean)) return;
+        acceptedRef.current = true;
         onAddOption(option);
         onClose();
     };
 
     return (
-        <View style={{ flex: 1 }}>
-            <Dropdown
-                title={"Operation Option"}
-                options={options}
-                selectedValue={selectedOption}
-                onSelected={(v) => {
-                    setSelectedOption(v);
-                    setOptionError("");
-                }}
-                error={optionError}
-                style={{ marginBottom: 10 }}
-            />
-
-            <Input
-                value={name}
-                setValue={setName}
-                error={nameError}
-                title={"Radio Display Name"}
-                placeholder={"Provide option name"}
-            />
-
-            <IconSelector
-                onIconSelected={(x) => {
-                    setIcon(x);
-                }}
-                iconList={DefaultIcons}
-                defaultIcon="bulb-outline"
-            />
-
-            <View style={{ flex: 1 }} />
-
-            <Button
-                name="Add Option"
-                loading={false}
-                onPress={addOptionPressed}
-                style={{ marginBottom: 16 }}
-            />
-        </View>
+        <KeyboardAwareScrollView
+            bottomOffset={keyboardOffset}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.content}>
+            <FormSection
+                title="Option details"
+                helper="Choose the operation option, then give it a short name for the dashboard.">
+                <View style={styles.field}>
+                    <BottomSheetSelect
+                        title="Operation option"
+                        value={draft.optionName || "No options available"}
+                        disabled={edit || disabled || availableOptions.length === 0}
+                        options={availableOptions.map((option) => ({
+                            label: option.name,
+                            selected: draft.optionName === option.name,
+                            onPress: () => changeDraft("optionName", option.name),
+                        }))}
+                    />
+                    {!!errors.optionName && (
+                        <Text
+                            style={[styles.support, { color: colors.error }]}
+                            accessibilityLiveRegion="polite">
+                            {errors.optionName}
+                        </Text>
+                    )}
+                    {availableOptions.length === 0 && (
+                        <Text style={[styles.support, { color: colors.authMuted }]}>
+                            No unused operation options are available.
+                        </Text>
+                    )}
+                </View>
+                <Input
+                    variant="auth"
+                    value={draft.displayName}
+                    setValue={(value) => changeDraft("displayName", value)}
+                    error={errors.displayName}
+                    title="Display name"
+                    placeholder="For example, On"
+                    editable={!edit}
+                    accessibilityState={{ busy: disabled }}
+                    returnKeyType="done"
+                    onSubmitEditing={addOption}
+                />
+                <View style={styles.field}>
+                    <IconSelector
+                        variant="brand"
+                        onIconSelected={(value) => changeDraft("icon", value)}
+                        iconList={DefaultIcons}
+                        defaultIcon={draft.icon}
+                        disabled={edit || disabled}
+                    />
+                    {!!errors.icon && (
+                        <Text
+                            style={[styles.support, { color: colors.error }]}
+                            accessibilityLiveRegion="polite">
+                            {errors.icon}
+                        </Text>
+                    )}
+                </View>
+            </FormSection>
+            <View style={styles.actions}>
+                <Button
+                    name="Add option"
+                    loading={false}
+                    type="auth"
+                    disabled={
+                        edit || disabled || acceptedRef.current || availableOptions.length === 0
+                    }
+                    onPress={addOption}
+                />
+            </View>
+        </KeyboardAwareScrollView>
     );
 };
 
 export default RadioOptionFormModal;
+
+const styles = StyleSheet.create({
+    content: {
+        flexGrow: 1,
+        paddingTop: 24,
+        paddingBottom: 24,
+        width: "100%",
+        maxWidth: 448,
+        alignSelf: "center",
+    },
+    actions: { paddingTop: 32, marginTop: "auto" },
+    field: { gap: 6 },
+    support: { fontSize: 14, lineHeight: 20 },
+});

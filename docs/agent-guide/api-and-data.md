@@ -75,9 +75,9 @@ type WidgetType = "Invalid" | "Empty" | "Button" | "Display" | "Switch" | "Radio
 | Widget | OperationType | Behaviour |
 |--------|---------------|-----------|
 | Button | Any | Sends configured value on press |
-| Display | Any | Shows current value, read-only |
+| Display | Text / Number / Integer | Shows current value, read-only |
 | Switch | Boolean | Toggle true/false |
-| Radio | Options | Pick from option list (modal picker) |
+| Radio | Options | Pick from the widget's configured operation options |
 | Slider | Number / Integer | Range slider, configured min/max |
 | Color | HexColor | Full color picker (`reanimated-color-picker`) |
 | Empty | — | Placeholder grid slot |
@@ -151,7 +151,7 @@ selection, including one selected during recovery. A failed initializer sends th
 active details screen to the picker; it must not repeat the destructive request.
 Ordinary initialization and refresh callers keep their existing behavior.
 
-`DeviceListProvider` owns client-side dashboard loading and error recovery. It
+`DeviceListProvider` owns client-side device-list loading and error recovery. It
 requests the complete V1 collection with `size=2147483647` (the API's full-collection
 sentinel); omitting size returns only ten devices and gives incomplete room filters.
 It derives room filtering from the current home's device collection, preserves a
@@ -162,6 +162,27 @@ Failed reads retain cached current-home devices and expose an inline error;
 `true`; awaiting it does not wait for the request or report its result. Retained
 device-update callbacks consult the current-home ref before updating that collection.
 These are client context behaviors; backend API contracts are unchanged.
+
+`DeviceProvider` owns the selected device's dashboard collection and display
+resource. It reads `GET v1/devices/dashboards/display?deviceId={deviceId}` and
+`GET v1/devices/dashboards/{dashboardId}/display`; `loadError` carries dashboard
+read recovery to the screen. Binding another device clears the previous device's
+list and detail, and a detail response is accepted only for the active device,
+dashboard and collection request. The context keeps its existing `refresh` and
+`smartRefresh` signatures. This identity and local recovery state do not change
+server contracts.
+
+Dashboard placement uses `PUT v1/devices/dashboards/{dashboardId}/widgets` with
+`{ widgetId, row, column, rowSpan, columnSpan }`. This endpoint adds a placement;
+it rejects a widget ID already on the dashboard and does not update its geometry.
+The picker excludes already placed IDs, and gesture editing applies to the unsaved
+placement. Removing a dashboard placement
+uses `DELETE v1/devices/dashboards/{dashboardId}/widgets/{widgetId}`; it does not
+delete the widget definition. Live widget controls keep
+`POST v1/devices/widgets/{widgetId}/action` with `{ value }`: Button sends an
+empty string, Switch a Boolean, Radio the exact option name, Color the exact hex
+string and Slider a number. Preserve values and opaque IDs as received. The
+server remains responsible for authorization and validates these writes.
 
 ### Home and Device icons
 
@@ -183,8 +204,12 @@ English label selected by each entry's `labelKey`; unknown labels fall back to t
 opaque key. `resourceIcons.ts` maps resource keys to native Lucide symbols for
 presentation only, including safe Home/Device fallbacks. It is not an allowed list.
 Unknown or historical selections keep their original stored keys; their display
-fallback must never become a submitted replacement. Other selector callers retain
-their existing global icon browser.
+fallback must never become a submitted replacement. Dashboard and Radio selection
+use their historical local palettes (16 and 15 keys) in brand bottom sheets; these
+are UI choice restrictions, not backend catalogs or a data migration. Existing
+saved keys outside those palettes remain readable and unchanged on unrelated
+saves. Automation retains its existing global icon browser. See the
+[UI policy](interface.md) for the required presentation and behavior.
 
 Create requires a nonempty catalog key, including validation of `home-outline` and
 `bulb-outline` defaults. PATCH omits an unchanged icon, so unrelated edits remain

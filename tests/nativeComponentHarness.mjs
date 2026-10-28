@@ -231,6 +231,7 @@ export function mountNativeComponent(
             require: localRequire,
             React: react,
             Error,
+            requestAnimationFrame: (callback) => callback(),
             ...timers,
         });
         cache.set(path, module.exports);

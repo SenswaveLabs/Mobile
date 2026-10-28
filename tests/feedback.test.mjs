@@ -335,7 +335,11 @@ test("redesigned forms and home selection suppress legacy overlays without dismi
         "/home/room/add",
         "/home/room/details",
         "/device/add",
+        "/device/device",
         "/device/dashboard/add",
+        "/device/dashboard/details",
+        "/device/dashboard/placeWidget",
+        "/device/operation/add",
         "/dataSource/add",
         "/dataSource/brokers/startBrokerClient",
         "/dataSource/brokers/addSubscription",
@@ -365,7 +369,7 @@ test("entering an inline flow hides the existing toast and other screens retain 
     provider.navigate("/profile");
     provider.feedback().success("Saved");
     assert.equal(provider.shown.at(-1).message, "Saved");
-    provider.navigate("/device/dashboard/details");
+    provider.navigate("/device/operation/details");
     provider.feedback().error("Dashboard details error");
     assert.equal(provider.shown.at(-1).message, "Dashboard details error");
 });

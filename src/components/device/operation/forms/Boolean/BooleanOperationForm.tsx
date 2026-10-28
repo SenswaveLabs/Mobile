@@ -1,103 +1,91 @@
-import React from "react";
-import { View } from "react-native";
-import Dropdown, { Option } from "@/components/common/Dropdown";
-import SwitchDropdown from "@/components/common/SwitchDropdown";
+import React, { FC } from "react";
+import { StyleSheet, View } from "react-native";
+import BottomSheetSelect from "@/components/common/BottomSheetSelect";
 import Input from "@/components/common/Input";
-import Text from "@/components/common/Text";
 
 export type BoolValueType = "boolean" | "number" | "text";
-
-const BooleanOverrideOptions: Option[] = [
-    { name: "Default (true / false)", value: "default" },
-    { name: "Inversed (false / true)", value: "inversed" },
-    { name: "Custom", value: "custom" },
-];
-
-const ValueTypeOptions: Option[] = [
-    { name: "Boolean", value: "boolean" },
-    { name: "Number", value: "number" },
-    { name: "Text", value: "text" },
-];
-
-export function inferBoolValueType(val: any): BoolValueType {
-    if (typeof val === "boolean") return "boolean";
-    if (typeof val === "number") return "number";
+export function inferBoolValueType(value: any): BoolValueType {
+    if (typeof value === "boolean") return "boolean";
+    if (typeof value === "number") return "number";
     return "text";
 }
-
 export function defaultBoolValue(type: BoolValueType): string | boolean {
     if (type === "boolean") return false;
-    if (type === "number") return "0";
-    return "";
+    return type === "number" ? "0" : "";
 }
-
 export function getBoolOverrideValue(
     type: BoolValueType,
     value: string | boolean,
 ): string | number | boolean {
     if (type === "boolean") return Boolean(value);
-    if (type === "number") return Number(value as string);
-    return value as string;
+    return type === "number" ? Number(value) : String(value);
 }
 
 interface BoolValueInputProps {
     label: string;
     type: BoolValueType;
     value: string | boolean;
-    editable: boolean;
+    disabled: boolean;
     onTypeChange: (type: BoolValueType) => void;
     onValueChange: (value: string | boolean) => void;
 }
-
-const BoolValueInput: React.FC<BoolValueInputProps> = ({
+const valueTypes: { label: string; value: BoolValueType }[] = [
+    { label: "Boolean", value: "boolean" },
+    { label: "Number", value: "number" },
+    { label: "Text", value: "text" },
+];
+const BoolValueInput: FC<BoolValueInputProps> = ({
     label,
     type,
     value,
-    editable,
+    disabled,
     onTypeChange,
     onValueChange,
-}) => {
-    return (
-        <View style={{ marginBottom: 10 }}>
-            <Text size="medium" color="onBackground" bold style={{ marginBottom: 5 }}>
-                {label}
-            </Text>
-            <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
-                <View style={{ flex: 1 }}>
-                    <Dropdown
-                        title=""
-                        options={ValueTypeOptions}
-                        selectedValue={type}
-                        onSelected={(v) => onTypeChange(v as BoolValueType)}
-                        disablePress={!editable}
-                    />
-                </View>
-                <View style={{ flex: 1 }}>
-                    {type === "boolean" ? (
-                        <SwitchDropdown
-                            value={value as boolean}
-                            onSelected={onValueChange}
-                            disablePress={!editable}
-                        />
-                    ) : (
-                        <Input
-                            error=""
-                            value={value.toString()}
-                            title=""
-                            placeholder={type === "number" ? "e.g. 1" : "e.g. on"}
-                            keyboardType={type === "number" ? "numeric" : "default"}
-                            setValue={(v) => onValueChange(v)}
-                            editable={editable}
-                        />
-                    )}
-                </View>
-            </View>
-        </View>
-    );
-};
-
+}) => (
+    <View style={styles.fields}>
+        <BottomSheetSelect
+            title={`${label} type`}
+            value={valueTypes.find((item) => item.value === type)?.label ?? type}
+            disabled={disabled}
+            options={valueTypes.map((item) => ({
+                label: item.label,
+                selected: type === item.value,
+                onPress: () => onTypeChange(item.value),
+            }))}
+        />
+        {type === "boolean" ? (
+            <BottomSheetSelect
+                title={label}
+                value={value ? "True" : "False"}
+                disabled={disabled}
+                options={[
+                    { label: "True", selected: value === true, onPress: () => onValueChange(true) },
+                    {
+                        label: "False",
+                        selected: value === false,
+                        onPress: () => onValueChange(false),
+                    },
+                ]}
+            />
+        ) : (
+            <Input
+                variant="auth"
+                title={label}
+                value={String(value)}
+                placeholder={type === "number" ? "For example, 1" : "For example, on"}
+                error=""
+                keyboardType={type === "number" ? "numeric" : "default"}
+                setValue={(next) => {
+                    if (!disabled) onValueChange(next);
+                }}
+                accessibilityState={{ busy: disabled }}
+            />
+        )}
+    </View>
+);
 interface BooleanOperationFormProps {
     edit: boolean;
+    disabled?: boolean;
     override: string;
     trueType: BoolValueType;
     trueValue: string | boolean;
@@ -109,9 +97,9 @@ interface BooleanOperationFormProps {
     onFalseTypeChange: (type: BoolValueType) => void;
     onFalseValueChange: (value: string | boolean) => void;
 }
-
-const BooleanOperationForm = ({
+const BooleanOperationForm: FC<BooleanOperationFormProps> = ({
     edit,
+    disabled = false,
     override,
     trueType,
     trueValue,
@@ -122,94 +110,71 @@ const BooleanOperationForm = ({
     onTrueValueChange,
     onFalseTypeChange,
     onFalseValueChange,
-}: BooleanOperationFormProps) => {
+}) => {
     if (edit) {
         if (override === "default") return null;
-
-        if (override === "inversed") {
-            return (
-                <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
-                    <View style={{ width: "50%" }}>
-                        <Input
-                            error=""
-                            value="false"
-                            title="True Value"
-                            placeholder=""
-                            setValue={() => {}}
-                            editable={false}
-                        />
-                    </View>
-                    <View style={{ width: "50%" }}>
-                        <Input
-                            error=""
-                            value="true"
-                            title="False Value"
-                            placeholder=""
-                            setValue={() => {}}
-                            editable={false}
-                        />
-                    </View>
-                </View>
-            );
-        }
-
         return (
-            <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
-                <View style={{ width: "50%" }}>
-                    <Input
-                        error=""
-                        value={trueValue.toString()}
-                        title="True Value"
-                        placeholder=""
-                        setValue={() => {}}
-                        editable={false}
-                    />
-                </View>
-                <View style={{ width: "50%" }}>
-                    <Input
-                        error=""
-                        value={falseValue.toString()}
-                        title="False Value"
-                        placeholder=""
-                        setValue={() => {}}
-                        editable={false}
-                    />
-                </View>
+            <View style={styles.fields}>
+                <Input
+                    variant="auth"
+                    title="True value"
+                    placeholder=""
+                    error=""
+                    value={override === "inversed" ? "false" : String(trueValue)}
+                    setValue={() => {}}
+                    editable={false}
+                />
+                <Input
+                    variant="auth"
+                    title="False value"
+                    placeholder=""
+                    error=""
+                    value={override === "inversed" ? "true" : String(falseValue)}
+                    setValue={() => {}}
+                    editable={false}
+                />
             </View>
         );
     }
-
+    const overrides = [
+        { label: "Default (true / false)", value: "default" },
+        { label: "Inversed (false / true)", value: "inversed" },
+        { label: "Custom", value: "custom" },
+    ];
     return (
-        <>
-            <Dropdown
-                title="Value Override"
-                options={BooleanOverrideOptions}
-                selectedValue={override}
-                onSelected={onOverrideChange}
-                style={{ marginBottom: 10 }}
+        <View style={styles.fields}>
+            <BottomSheetSelect
+                title="Value override"
+                value={overrides.find((item) => item.value === override)?.label ?? override}
+                disabled={disabled}
+                options={overrides.map((item) => ({
+                    label: item.label,
+                    selected: item.value === override,
+                    onPress: () => onOverrideChange(item.value),
+                }))}
             />
             {override === "custom" && (
                 <>
                     <BoolValueInput
-                        label="True Value"
+                        label="True value"
                         type={trueType}
                         value={trueValue}
-                        editable={true}
+                        disabled={disabled}
                         onTypeChange={onTrueTypeChange}
                         onValueChange={onTrueValueChange}
                     />
                     <BoolValueInput
-                        label="False Value"
+                        label="False value"
                         type={falseType}
                         value={falseValue}
-                        editable={true}
+                        disabled={disabled}
                         onTypeChange={onFalseTypeChange}
                         onValueChange={onFalseValueChange}
                     />
                 </>
             )}
-        </>
+        </View>
     );
 };
-
 export default BooleanOperationForm;
+const styles = StyleSheet.create({ fields: { gap: 24 } });

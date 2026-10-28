@@ -84,6 +84,8 @@ or rerun an expensive build for an unrelated documentation edit.
   submission, cancellation and focus callbacks. The handler adapter cannot prove
   native slider targets, sheet focus or rendering during a React async action.
 - Dashboard creation is also in `pnpm test:device-details` (`tests/dashboardCreate.test.mjs`). It executes the real form and route handlers for trimmed name and exact grid bounds, preserved global icon keys and payload, shared Go/touch duplicate locking, editable-but-guarded pending fields, draft recovery after POST rejection/throw, accepted-once matching-device refresh/navigation, blur/refocus behavior, navigation-only recovery and missing/array route IDs. A Device route regression checks first-option fallback for empty/stale current IDs and preserves valid non-first selection. These handler checks do not establish native layout, keyboard behavior or screen-reader behavior.
+- Dashboard details are also in `pnpm test:device-details` (`tests/dashboardDetails.test.mjs`). Real form/route handlers cover route-ID requests despite a different provider selection, malformed/failed reads and Retry, missing/array IDs, trimmed Name boundaries, exact partial Name/Icon PATCHes, historical keys and invalid grid configuration, pending locks and saved baselines, confirmation cancellation/Back, delete failure, accepted-once return recovery and stale route/device work. The contextual brand sheet is restricted to the 16 historical dashboard keys, while a name-only save preserves an unchanged historical key. Radio's contextual sheet uses its 15 historical keys. These checks do not establish native layout, keyboard behavior, dialog focus restoration or TalkBack behavior.
+- Dashboard flow state and widget interactions are also in `pnpm test:device-details`: `deviceDashboard.test.mjs` covers dashboard provider/route identity and stale response handling; `dashboardGrid.test.mjs` and `dashboardGridActions.test.mjs` cover geometry, gesture snapping/clamping/collision rejection, an immediately visible grid, direct free-cell navigation, dashboard-bound unlink handlers and snackbar ownership; `widgetPlacement.test.mjs` and `widgetPicker.test.mjs` cover routed area validation, selection-only rows, exclusion of placed widgets, gesture responder wiring, the latest valid draft, request identity and recovery; `widgetActions.test.mjs` covers exact command payloads, locking, control acceptance and guarded failure/retry; `widgetConfigPermissions.test.mjs` covers configuration gates; `widgetFormValidation.test.mjs` covers Slider creation validity after step changes. These `nativeComponentHarness` suites are adapter/handler logic only, never rendered-view QA.
 - Data-source creation, details and broker/subscription actions: run `pnpm test:data-sources`.
   It executes the real create form/route, settings form, details route, overview panel, broker-client start form/route and Add subscription form handlers.
   Create checks cover exact payload fields and MQTT/TLS values, required field
@@ -97,6 +99,16 @@ or rerun an expensive build for an unrelated documentation edit.
   Add subscription checks cover route ID recovery and array normalization, exact topic payloads with the 256-character boundary, required-topic focus, synchronous Go/button locking, editable-but-guarded pending input, rejected/thrown POST recovery, accepted-once navigation and blur/refocus completion. Feedback checks include its legacy-toast suppression. These checks do not establish native keyboard behavior, layout or screen-reader behavior.
 - Before committing: run `pnpm typecheck`, `pnpm lint` and `pnpm test:poc`, plus
   the affected flow checks above.
+- Widget polish is included in `pnpm test:device-details`: `widgetTypeForms`,
+  `widgetFormValidation`, `widgetCreate` and `widgetDetails` execute type-specific
+  value/step/unit/option validation, read-only and pending guards, stale read
+  rejection, trimmed names, inline creation/deletion recovery, synchronous locks,
+  accepted-once return and Cancel/Back handlers. Widget action checks also cover
+  discarded Color drafts, Radio scroll/selection and retained pending labels.
+  These remain handler adapters; check native keyboard reachability, 48 dp targets,
+  normal-text 320/448 dp layouts, both themes, shared dashboard scrolling,
+  placement, selection-only picking and unlink on the emulator. For this polish
+  pass, enlargement and TalkBack are explicitly excluded by the user.
 - Native auth bundling, routing or asset changes: use the Android export checks in
   [native auth UI](../native-auth-ui.md).
 - Native modules or Android build configuration: verify prebuild and the affected
@@ -148,11 +160,75 @@ layouts at their width/text-scale boundaries, wrapping labels/readouts and the
 complete informational footer in both themes. Verify the switch target does not
 open the device dashboard, pending commands cannot repeat, and failure feedback
 can recover; report hardware commands separately from fixture or handler checks.
-For dashboard creation, check both themes, normal and 200% text, a short/narrow
+For dashboard creation, check both themes, normal text, a short/narrow
 window, keyboard reachability, icon choice/cancel, Back, field validation, failed
 request draft recovery and one accepted create on isolated local data. Confirm the
 Device selector remains usable while its refreshed current dashboard ID resolves.
-Smoke-test dashboard details without editing or deleting an existing dashboard.
+For dashboard details, use a disposable local dashboard: verify routed identity,
+both themes, normal text, narrow/short windows, keyboard reachability, icon
+choice/cancel, fixed grid copy, Save failure recovery and one confirmed deletion.
+Keep original dashboards untouched; handler checks do not prove native layout or
+Back/focus behavior.
+For the integrated dashboard-flow task, perform every visual and interaction
+check on Android emulator `emulator-5554` at normal text. Skip TalkBack and 200%
+text scaling under the user's instruction. Exercise manager and Display access,
+device/dashboard switching, loading/empty/offline/retry states, the full Grid
+scroll and free-cell sizing, picker selection without power mutation, accepted
+placement once, command failure/retry without grid movement, and unlink Cancel/Back/confirm.
+Use only disposable local data for writes and preserve the original dashboard.
+`nativeComponentHarness` results remain adapter/handler evidence and do not
+substitute for emulator screenshots or touch behavior.
+
+### Preventing configuration UI regressions
+
+Automated suites map these required checks to implementation boundaries. `operationCreate.test.mjs`
+and `operationForm.test.mjs` run in `test:device-details` and cover route identity,
+accepted-once creation, active-field validation and typed option/path boundaries.
+`colorPickerField.test.mjs` covers draft confirmation, cancellation, HEX boundaries,
+pending locks and recovery. `widgetCommandSnackbar.test.mjs` covers retry/dismiss
+lifecycles; grid tests cover ownership and stale callbacks. A plan or handler assertion
+is not evidence of native fit.
+
+For every affected UI change, check the relevant items before delivery:
+
+- **Section actions:** Compare against Devices/Add device. Add operation stays
+  beside the heading in picker and management views, with a named 48 dp target;
+  test long headings and owner/Manage/Display permissions.
+- **Creation actions:** Compare against Create Home. Check all widget types,
+  operation creation and nested option forms on tall and short windows with IME
+  open. The action grows to the bottom while staying in the same scroll as fields
+  and feedback. Read-only details keep their normal content/deletion sequence.
+- **Icon choices:** Verify dashboard create/details offer exactly 16 historical
+  keys and Radio offers 15, in four-column brand bottom sheets. Check Cancel,
+  Back, focus return and a stored outside-palette key with a name-only save.
+  Home/Device catalogs and Automation must still follow their existing contracts.
+- **Placement selection:** Verify the neutral 1 dp preview, small resize visual
+  inside its 48 dp target, active focus/blocked states, actual drag/resize, snapping,
+  clamping, collisions and handle visibility after release. Styling alone must
+  not change geometry or responder behavior.
+- **Color:** Check exact short/full HEX and case, invalid input, local-only Button
+  configuration, live Confirm, same-tick duplicates, rejected/thrown send recovery,
+  late reported values, pending dismissal guards and Cancel/Back draft discard.
+  Opening or moving a picker must issue no command; only live Confirm sends.
+- **Operation subforms:** Exercise all six types, Plain Text/JSON mapping, Boolean
+  default/inverse/custom values, numeric range/separator, typed Options and ordered
+  JSON paths. Assert false/0/"0" distinction, active-field validation, draft
+  retention and accepted-once POST return. Pin current JSON segments at 1–63
+  characters, maximum five, with quote/backslash/control rejection; preserve the
+  existing contract rather than silently widening it during styling work.
+- **Stable dashboard errors:** Compare widget bounds, free-cell coordinates and
+  scroll offset before failure, during feedback and after retry. Test long
+  messages, last-row reachability, one snackbar at a time and two widgets failing
+  independently. A's late success cannot dismiss B; route/home/access-loss/unlink
+  changes invalidate retained retries, while Display retains live commands/Retry.
+  Color shows failure inside its open editor with
+  no duplicate dashboard message. Keep Home tile feedback regression checks.
+
+Capture numbered before/after images at 320 dp Dark and 448 dp Light, with the
+commit, viewport and state recorded in a manifest. For this PR follow-up, retain
+the existing normal-text scope and user exclusions for enlargement/TalkBack;
+general accessibility requirements still apply to implementation. Use disposable
+local data/test topics and verify cleanup and restored emulator settings.
 Also inspect source status in both themes: connected subtitle with no extra content
 notice; Connecting and Restarting; disconnected, Error, missing and unavailable
 notices; owner-only details/setup routes with Back; no source action for Manage or

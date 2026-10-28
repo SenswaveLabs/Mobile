@@ -1,156 +1,134 @@
-import React, { useEffect, useState } from "react";
-import { CalculatedWidget, PositionedWidget } from "../../dashboards/DashboardView";
-import { LayoutChangeEvent, Pressable, View } from "react-native";
-import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
-import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useToast } from "@/contexts/ToastProvider";
-import Text from "@/components/common/Text";
 import Icon from "@/components/common/Icon";
+import { useTheme } from "@/contexts/ThemeProvider";
+import type { CalculatedWidget, PositionedWidget } from "../../dashboards/DashboardView";
+import { widgetRemovalAccessibility } from "../widgetAccessibility";
+import type { RadioOption } from "../forms/Radio/RadioForm";
+import React, { FC, useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    LayoutChangeEvent,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
-import Loading from "@/components/common/Loading";
-import { RadioOption } from "../forms/Radio/RadioForm";
-import { useDevice } from "@/contexts/custom/DeviceProvider";
+import { widgetStyles } from "./widgetStyles";
+import InvalidWidget from "./InvalidWidget";
 
 interface RadioWidgetProps {
-    operations: () => void;
+    operations?: () => void;
     widget: CalculatedWidget;
     positionedWidget: PositionedWidget;
     disabled: boolean;
+    pending: boolean;
+    onAction: (value: string | number | boolean) => Promise<boolean>;
 }
 
-const RadioDisplayOption: React.FC<{
+interface RadioDisplayOptionProps {
     option: RadioOption;
     isSelected: boolean;
-    onPress: (optionName: RadioOption) => void;
-    onLongPress: () => void;
+    onPress: (option: RadioOption) => void;
+    operations?: () => void;
+    disabled: boolean;
+    pending: boolean;
     itemWidth: number;
     itemHeight: number;
-}> = ({ option, isSelected, onPress, onLongPress, itemWidth, itemHeight }) => {
-    const theme = useTheme();
-    const [loading, setLoading] = useState(false);
+}
 
-    const handlePress = () => {
-        setLoading(true);
-        onPress(option);
-        setLoading(false);
-    };
+const RadioDisplayOption: FC<RadioDisplayOptionProps> = ({
+    option,
+    isSelected,
+    onPress,
+    operations,
+    disabled,
+    pending,
+    itemWidth,
+    itemHeight,
+}) => {
+    const { colors } = useTheme().current;
+    const isDisabled = disabled || pending;
+    const foreground = isSelected ? colors.authOnPrimary : colors.authForeground;
 
     return (
-        <View
-            style={{
-                width: itemWidth,
-                height: itemHeight,
-                padding: 8,
-            }}>
-            <Pressable
-                onPress={handlePress}
-                onLongPress={onLongPress}
+        <Pressable
+            accessibilityRole="radio"
+            accessibilityLabel={option.displayName}
+            accessibilityState={{
+                checked: isSelected,
+                selected: isSelected,
+                disabled: isDisabled,
+                busy: pending,
+            }}
+            {...widgetRemovalAccessibility(operations)}
+            disabled={isDisabled}
+            onPress={() => onPress(option)}
+            onLongPress={operations}
+            style={[
+                styles.option,
+                {
+                    width: itemWidth,
+                    height: itemHeight,
+                    backgroundColor: isSelected ? colors.authPrimary : colors.deviceTileSurface,
+                    borderColor: isSelected ? colors.authPrimary : colors.deviceTileBorder,
+                },
+            ]}>
+            {itemHeight >= 80 && (
+                <View style={[styles.optionIcon, { backgroundColor: colors.deviceTileSurface }]}>
+                    {pending ? (
+                        <ActivityIndicator size="small" color={colors.authForeground} />
+                    ) : (
+                        <Icon icon={option.icon} size={20} color="brand" />
+                    )}
+                </View>
+            )}
+            <Text
+                numberOfLines={itemHeight >= 80 ? 2 : 1}
                 style={[
-                    {
-                        flex: 1,
-                        borderRadius: 8,
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: isSelected
-                            ? theme.current.colors.primary
-                            : theme.current.colors.background,
-                        // Always apply shadow to maintain rendering consistency
-                        ...shadowStyles.default,
-                    },
-                    isSelected ? {} : { shadowOpacity: 0, elevation: 0 },
+                    styles.optionLabel,
+                    { color: disabled && !isSelected ? colors.authMuted : foreground },
                 ]}>
-                {loading ? (
-                    <Loading size={itemHeight / 3} />
-                ) : (
-                    <View style={{ alignItems: "center", justifyContent: "center" }}>
-                        <Icon icon={option.icon} size={itemHeight / 3} color={"onPrimary"} />
-                        <Text size={"small"} color={"onPrimary"} numberOfLines={1}>
-                            {option.displayName}
-                        </Text>
-                    </View>
-                )}
-            </Pressable>
-        </View>
+                {option.displayName}
+            </Text>
+        </Pressable>
     );
 };
 
-const RadioWidget: React.FC<RadioWidgetProps> = ({
+const RadioWidget: FC<RadioWidgetProps> = ({
     operations,
     positionedWidget,
     widget,
     disabled,
+    pending,
+    onAction,
 }) => {
-    const toast = useToast();
-    const device = useDevice();
-    const httpClient = useHttpClient();
-
-    const [loading, setLoading] = useState(false);
-
-    const radioOptions = (widget?.configuration?.options as RadioOption[]) ?? [];
-    const currentRadioOption = radioOptions.find(
-        (option) => option.optionName === widget.configuration.runtime?.value,
-    );
-
-    const [selectedOption, setSelectedOption] = useState<RadioOption | undefined>(
-        currentRadioOption,
-    );
-
+    const { colors } = useTheme().current;
+    const configuredOptions = widget.configuration?.options;
+    const radioOptions: RadioOption[] = Array.isArray(configuredOptions)
+        ? configuredOptions.filter(
+              (option): option is RadioOption =>
+                  option &&
+                  typeof option.optionName === "string" &&
+                  typeof option.displayName === "string" &&
+                  typeof option.icon === "string",
+          )
+        : [];
+    const reportedOption = widget.configuration?.runtime?.value;
+    const [selectedOption, setSelectedOption] = useState<string | undefined>(reportedOption);
     const [containerHeight, setContainerHeight] = useState(0);
     const [containerWidth, setContainerWidth] = useState(0);
-
-    const columns = positionedWidget.columnSpan;
-    const rows = positionedWidget.rowSpan;
+    const horizontal = positionedWidget.columnSpan >= positionedWidget.rowSpan;
+    const contentHeight = containerHeight - 46;
+    const narrow = containerWidth < 80;
+    const contentWidth = containerWidth - (narrow ? 2 : 18);
 
     useEffect(() => {
-        if (device.currentDashboard) {
-            const newWidget = device.currentDashboard.configuration.calculatedWidgets.find(
-                (w: { id: any }) => w?.id === widget?.id,
-            );
+        setSelectedOption(reportedOption);
+    }, [widget.id, reportedOption]);
 
-            if (!newWidget) {
-                console.warn("[RadioWidget] Widget not found in current dashboard.");
-                return;
-            }
-
-            const currentValue = newWidget.configuration.runtime?.value;
-
-            setSelectedOption(radioOptions.find((option) => option.optionName === currentValue));
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [device.currentDashboard]);
-
-    const handleToggle = async (selectedOption: RadioOption) => {
-        if (disabled) {
-            console.info("[RadioWidget] Change is disabled.");
-            return;
-        }
-
-        if (loading) {
-            console.warn("[RadioWidget] Action already in progress.");
-            return;
-        }
-
-        setLoading(true);
-
-        try {
-            const result = await httpClient.post(`v1/devices/widgets/${widget.id}/action`, {
-                value: selectedOption.optionName,
-            });
-
-            if (result.isSuccess) {
-                console.info("[RadioWidget] Action sent successfully.");
-                setSelectedOption(selectedOption);
-            } else {
-                toast.httpError(result);
-            }
-        } catch (error) {
-            console.error("[RadioWidget] Error changing option:", error);
-            toast.error("Failed to change option.");
-        } finally {
-            setLoading(false);
-        }
+    const handleToggle = async (option: RadioOption) => {
+        if (disabled || pending || option.optionName === selectedOption) return;
+        if (await onAction(option.optionName)) setSelectedOption(option.optionName);
     };
 
     const onLayout = (event: LayoutChangeEvent) => {
@@ -158,96 +136,81 @@ const RadioWidget: React.FC<RadioWidgetProps> = ({
         setContainerWidth(event.nativeEvent.layout.width);
     };
 
-    const itemWidth = containerWidth / columns;
-    const itemHeight = containerHeight / rows;
-
-    const [contentWidth, setContentWidth] = useState(0);
-    const [scrollX, setScrollX] = useState(0);
-
-    const showRightIndicator =
-        contentWidth > containerWidth && scrollX < contentWidth - containerWidth;
-    const showLeftIndicator = scrollX > 0;
-
-    const onContentSizeChange = (w: number) => {
-        setContentWidth(w);
-    };
+    if (radioOptions.length === 0)
+        return <InvalidWidget widget={widget} operations={operations} disabled={disabled} />;
 
     return (
         <View
             onLayout={onLayout}
+            accessibilityRole="radiogroup"
+            accessibilityLabel={widget.name}
             style={[
-                {
-                    borderRadius: 8,
-                    width: "100%",
-                    height: "100%",
-                    justifyContent: "center",
-                    alignItems: "center",
-                },
+                widgetStyles.tile,
+                narrow && widgetStyles.compactInsets,
+                { backgroundColor: colors.deviceTileSurface, borderColor: colors.deviceTileBorder },
             ]}>
+            <Text numberOfLines={1} style={[widgetStyles.label, { color: colors.authForeground }]}>
+                {widget.name}
+            </Text>
             {containerHeight <= 0 || containerWidth <= 0 ? (
-                <Loading />
+                <ActivityIndicator size="small" color={colors.authForeground} />
             ) : (
                 <ScrollView
-                    onContentSizeChange={(w) => onContentSizeChange(w)}
-                    onScroll={(e) => setScrollX(e.nativeEvent.contentOffset.x)}
-                    scrollEventThrottle={16}
-                    horizontal={columns >= rows}
-                    contentContainerStyle={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                    }}
-                    showsHorizontalScrollIndicator={false}
-                    showsVerticalScrollIndicator={false}>
+                    horizontal={horizontal}
+                    style={styles.scroll}
+                    contentContainerStyle={{ flexDirection: horizontal ? "row" : "column", gap: 8 }}
+                    persistentScrollbar
+                    showsHorizontalScrollIndicator={horizontal}
+                    showsVerticalScrollIndicator={!horizontal}>
                     {radioOptions.map((option) => (
                         <RadioDisplayOption
                             key={option.optionName}
                             option={option}
-                            isSelected={selectedOption?.optionName === option.optionName}
-                            onPress={handleToggle}
-                            onLongPress={operations}
-                            itemWidth={itemWidth}
-                            itemHeight={itemHeight}
+                            isSelected={selectedOption === option.optionName}
+                            onPress={(selected) => void handleToggle(selected)}
+                            operations={operations}
+                            disabled={disabled}
+                            pending={pending}
+                            itemWidth={Math.max(
+                                48,
+                                horizontal
+                                    ? contentWidth / positionedWidget.columnSpan
+                                    : contentWidth,
+                            )}
+                            itemHeight={Math.max(
+                                48,
+                                horizontal
+                                    ? contentHeight
+                                    : contentHeight / positionedWidget.rowSpan,
+                            )}
                         />
                     ))}
                 </ScrollView>
-            )}
-
-            {showRightIndicator && (
-                <View
-                    style={{
-                        position: "absolute",
-                        right: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: 24,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        borderTopRightRadius: 8,
-                        borderBottomRightRadius: 8,
-                    }}>
-                    <Icon icon="chevron-forward" size={24} color="complementary" />
-                </View>
-            )}
-
-            {showLeftIndicator && (
-                <View
-                    style={{
-                        position: "absolute",
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: 24,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        borderTopLeftRadius: 8,
-                        borderBottomLeftRadius: 8,
-                    }}>
-                    <Icon icon="chevron-back" size={24} color="complementary" />
-                </View>
             )}
         </View>
     );
 };
 
 export default RadioWidget;
+
+const styles = StyleSheet.create({
+    scroll: { width: "100%", flex: 1 },
+    option: {
+        minWidth: 48,
+        minHeight: 48,
+        padding: 4,
+        borderWidth: 1,
+        borderRadius: 8,
+        gap: 4,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    optionIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 4,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    optionLabel: { fontSize: 14, lineHeight: 20, fontWeight: "500", textAlign: "center" },
+});
