@@ -435,11 +435,7 @@ test("dashboard form validates name and preserves icon and partial payloads", as
     assert.equal(form.field("Name").props.placeholder, "Living room controls");
     assert.deepEqual(Array.from(form.iconSelector().props.iconList), icons);
     assert.equal(form.iconSelector().props.defaultIcon, "grid-outline");
-    assert.equal(
-        form.iconSelector().props.variant,
-        undefined,
-        "Keep the searchable global browser",
-    );
+    assert.equal(form.iconSelector().props.variant, "brand");
 
     for (const [value, message] of [
         [" \t ", "Name is required."],
@@ -476,9 +472,13 @@ test("dashboard form validates name and preserves icon and partial payloads", as
         onSubmit: async (values) => iconSubmissions.push({ ...values }),
     });
     assert.equal(iconOnly.iconSelector().props.defaultIcon, "historical-dashboard-key");
+    iconOnly.change("Name", "Renamed");
+    await iconOnly.press();
+    assert.deepEqual(iconSubmissions[0], { name: "Renamed" });
+    assert.equal(iconOnly.iconSelector().props.defaultIcon, "historical-dashboard-key");
     iconOnly.selectIcon("analytics-outline");
     await iconOnly.press();
-    assert.deepEqual(iconSubmissions[0], { icon: "analytics-outline" });
+    assert.deepEqual(iconSubmissions[1], { icon: "analytics-outline" });
 
     const gridSubmissions = [];
     const invalidGrid = mountForm({

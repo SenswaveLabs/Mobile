@@ -68,10 +68,10 @@ No new global provider, form framework, dependency or general catalog service is
 
 **Interfaces:** `IconSelector` already accepts `variant?: "default" | "brand"`, `iconList?: string[]`, `defaultIcon?: string`, `onIconSelected?: (icon: string) => void` and `disabled?: boolean`. Use this interface; retain Home/Device catalog and Automation behavior.
 
-- [ ] Set `variant="brand"` in DashboardForm and RadioOptionFormModal, keeping their existing 16- and 15-entry lists. Do not remove the global icon inventory or introduce backend calls for these palettes.
-- [ ] Update the existing icon regression assertions to require the brand branch and contextual list. Assert that every offered key matches the historical list and that outside keys are not offered through search.
-- [ ] Keep the historical-key regression: open/cancel preserves the stored key, a name-only save omits `icon`, and explicitly choosing an offered icon sends its exact lowercase key. Keep Radio details read-only with historical values intact.
-- [ ] Run `pnpm exec node --test tests/dashboardCreate.test.mjs tests/dashboardDetails.test.mjs tests/widgetTypeForms.test.mjs tests/iconSelector.test.mjs`. Expected: zero failures. If an assertion still requires global dashboard search, replace that superseded requirement rather than weakening unrelated icon tests.
+- [x] Set `variant="brand"` in DashboardForm and RadioOptionFormModal, keeping their existing 16- and 15-entry lists. Do not remove the global icon inventory or introduce backend calls for these palettes.
+- [x] Update the existing icon regression assertions to require the brand branch and contextual list. Assert that every offered key matches the historical list and that outside keys are not offered through search.
+- [x] Keep the historical-key regression: open/cancel preserves the stored key, a name-only save omits `icon`, and explicitly choosing an offered icon sends its exact lowercase key. Keep Radio details read-only with historical values intact.
+- [x] Run `pnpm exec node --test tests/dashboardCreate.test.mjs tests/dashboardDetails.test.mjs tests/widgetTypeForms.test.mjs tests/iconSelector.test.mjs`. Expected: zero failures. If an assertion still requires global dashboard search, replace that superseded requirement rather than weakening unrelated icon tests.
 - [ ] Verify four columns, selected state, long labels, scrolling, Android Back and focus restoration from the Radio modal and dashboard details. Capture replacements for 12, 13 and the icon part of 26.
 - [ ] Update the contextual-icon rules in `AGENTS.md`, `interface.md`, `api-and-data.md` and `validation.md`; commit as `fix: use contextual icon sheets for dashboard and radio` after required checks.
 

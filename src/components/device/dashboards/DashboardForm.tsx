@@ -167,6 +167,7 @@ const DashboardForm: FC<DashboardFormProps> = ({
                     onSubmitEditing={submit}
                 />
                 <IconSelector
+                    variant="brand"
                     defaultIcon={icon}
                     iconList={DefaultIcons}
                     disabled={disabled || loading}

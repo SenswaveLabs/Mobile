@@ -297,6 +297,25 @@ test("Radio modal rejects missing operation membership, then adds one normalized
             onClose: () => closed++,
         },
     });
+    const selector = valid.elements().find((node) => node.type === "IconSelector");
+    assert.equal(selector.props.variant, "brand");
+    assert.deepEqual(Array.from(selector.props.iconList), [
+        "bulb-outline",
+        "flash-outline",
+        "power-outline",
+        "checkmark-outline",
+        "close-outline",
+        "play-outline",
+        "pause-outline",
+        "stop-outline",
+        "moon-outline",
+        "sunny-outline",
+        "snow-outline",
+        "flame-outline",
+        "thermometer-outline",
+        "water-outline",
+        "leaf-outline",
+    ]);
     valid.change("Display name", "  Fan  ");
     const press = valid.elements().find((node) => node.type === "Button").props.onPress;
     press();

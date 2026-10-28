@@ -143,6 +143,7 @@ const RadioOptionFormModal: FC<Props> = ({
                 />
                 <View style={styles.field}>
                     <IconSelector
+                        variant="brand"
                         onIconSelected={(value) => changeDraft("icon", value)}
                         iconList={DefaultIcons}
                         defaultIcon={draft.icon}

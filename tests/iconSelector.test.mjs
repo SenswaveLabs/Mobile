@@ -159,7 +159,7 @@ test("catalog loading and failure block new choices and expose retry without rep
     }
 });
 
-test("legacy Dashboard, Radio and Automation selectors retain the global full browser", () => {
+test("legacy Automation selectors retain the global full browser", () => {
     const form = mountSelector({ iconList: ["bulb-outline"] });
     const lists = form.elements().filter((node) => node.type === "FlatList");
     assert.deepEqual(Array.from(lists[0].props.data), ["bulb-outline"]);
