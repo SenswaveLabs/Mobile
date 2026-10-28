@@ -209,8 +209,7 @@ use their historical local palettes (16 and 15 keys) in brand bottom sheets; the
 are UI choice restrictions, not backend catalogs or a data migration. Existing
 saved keys outside those palettes remain readable and unchanged on unrelated
 saves. Automation retains its existing global icon browser. See the
-[UI policy](interface.md) and the [PR #29 correction plan](../superpowers/plans/2026-10-28-dashboard-pr29-corrections.md)
-for the required presentation and implementation status.
+[UI policy](interface.md) for the required presentation and behavior.
 
 Create requires a nonempty catalog key, including validation of `home-outline` and
 `bulb-outline` defaults. PATCH omits an unchanged icon, so unrelated edits remain

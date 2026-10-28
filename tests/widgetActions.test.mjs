@@ -3,7 +3,13 @@ import test from "node:test";
 import { mountNativeComponent } from "./nativeComponentHarness.mjs";
 
 // These tests cover the widget command hook and handlers only. View QA runs on Android.
-function mountAction({ widgetId = "widget-a", disabled = false, results = [] } = {}) {
+function mountAction({
+    widgetId = "widget-a",
+    disabled = false,
+    results = [],
+    onFailure,
+    onSuccess,
+} = {}) {
     const requests = [];
     let focusEffect;
     let blur;
@@ -14,7 +20,7 @@ function mountAction({ widgetId = "widget-a", disabled = false, results = [] } =
         },
     };
     const component = mountNativeComponent("src/hooks/useWidgetAction.ts", {
-        props: { widgetId, disabled },
+        props: { widgetId, disabled, onFailure, onSuccess },
         exportName: "useWidgetAction",
         modules: {
             "expo-router": { useFocusEffect: (callback) => (focusEffect = callback) },
@@ -571,9 +577,9 @@ test("a pending Button keeps its action name visible", () => {
     );
 });
 
-test("WidgetView exposes failed commands as compact inline feedback and reports measured space", async () => {
+test("WidgetView publishes non-color failures without changing widget bounds", async () => {
+    const failures = [];
     let focusEffect;
-    const measurements = [];
     const view = mountNativeComponent("src/components/device/widgets/WidgetView.tsx", {
         props: {
             calculatedWidget: widget("Button"),
@@ -582,7 +588,7 @@ test("WidgetView exposes failed commands as compact inline feedback and reports 
             itemHeight: 96,
             gap: 8,
             disabled: false,
-            onFeedbackHeightChange: (height) => measurements.push(height),
+            onFailure: (failure) => failures.push(failure),
         },
         modules: {
             "expo-router": { useFocusEffect: (callback) => (focusEffect = callback) },
@@ -602,20 +608,157 @@ test("WidgetView exposes failed commands as compact inline feedback and reports 
     });
     focusEffect?.();
     view.flushEffects();
+    const bounds = JSON.stringify(view.output().props.style);
     const renderer = findElement(view, (element) => element.type?.name === "RenderInternalWidget");
-    const control = renderer.type(renderer.props);
-    assert.equal(await control.props.onAction(""), false);
+    assert.equal(await renderer.type(renderer.props).props.onAction(""), false);
     view.render();
-    const alert = findElement(view, (element) => element.type === "Alert");
-    const description = findElement(view, (element) => element.type === "AlertDescription");
-    assert.equal(alert.props.compact, true);
-    assert.equal(alert.props.accessibilityRole, "alert");
-    assert.ok(JSON.stringify(description.props.children).includes("Couldn't control this widget."));
-
-    const feedback = findElement(
-        view,
-        (element) => element.type === "View" && typeof element.props.onLayout === "function",
+    assert.equal(failures.length, 1);
+    assert.equal(JSON.stringify(view.output().props.style), bounds);
+    assert.equal(
+        view.elements().some((element) => element.type === "Alert"),
+        false,
     );
-    feedback.props.onLayout({ nativeEvent: { layout: { height: 28 } } });
-    assert.deepEqual(measurements, [0, 40]);
+});
+
+test("WidgetView keeps Color command errors in its editor only", async () => {
+    const failures = [];
+    let focusEffect;
+    const view = mountNativeComponent("src/components/device/widgets/WidgetView.tsx", {
+        props: {
+            calculatedWidget: widget("Color"),
+            positionedWidget,
+            itemWidth: 96,
+            itemHeight: 96,
+            gap: 8,
+            onFailure: (failure) => failures.push(failure),
+        },
+        modules: {
+            "expo-router": { useFocusEffect: (callback) => (focusEffect = callback) },
+            "@/contexts/HttpClientProvider": {
+                useHttpClient: () => ({ post: async () => ({ isSuccess: false }) }),
+            },
+            "./widgets/ButtonWidget": "ButtonWidget",
+            "./widgets/DisplayWidgets": "DisplayWidget",
+            "./widgets/InvalidWidget": "InvalidWidget",
+            "./widgets/SwitchWidget": "SwitchWidget",
+            "./widgets/SliderWidget": "SliderWidget",
+            "./widgets/ColorWidget": "ColorWidget",
+            "./widgets/RadioWidget": "RadioWidget",
+        },
+    });
+    focusEffect?.();
+    view.flushEffects();
+    const renderer = findElement(view, (element) => element.type?.name === "RenderInternalWidget");
+    await renderer.type(renderer.props).props.onAction("#123456");
+    view.render();
+    assert.deepEqual(failures, []);
+    assert.match(
+        findElement(view, (element) => element.type?.name === "RenderInternalWidget").props.error,
+        /Try again/,
+    );
+    assert.equal(
+        view.elements().some((element) => element.type === "Alert"),
+        false,
+    );
+});
+
+test("failed actions publish an exact retry that cannot repeat or outlive a newer command", async () => {
+    const failures = [];
+    let successes = 0;
+    let resolve;
+    const mounted = mountAction({
+        onFailure: (failure) => failures.push(failure),
+        onSuccess: () => successes++,
+        results: [Promise.resolve({ isSuccess: false }), new Promise((done) => (resolve = done))],
+    });
+    mounted.focus();
+    assert.equal(await mounted.action().send("#aBc123"), false);
+    assert.equal(failures.length, 1);
+    assert.match(failures[0].message, /Try again/);
+    const first = failures[0].retry();
+    assert.equal(await failures[0].retry(), false);
+    assert.deepEqual(JSON.parse(JSON.stringify(mounted.requests[1])), [
+        "v1/devices/widgets/widget-a/action",
+        { value: "#aBc123" },
+    ]);
+    resolve({ isSuccess: true });
+    assert.equal(await first, true);
+    assert.equal(successes, 1);
+    assert.equal(await failures[0].retry(), false);
+    assert.equal(mounted.requests.length, 2);
+});
+
+test("retry is invalid after blur, identity change or a disabled interval", async () => {
+    for (const invalidate of [
+        (mounted) => mounted.blur(),
+        (mounted) => {
+            mounted.component.render({ widgetId: "widget-b", disabled: false });
+            mounted.component.flushEffects();
+        },
+        (mounted) => {
+            mounted.component.render({ widgetId: "widget-a", disabled: true });
+            mounted.component.flushEffects();
+            mounted.component.render({ widgetId: "widget-a", disabled: false });
+            mounted.component.flushEffects();
+        },
+    ]) {
+        const failures = [];
+        const mounted = mountAction({
+            onFailure: (failure) => failures.push(failure),
+            results: [Promise.resolve({ isSuccess: false })],
+        });
+        mounted.focus();
+        await mounted.action().send(false);
+        invalidate(mounted);
+        assert.equal(await failures[0].retry(), false);
+        assert.equal(mounted.requests.length, 1);
+    }
+});
+
+test("a command finishing after access is disabled publishes no failure or success", async () => {
+    for (const isSuccess of [false, true]) {
+        let resolve;
+        const failures = [],
+            successes = [];
+        const mounted = mountAction({
+            onFailure: (failure) => failures.push(failure),
+            onSuccess: () => successes.push(true),
+            results: [new Promise((done) => (resolve = done))],
+        });
+        mounted.focus();
+        const send = mounted.action().send(0);
+        mounted.component.render({
+            widgetId: "widget-a",
+            disabled: true,
+            onFailure: (failure) => failures.push(failure),
+            onSuccess: () => successes.push(true),
+        });
+        resolve({ isSuccess });
+        assert.equal(await send, false);
+        assert.deepEqual(failures, []);
+        assert.deepEqual(successes, []);
+    }
+});
+
+test("a rejected retry publishes a fresh retry and invalidates its previous closure", async () => {
+    const failures = [];
+    const mounted = mountAction({
+        onFailure: (failure) => failures.push(failure),
+        results: [
+            Promise.resolve({ isSuccess: false }),
+            Promise.resolve({ isSuccess: false }),
+            Promise.resolve({ isSuccess: true }),
+        ],
+    });
+    mounted.focus();
+    await mounted.action().send(false);
+    assert.equal(await failures[0].retry(), false);
+    assert.equal(failures.length, 2);
+    assert.equal(await failures[0].retry(), false);
+    assert.equal(await failures[1].retry(), true);
+    assert.deepEqual(JSON.parse(JSON.stringify(mounted.requests.map(([, body]) => body.value))), [
+        false,
+        false,
+        false,
+    ]);
 });

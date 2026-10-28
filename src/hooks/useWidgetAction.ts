@@ -5,6 +5,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 interface WidgetActionProps {
     widgetId: string;
     disabled: boolean;
+    onFailure?: (failure: WidgetActionFailure) => void;
+    onSuccess?: () => void;
+}
+
+export interface WidgetActionFailure {
+    message: string;
+    retry: () => Promise<boolean>;
 }
 
 export interface WidgetAction {
@@ -15,18 +22,25 @@ export interface WidgetAction {
 
 const failureMessage = "Couldn't control this widget. Try again.";
 
-export const useWidgetAction = ({ widgetId, disabled }: WidgetActionProps): WidgetAction => {
+export const useWidgetAction = ({
+    widgetId,
+    disabled,
+    onFailure,
+    onSuccess,
+}: WidgetActionProps): WidgetAction => {
     const httpClient = useHttpClient();
     const identityRef = useRef(widgetId);
     const disabledRef = useRef(disabled);
     const activeRef = useRef(false);
     const pendingRef = useRef(false);
     const requestVersionRef = useRef(0);
+    const callbacksRef = useRef({ onFailure, onSuccess });
     const [pending, setPending] = useState(false);
     const [error, setError] = useState("");
 
     identityRef.current = widgetId;
     disabledRef.current = disabled;
+    callbacksRef.current = { onFailure, onSuccess };
 
     useEffect(() => {
         requestVersionRef.current++;
@@ -34,6 +48,14 @@ export const useWidgetAction = ({ widgetId, disabled }: WidgetActionProps): Widg
         setPending(false);
         setError("");
     }, [widgetId]);
+
+    useEffect(() => {
+        if (!disabled) return;
+        requestVersionRef.current++;
+        pendingRef.current = false;
+        setPending(false);
+        setError("");
+    }, [disabled]);
 
     useFocusEffect(
         useCallback(() => {
@@ -67,7 +89,8 @@ export const useWidgetAction = ({ widgetId, disabled }: WidgetActionProps): Widg
             const isCurrent = () =>
                 requestVersion === requestVersionRef.current &&
                 identityRef.current === capturedWidgetId &&
-                activeRef.current;
+                activeRef.current &&
+                !disabledRef.current;
 
             try {
                 const response = await httpClient.post(
@@ -75,9 +98,20 @@ export const useWidgetAction = ({ widgetId, disabled }: WidgetActionProps): Widg
                     { value },
                 );
                 if (!response.isSuccess) throw new Error("Widget action failed");
-                return isCurrent();
+                if (!isCurrent()) return false;
+                callbacksRef.current.onSuccess?.();
+                return true;
             } catch {
-                if (isCurrent()) setError(failureMessage);
+                if (isCurrent()) {
+                    setError(failureMessage);
+                    callbacksRef.current.onFailure?.({
+                        message: failureMessage,
+                        retry: async () => {
+                            if (!isCurrent() || pendingRef.current) return false;
+                            return send(value);
+                        },
+                    });
+                }
                 return false;
             } finally {
                 if (requestVersion === requestVersionRef.current) {

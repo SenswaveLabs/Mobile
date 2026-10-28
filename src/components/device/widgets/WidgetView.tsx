@@ -1,8 +1,7 @@
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useWidgetAction } from "@/hooks/useWidgetAction";
-import { CircleAlert } from "lucide-react-native";
-import React, { FC, useCallback, useEffect, useState } from "react";
-import { LayoutChangeEvent, View } from "react-native";
+import type { WidgetActionFailure } from "@/hooks/useWidgetAction";
+import React, { FC } from "react";
+import { View } from "react-native";
 import type { CalculatedWidget, PositionedWidget } from "../dashboards/DashboardView";
 import DisplayWidget from "./widgets/DisplayWidgets";
 import ButtonWidget from "./widgets/ButtonWidget";
@@ -20,7 +19,8 @@ interface WidgetViewProps {
     gap: number;
     disabled?: boolean;
     onRemove?: () => void;
-    onFeedbackHeightChange?: (height: number) => void;
+    onFailure?: (failure: WidgetActionFailure) => void;
+    onSuccess?: () => void;
 }
 
 type WidgetActionValue = string | number | boolean;
@@ -111,30 +111,17 @@ const WidgetView: FC<WidgetViewProps> = ({
     gap,
     disabled = false,
     onRemove,
-    onFeedbackHeightChange,
+    onFailure,
+    onSuccess,
 }) => {
-    const action = useWidgetAction({ widgetId: calculatedWidget.id, disabled });
-    const [feedbackHeight, setFeedbackHeight] = useState(0);
+    const action = useWidgetAction({
+        widgetId: calculatedWidget.id,
+        disabled,
+        onFailure: calculatedWidget.type === "Color" ? undefined : onFailure,
+        onSuccess: calculatedWidget.type === "Color" ? undefined : onSuccess,
+    });
     const width = itemWidth * positionedWidget.columnSpan + gap * (positionedWidget.columnSpan - 1);
     const height = itemHeight * positionedWidget.rowSpan + gap * (positionedWidget.rowSpan - 1);
-    const controlHeight = Math.max(48, height - (action.error ? feedbackHeight : 0));
-
-    const onFeedbackLayout = useCallback(
-        (event: LayoutChangeEvent) => {
-            const nextHeight = Math.ceil(event.nativeEvent.layout.height + 12);
-            setFeedbackHeight(nextHeight);
-            onFeedbackHeightChange?.(nextHeight);
-        },
-        [onFeedbackHeightChange],
-    );
-
-    useEffect(() => {
-        if (!action.error) {
-            setFeedbackHeight(0);
-            onFeedbackHeightChange?.(0);
-        }
-    }, [action.error, onFeedbackHeightChange]);
-
     return (
         <View
             style={{
@@ -144,34 +131,15 @@ const WidgetView: FC<WidgetViewProps> = ({
                 left: positionedWidget.column * (itemWidth + gap),
                 top: positionedWidget.row * (itemHeight + gap),
             }}>
-            <View style={{ width: "100%", height: controlHeight, justifyContent: "center" }}>
-                <RenderInternalWidget
-                    widget={calculatedWidget}
-                    positionedWidget={positionedWidget}
-                    actions={onRemove}
-                    onAction={action.send}
-                    pending={action.pending}
-                    disabled={disabled}
-                    error={action.error}
-                />
-            </View>
-            {!!action.error && (
-                <View
-                    onLayout={onFeedbackLayout}
-                    style={{
-                        marginTop: 12,
-                        paddingHorizontal: calculatedWidget.type === "Slider" ? 12 : 0,
-                    }}>
-                    <Alert
-                        icon={CircleAlert}
-                        compact
-                        variant="destructive"
-                        accessibilityRole="alert"
-                        accessibilityLiveRegion="polite">
-                        <AlertDescription compact>{action.error}</AlertDescription>
-                    </Alert>
-                </View>
-            )}
+            <RenderInternalWidget
+                widget={calculatedWidget}
+                positionedWidget={positionedWidget}
+                actions={onRemove}
+                onAction={action.send}
+                pending={action.pending}
+                disabled={disabled}
+                error={action.error}
+            />
         </View>
     );
 };

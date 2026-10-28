@@ -2,6 +2,7 @@ import Button from "@/components/common/Button";
 import Icon from "@/components/common/Icon";
 import Loading from "@/components/common/Loading";
 import WidgetView from "@/components/device/widgets/WidgetView";
+import WidgetCommandSnackbar from "@/components/device/widgets/WidgetCommandSnackbar";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -15,6 +16,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Text } from "@/components/ui/text";
 import { useDevice } from "@/contexts/custom/DeviceProvider";
+import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import {
@@ -23,9 +25,11 @@ import {
     unlinkDashboardWidget,
 } from "@/utils/dashboardGrid";
 import { PortalHost } from "@rn-primitives/portal";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { CircleAlert } from "lucide-react-native";
-import React, { FC, ReactNode, useEffect, useId, useRef, useState } from "react";
+import React, { FC, ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { WidgetActionFailure } from "@/hooks/useWidgetAction";
 import {
     Modal as NativeModal,
     Pressable,
@@ -61,8 +65,17 @@ export interface GridDashboardViewProps {
 interface UnlinkTarget {
     deviceId: string;
     dashboardId: string;
+    homeId?: string;
     widgetId: string;
     widgetName: string;
+}
+
+interface CommandFailure extends WidgetActionFailure {
+    token: number;
+    widgetId: string;
+    widgetName: string;
+    scope: string;
+    generation: number;
 }
 
 const GridDashboardView: FC<GridDashboardViewProps> = ({
@@ -72,11 +85,14 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
     header,
 }) => {
     const { colors } = useTheme().current;
+    const insets = useSafeAreaInsets();
     const { width: windowWidth } = useWindowDimensions();
     const device = useDevice();
+    const home = useHomes();
     const httpClient = useHttpClient();
     const router = useRouter();
     const identity = `${deviceId}:${dashboardId}`;
+    const scope = `${home.current?.id ?? ""}:${identity}:${device.deviceId ?? ""}:${device.currentDashboardId ?? ""}`;
     const identityRef = useRef(identity);
     const canManageRef = useRef(canManage);
     const deviceRef = useRef(device);
@@ -99,7 +115,22 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
         grid: NonNullable<ReturnType<typeof readGridConfiguration>>;
         positions: PositionedWidget[];
     }>();
-    const [feedbackHeights, setFeedbackHeights] = useState<Record<string, number>>({});
+    const [commandFailure, setCommandFailure] = useState<CommandFailure>();
+    const [snackbarHeight, setSnackbarHeight] = useState(0);
+    const [, setFocusRevision] = useState(0);
+    const scopeRef = useRef(scope);
+    const generation = useRef(0);
+    const active = useRef(false);
+    const failureRef = useRef<CommandFailure | undefined>(undefined);
+    const failureSequence = useRef(0);
+    const retryOwners = useRef(new Map<string, number>());
+    const placementGenerations = useRef<Record<string, number>>({});
+    const homeRef = useRef(home.current?.id);
+    homeRef.current = home.current?.id;
+    if (scopeRef.current !== scope) {
+        scopeRef.current = scope;
+        generation.current++;
+    }
     const unlinkPendingRef = useRef(false);
     const dialogHost = useId();
 
@@ -114,14 +145,37 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
         positionOverride?.grid === grid
             ? (positionOverride?.positions ?? [])
             : (grid?.positionedWidgets ?? []);
+    const positionsRef = useRef(positions);
+    positionsRef.current = positions;
+
+    useFocusEffect(
+        useCallback(() => {
+            active.current = true;
+            generation.current++;
+            setFocusRevision(generation.current);
+            return () => {
+                active.current = false;
+                generation.current++;
+                failureRef.current = undefined;
+                retryOwners.current.clear();
+                setCommandFailure(undefined);
+            };
+        }, []),
+    );
 
     useEffect(() => {
         setUnlinkTarget(undefined);
         setFailedUnlink(undefined);
         setUnlinking(false);
         setPositionOverride(undefined);
-        setFeedbackHeights({});
     }, [identity]);
+
+    useEffect(() => {
+        failureRef.current = undefined;
+        retryOwners.current.clear();
+        setCommandFailure(undefined);
+        setSnackbarHeight(0);
+    }, [scope]);
 
     useEffect(() => {
         if (!canManage) {
@@ -147,15 +201,7 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
         ? Math.max(MIN_CELL_WIDTH, (layoutWidth - GAP * (columns - 1)) / columns)
         : MIN_CELL_WIDTH;
     const gridWidth = columns * cellWidth + GAP * (columns - 1);
-    const rowHeight = Math.max(
-        MIN_ROW_HEIGHT,
-        ...positions.map(
-            (position) =>
-                MIN_ROW_HEIGHT +
-                (feedbackHeights[widgetPositionKey(dashboardId, position)] ?? 0) /
-                    Math.max(1, position.rowSpan),
-        ),
-    );
+    const rowHeight = MIN_ROW_HEIGHT;
     const gridHeight = rows * rowHeight + GAP * (rows - 1);
     const placedWidgets = positions.map((position) => ({
         position,
@@ -163,6 +209,74 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
             grid?.calculatedWidgets.find((candidate) => candidate.id === position.widgetId) ??
             invalidWidget(position.widgetId),
     }));
+
+    const isCurrentWidget = (
+        widgetId: string,
+        capturedGeneration: number,
+        placementGeneration: number,
+    ) =>
+        active.current &&
+        !!homeRef.current &&
+        scopeRef.current === scope &&
+        generation.current === capturedGeneration &&
+        deviceRef.current.deviceId === deviceId &&
+        deviceRef.current.currentDashboardId === dashboardId &&
+        (placementGenerations.current[widgetId] ?? 0) === placementGeneration &&
+        positionsRef.current.some((position) => position.widgetId === widgetId);
+
+    const publishFailure = (
+        widget: CalculatedWidget,
+        capturedGeneration: number,
+        placementGeneration: number,
+        failure: WidgetActionFailure,
+    ) => {
+        if (!isCurrentWidget(widget.id, capturedGeneration, placementGeneration)) return;
+        const retryOwner = retryOwners.current.get(widget.id);
+        if (retryOwner !== undefined && failureRef.current?.token !== retryOwner) return;
+        const token = ++failureSequence.current;
+        const next: CommandFailure = {
+            token,
+            widgetId: widget.id,
+            widgetName: widget.name,
+            message: failure.message,
+            scope,
+            generation: capturedGeneration,
+            retry: async () => {
+                if (
+                    failureRef.current?.token !== token ||
+                    retryOwners.current.has(widget.id) ||
+                    !isCurrentWidget(widget.id, capturedGeneration, placementGeneration)
+                )
+                    return false;
+                retryOwners.current.set(widget.id, token);
+                try {
+                    return await failure.retry();
+                } finally {
+                    if (retryOwners.current.get(widget.id) === token)
+                        retryOwners.current.delete(widget.id);
+                }
+            },
+        };
+        failureRef.current = next;
+        setCommandFailure(next);
+    };
+
+    const clearFailure = (token: number) => {
+        if (failureRef.current?.token !== token) return;
+        failureRef.current = undefined;
+        setCommandFailure(undefined);
+        setSnackbarHeight(0);
+    };
+
+    const visibleFailure =
+        commandFailure &&
+        commandFailure.scope === scope &&
+        commandFailure.generation === generation.current &&
+        active.current &&
+        !!homeRef.current &&
+        positions.some((position) => position.widgetId === commandFailure.widgetId)
+            ? commandFailure
+            : undefined;
 
     const chooseCell = (row: number, column: number) => {
         if (
@@ -191,6 +305,8 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
 
     const isCurrentUnlink = (target: UnlinkTarget) =>
         identityRef.current === `${target.deviceId}:${target.dashboardId}` &&
+        !!homeRef.current &&
+        homeRef.current === target.homeId &&
         canManageRef.current &&
         deviceRef.current.deviceId === target.deviceId &&
         deviceRef.current.currentDashboardId === target.dashboardId;
@@ -207,13 +323,21 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
             widgetId: target.widgetId,
             deleteWidget: (path) => httpClient.delete(path),
             onRemoved: () => {
-                if (grid && isCurrentUnlink(target))
+                if (grid && isCurrentUnlink(target)) {
+                    placementGenerations.current[target.widgetId] =
+                        (placementGenerations.current[target.widgetId] ?? 0) + 1;
+                    positionsRef.current = positionsRef.current.filter(
+                        (position) => position.widgetId !== target.widgetId,
+                    );
+                    if (failureRef.current?.widgetId === target.widgetId)
+                        clearFailure(failureRef.current.token);
                     setPositionOverride({
                         grid,
                         positions: positions.filter(
                             (position) => position.widgetId !== target.widgetId,
                         ),
                     });
+                }
             },
         });
 
@@ -234,7 +358,13 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
     const openUnlinkConfirmation = (widget: CalculatedWidget) => {
         if (!canManageRef.current || unlinkPendingRef.current) return;
         setFailedUnlink(undefined);
-        setUnlinkTarget({ deviceId, dashboardId, widgetId: widget.id, widgetName: widget.name });
+        setUnlinkTarget({
+            deviceId,
+            dashboardId,
+            homeId: homeRef.current,
+            widgetId: widget.id,
+            widgetName: widget.name,
+        });
     };
 
     const horizontalOverflow = gridWidth > layoutWidth;
@@ -319,7 +449,12 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
 
                 <ScrollView
                     style={styles.scroll}
-                    contentContainerStyle={styles.scrollContent}
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        visibleFailure && {
+                            paddingBottom: Math.max(16, snackbarHeight + insets.bottom + 32),
+                        },
+                    ]}
                     refreshControl={
                         <RefreshControl
                             refreshing={refreshing}
@@ -423,40 +558,67 @@ const GridDashboardView: FC<GridDashboardViewProps> = ({
                                         ) : null;
                                     }),
                                 )}
-                                {placedWidgets.map(({ position, widget }) => (
-                                    <WidgetView
-                                        key={widgetPositionKey(dashboardId, position)}
-                                        calculatedWidget={widget}
-                                        positionedWidget={position}
-                                        itemHeight={rowHeight}
-                                        itemWidth={cellWidth}
-                                        gap={GAP}
-                                        disabled={unlinking}
-                                        onRemove={
-                                            canManage
-                                                ? () => openUnlinkConfirmation(widget)
-                                                : undefined
-                                        }
-                                        onFeedbackHeightChange={(height) => {
-                                            const key = widgetPositionKey(dashboardId, position);
-                                            setFeedbackHeights((current) => {
-                                                const previous = current[key] ?? 0;
-                                                if (previous === height) return current;
-                                                if (height <= 0) {
-                                                    if (!(key in current)) return current;
-                                                    const next = { ...current };
-                                                    delete next[key];
-                                                    return next;
-                                                }
-                                                return { ...current, [key]: height };
-                                            });
-                                        }}
-                                    />
-                                ))}
+                                {placedWidgets.map(({ position, widget }) => {
+                                    const capturedGeneration = generation.current;
+                                    const placementGeneration =
+                                        placementGenerations.current[widget.id] ?? 0;
+                                    return (
+                                        <WidgetView
+                                            key={`${scope}:${widgetPositionKey(dashboardId, position)}`}
+                                            calculatedWidget={widget}
+                                            positionedWidget={position}
+                                            itemHeight={rowHeight}
+                                            itemWidth={cellWidth}
+                                            gap={GAP}
+                                            disabled={unlinking}
+                                            onRemove={
+                                                canManage
+                                                    ? () => openUnlinkConfirmation(widget)
+                                                    : undefined
+                                            }
+                                            onFailure={(failure) =>
+                                                publishFailure(
+                                                    widget,
+                                                    capturedGeneration,
+                                                    placementGeneration,
+                                                    failure,
+                                                )
+                                            }
+                                            onSuccess={() => {
+                                                if (
+                                                    isCurrentWidget(
+                                                        widget.id,
+                                                        capturedGeneration,
+                                                        placementGeneration,
+                                                    ) &&
+                                                    failureRef.current?.widgetId === widget.id
+                                                )
+                                                    clearFailure(failureRef.current.token);
+                                            }}
+                                        />
+                                    );
+                                })}
                             </View>
                         </ScrollView>
                     </View>
                 </ScrollView>
+                {visibleFailure && (
+                    <View
+                        pointerEvents="box-none"
+                        style={[styles.snackbar, { bottom: insets.bottom + 16 }]}
+                        onLayout={({ nativeEvent }) => {
+                            const next = Math.ceil(nativeEvent.layout.height);
+                            setSnackbarHeight((current) => (current === next ? current : next));
+                        }}>
+                        <WidgetCommandSnackbar
+                            key={visibleFailure.token}
+                            widgetName={visibleFailure.widgetName}
+                            message={visibleFailure.message}
+                            onRetry={visibleFailure.retry}
+                            onDismiss={() => clearFailure(visibleFailure.token)}
+                        />
+                    </View>
+                )}
             </View>
         </AlertDialog>
     );
@@ -466,6 +628,7 @@ export default GridDashboardView;
 
 const styles = StyleSheet.create({
     root: { flex: 1 },
+    snackbar: { position: "absolute", left: 16, right: 16 },
     scroll: { flex: 1 },
     title: { fontSize: 20, lineHeight: 28, fontWeight: "600" },
     helper: { fontSize: 14, lineHeight: 20 },

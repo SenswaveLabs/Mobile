@@ -95,11 +95,6 @@ Accessibility and task completion take priority over matching a visual pattern.
 
 ## Forms, feedback and state
 
-The [PR #29 correction plan](../superpowers/plans/2026-10-28-dashboard-pr29-corrections.md)
-tracks implementation of the required action, icon, operation, color and stable-grid
-feedback rules below. These are policy requirements; the plan records which code
-and verification remain outstanding.
-
 - Ask only for data needed by the task. Use explicit labels, useful hints, suitable
   controls, and errors next to the affected field that explain how to recover.
 - Preserve valid input after errors. Never communicate validation only through color.

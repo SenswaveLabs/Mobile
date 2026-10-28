@@ -85,7 +85,7 @@ or rerun an expensive build for an unrelated documentation edit.
   native slider targets, sheet focus or rendering during a React async action.
 - Dashboard creation is also in `pnpm test:device-details` (`tests/dashboardCreate.test.mjs`). It executes the real form and route handlers for trimmed name and exact grid bounds, preserved global icon keys and payload, shared Go/touch duplicate locking, editable-but-guarded pending fields, draft recovery after POST rejection/throw, accepted-once matching-device refresh/navigation, blur/refocus behavior, navigation-only recovery and missing/array route IDs. A Device route regression checks first-option fallback for empty/stale current IDs and preserves valid non-first selection. These handler checks do not establish native layout, keyboard behavior or screen-reader behavior.
 - Dashboard details are also in `pnpm test:device-details` (`tests/dashboardDetails.test.mjs`). Real form/route handlers cover route-ID requests despite a different provider selection, malformed/failed reads and Retry, missing/array IDs, trimmed Name boundaries, exact partial Name/Icon PATCHes, historical keys and invalid grid configuration, pending locks and saved baselines, confirmation cancellation/Back, delete failure, accepted-once return recovery and stale route/device work. The contextual brand sheet is restricted to the 16 historical dashboard keys, while a name-only save preserves an unchanged historical key. Radio's contextual sheet uses its 15 historical keys. These checks do not establish native layout, keyboard behavior, dialog focus restoration or TalkBack behavior.
-- Dashboard flow state and widget interactions are also in `pnpm test:device-details`: `deviceDashboard.test.mjs` covers dashboard provider/route identity and stale response handling; `dashboardGrid.test.mjs` and `dashboardGridActions.test.mjs` cover geometry, gesture snapping/clamping/collision rejection, an immediately visible grid, direct free-cell navigation and dashboard-bound unlink handlers; `widgetPlacement.test.mjs` and `widgetPicker.test.mjs` cover routed area validation, selection-only rows, exclusion of placed widgets, gesture responder wiring, the latest valid draft, request identity and recovery; `widgetActions.test.mjs` covers exact command payloads, locking, control acceptance and inline error handlers; `widgetConfigPermissions.test.mjs` covers configuration gates; `widgetFormValidation.test.mjs` covers Slider creation validity after step changes. These `nativeComponentHarness` suites are adapter/handler logic only, never rendered-view QA.
+- Dashboard flow state and widget interactions are also in `pnpm test:device-details`: `deviceDashboard.test.mjs` covers dashboard provider/route identity and stale response handling; `dashboardGrid.test.mjs` and `dashboardGridActions.test.mjs` cover geometry, gesture snapping/clamping/collision rejection, an immediately visible grid, direct free-cell navigation, dashboard-bound unlink handlers and snackbar ownership; `widgetPlacement.test.mjs` and `widgetPicker.test.mjs` cover routed area validation, selection-only rows, exclusion of placed widgets, gesture responder wiring, the latest valid draft, request identity and recovery; `widgetActions.test.mjs` covers exact command payloads, locking, control acceptance and guarded failure/retry; `widgetConfigPermissions.test.mjs` covers configuration gates; `widgetFormValidation.test.mjs` covers Slider creation validity after step changes. These `nativeComponentHarness` suites are adapter/handler logic only, never rendered-view QA.
 - Data-source creation, details and broker/subscription actions: run `pnpm test:data-sources`.
   It executes the real create form/route, settings form, details route, overview panel, broker-client start form/route and Add subscription form handlers.
   Create checks cover exact payload fields and MQTT/TLS values, required field
@@ -181,13 +181,13 @@ substitute for emulator screenshots or touch behavior.
 
 ### Preventing configuration UI regressions
 
-The [PR #29 correction plan](../superpowers/plans/2026-10-28-dashboard-pr29-corrections.md)
-maps these required checks to implementation tasks. `operationCreate.test.mjs`
+Automated suites map these required checks to implementation boundaries. `operationCreate.test.mjs`
 and `operationForm.test.mjs` run in `test:device-details` and cover route identity,
 accepted-once creation, active-field validation and typed option/path boundaries.
 `colorPickerField.test.mjs` covers draft confirmation, cancellation, HEX boundaries,
-pending locks and recovery. The snackbar suite remains planned. A plan or handler
-assertion is not evidence of native fit.
+pending locks and recovery. `widgetCommandSnackbar.test.mjs` covers retry/dismiss
+lifecycles; grid tests cover ownership and stale callbacks. A plan or handler assertion
+is not evidence of native fit.
 
 For every affected UI change, check the relevant items before delivery:
 

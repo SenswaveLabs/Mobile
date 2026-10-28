@@ -78,11 +78,10 @@ their primitive configuration values and register/clean up provider validation.
 inline load recovery; it does not display toasts. Live widget surfaces share the
 local `widgets/widgetStyles` scale and existing device-tile theme roles.
 
-The [PR #29 correction plan](../superpowers/plans/2026-10-28-dashboard-pr29-corrections.md)
-tracks the implementation against the UI policy. Reuse existing header-action,
+Widget and dashboard flows follow the UI policy. Reuse existing header-action,
 form and brand icon-sheet APIs. `common/ColorPickerField` shares the swatch/HEX
-editor between Button configuration and live Color widgets; the dashboard-local
-command snackbar remains planned. Preserve the shared read-only operation details
+editor between Button configuration and live Color widgets; `WidgetCommandSnackbar`
+owns dashboard-local command feedback. Preserve the shared read-only operation details
 caller and exact operation payload types when changing nested fields.
 Dashboard command feedback must not feed measurement state back into grid geometry.
 

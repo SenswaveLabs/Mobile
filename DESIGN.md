@@ -164,10 +164,6 @@ Device grid tiles use gently rounded corners (`rounded.device-tile`); list rows 
 
 ### Dashboard Widgets
 
-**Required follow-up:** The [PR #29 correction plan](docs/superpowers/plans/2026-10-28-dashboard-pr29-corrections.md)
-tracks implementation of the rules below. Verify outstanding tasks before claiming
-that the current branch satisfies every rule.
-
 Dashboard controls reuse the device-tile surface and border roles, 12 dp corners,
 8 dp compact insets and 14/20 dp labels. Button and selected Radio options use the
 amber action role; Switch uses an amber/neutral indicator rather than a red/green
