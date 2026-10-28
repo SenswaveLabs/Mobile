@@ -272,7 +272,7 @@ const WidgetPlacementCanvas: FC<WidgetPlacementCanvasProps> = ({
                                     if (move) adjust("move", ...move);
                                 }}
                                 style={styles.moveTarget}>
-                                <Move size={20} color={colors.authForeground} accessible={false} />
+                                <Move size={20} color={colors.authMuted} accessible={false} />
                                 <Text
                                     numberOfLines={draftWidth >= 100 ? 2 : 1}
                                     style={[styles.name, { color: colors.authForeground }]}>

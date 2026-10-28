@@ -60,6 +60,7 @@ const ColorPickerField: FC<ColorPickerFieldProps> = ({
 
     const changeDraft = (next: string) => {
         if (
+            accepted.current ||
             locked.current ||
             availability.current.pending ||
             availability.current.disabled ||
@@ -86,6 +87,7 @@ const ColorPickerField: FC<ColorPickerFieldProps> = ({
     };
     const confirm = async (close: () => boolean) => {
         if (
+            accepted.current ||
             locked.current ||
             availability.current.disabled ||
             availability.current.pending ||

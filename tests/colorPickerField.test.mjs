@@ -83,6 +83,7 @@ test("HEX drafts and picker gestures send nothing before confirmation or after c
     field.cancel();
     assert.equal(field.node("Input", "HEX").props.value, "#aBc");
     await field.confirm();
+    await field.confirm();
     assert.deepEqual(field.confirms, ["#aBc"]);
     assert.equal(field.closed(), 2);
 });

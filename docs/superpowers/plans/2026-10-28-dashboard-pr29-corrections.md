@@ -62,7 +62,7 @@ No new global provider, form framework, dependency or general catalog service is
 - [x] In `RadioOptionFormModal`, use one keyboard-aware growing scroll, fields in FormSection and the Add option action group after it. Preserve its modal shell, exact option payload and synchronous accepted guard.
 - [x] Run `pnpm exec node --test tests/widgetCreate.test.mjs tests/widgetDetails.test.mjs tests/widgetPicker.test.mjs tests/widgetPlacement.test.mjs tests/widgetConfigPermissions.test.mjs tests/widgetTypeForms.test.mjs`. Expected: zero failures. Adapt harness traversal only if composition changed; add no tests that merely restate margins.
 - [ ] On Android at 320 dp Dark/448 dp Light, check long headings, short/tall windows, keyboard reachability, Add operation navigation and one submit. Capture replacements for 03, 04, 16 and 26.
-- [ ] Update the affected action/creation rules in `interface.md` and commit this independently working change as `fix: align widget flow action placement`, after the repository's required pre-commit checks.
+- [x] Update the affected action/creation rules in `interface.md` and commit this independently working change as `fix: align widget flow action placement`, after the repository's required pre-commit checks.
 
 ## Task 2: Use contextual icon bottom sheets
 
@@ -73,7 +73,7 @@ No new global provider, form framework, dependency or general catalog service is
 - [x] Keep the historical-key regression: open/cancel preserves the stored key, a name-only save omits `icon`, and explicitly choosing an offered icon sends its exact lowercase key. Keep Radio details read-only with historical values intact.
 - [x] Run `pnpm exec node --test tests/dashboardCreate.test.mjs tests/dashboardDetails.test.mjs tests/widgetTypeForms.test.mjs tests/iconSelector.test.mjs`. Expected: zero failures. If an assertion still requires global dashboard search, replace that superseded requirement rather than weakening unrelated icon tests.
 - [ ] Verify four columns, selected state, long labels, scrolling, Android Back and focus restoration from the Radio modal and dashboard details. Capture replacements for 12, 13 and the icon part of 26.
-- [ ] Update the contextual-icon rules in `AGENTS.md`, `interface.md`, `api-and-data.md` and `validation.md`; commit as `fix: use contextual icon sheets for dashboard and radio` after required checks.
+- [x] Update the contextual-icon rules in `AGENTS.md`, `interface.md`, `api-and-data.md` and `validation.md`; commit as `fix: use contextual icon sheets for dashboard and radio` after required checks.
 
 ## Task 3: Calm the placement preview
 
@@ -83,7 +83,7 @@ No new global provider, form framework, dependency or general catalog service is
 - [x] Replace the inverse corner block with a subtle neutral visual and 16 dp diagonal icon inside the existing 48 × 48 dp resize target. Keep the target inside the draft, the move target at least 48 dp and the name legible.
 - [x] Run `pnpm exec node --test tests/dashboardGrid.test.mjs tests/widgetPlacement.test.mjs`. Expected: zero failures; no geometry/parser rewrite is necessary.
 - [ ] Verify native move, resize to 2×2, collision rejection, edge clamping, cancellation, pending lock and resize-handle visibility after release. Capture replacement 09 in both themes.
-- [ ] Update DESIGN.md's placement-preview rule and commit as `fix: quiet dashboard placement selection` after required checks.
+- [x] Update DESIGN.md's placement-preview rule and commit as `fix: quiet dashboard placement selection` after required checks.
 
 ## Task 4: Complete the operation creation redesign
 

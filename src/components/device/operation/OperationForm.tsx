@@ -427,14 +427,15 @@ export const OperationFormInternal = React.forwardRef<OperationFormHandle, Opera
                 {!edit && (
                     <View style={styles.actions}>
                         {feedback}
-                        {returnAction}
-                        <Button
-                            name="Create operation"
-                            type="auth"
-                            loading={busy}
-                            disabled={disabled || busy}
-                            onPress={submit}
-                        />
+                        {returnAction ?? (
+                            <Button
+                                name="Create operation"
+                                type="auth"
+                                loading={busy}
+                                disabled={disabled || busy}
+                                onPress={submit}
+                            />
+                        )}
                     </View>
                 )}
             </KeyboardAwareScrollView>
