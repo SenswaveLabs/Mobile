@@ -79,9 +79,9 @@ No new global provider, form framework, dependency or general catalog service is
 
 **Interfaces:** Keep `WidgetPlacementCanvasProps`, `DashboardPlacement`, geometry helpers, gesture responders and named accessibility actions unchanged.
 
-- [ ] Change the resting draft to a 1 dp `deviceTileBorder` outline and neutral surface; use `authFocus` for active gesture/focus. Preserve blocked-state error text and color.
-- [ ] Replace the inverse corner block with a subtle neutral visual and 16 dp diagonal icon inside the existing 48 × 48 dp resize target. Keep the target inside the draft, the move target at least 48 dp and the name legible.
-- [ ] Run `pnpm exec node --test tests/dashboardGrid.test.mjs tests/widgetPlacement.test.mjs`. Expected: zero failures; no geometry/parser rewrite is necessary.
+- [x] Change the resting draft to a 1 dp `deviceTileBorder` outline and neutral surface; use `authFocus` for active gesture/focus. Preserve blocked-state error text and color.
+- [x] Replace the inverse corner block with a subtle neutral visual and 16 dp diagonal icon inside the existing 48 × 48 dp resize target. Keep the target inside the draft, the move target at least 48 dp and the name legible.
+- [x] Run `pnpm exec node --test tests/dashboardGrid.test.mjs tests/widgetPlacement.test.mjs`. Expected: zero failures; no geometry/parser rewrite is necessary.
 - [ ] Verify native move, resize to 2×2, collision rejection, edge clamping, cancellation, pending lock and resize-handle visibility after release. Capture replacement 09 in both themes.
 - [ ] Update DESIGN.md's placement-preview rule and commit as `fix: quiet dashboard placement selection` after required checks.
 

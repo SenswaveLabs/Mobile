@@ -41,6 +41,7 @@ const WidgetPlacementCanvas: FC<WidgetPlacementCanvasProps> = ({
     const gridWidth = cellWidth * grid.columns + GAP * (grid.columns - 1);
     const gridHeight = ROW_HEIGHT * grid.rows + GAP * (grid.rows - 1);
     const [dragging, setDragging] = useState(false);
+    const [focused, setFocused] = useState(false);
     const [blocked, setBlocked] = useState(false);
     const scroll = useRef<ScrollView>(null);
     const viewport = useRef({ height: 0, offset: 0 });
@@ -235,7 +236,11 @@ const WidgetPlacementCanvas: FC<WidgetPlacementCanvasProps> = ({
                                     top: placement.row * (ROW_HEIGHT + GAP),
                                     width: draftWidth,
                                     height: draftHeight,
-                                    borderColor: blocked ? colors.error : colors.authFocus,
+                                    borderColor: blocked
+                                        ? colors.error
+                                        : dragging || focused
+                                          ? colors.authFocus
+                                          : colors.deviceTileBorder,
                                     backgroundColor: colors.deviceTileSurface,
                                 },
                             ]}>
@@ -245,6 +250,8 @@ const WidgetPlacementCanvas: FC<WidgetPlacementCanvasProps> = ({
                                 accessibilityRole="adjustable"
                                 accessibilityLabel={`Move ${widget.name}`}
                                 accessibilityState={{ disabled }}
+                                onFocus={() => setFocused(true)}
+                                onBlur={() => setFocused(false)}
                                 accessibilityValue={{
                                     text: `Row ${placement.row + 1}, column ${placement.column + 1}`,
                                 }}
@@ -266,13 +273,11 @@ const WidgetPlacementCanvas: FC<WidgetPlacementCanvasProps> = ({
                                 }}
                                 style={styles.moveTarget}>
                                 <Move size={20} color={colors.authForeground} accessible={false} />
-                                {draftWidth >= 100 && (
-                                    <Text
-                                        numberOfLines={2}
-                                        style={[styles.name, { color: colors.authForeground }]}>
-                                        {widget.name}
-                                    </Text>
-                                )}
+                                <Text
+                                    numberOfLines={draftWidth >= 100 ? 2 : 1}
+                                    style={[styles.name, { color: colors.authForeground }]}>
+                                    {widget.name}
+                                </Text>
                             </View>
                             <View
                                 {...responders.resize.panHandlers}
@@ -280,6 +285,8 @@ const WidgetPlacementCanvas: FC<WidgetPlacementCanvasProps> = ({
                                 accessibilityRole="adjustable"
                                 accessibilityLabel={`Resize ${widget.name}`}
                                 accessibilityState={{ disabled }}
+                                onFocus={() => setFocused(true)}
+                                onBlur={() => setFocused(false)}
                                 accessibilityValue={{
                                     text: `${placement.columnSpan} ${placement.columnSpan === 1 ? "column" : "columns"}, ${placement.rowSpan} ${placement.rowSpan === 1 ? "row" : "rows"}`,
                                 }}
@@ -299,15 +306,18 @@ const WidgetPlacementCanvas: FC<WidgetPlacementCanvasProps> = ({
                                     const size = sizes[nativeEvent.actionName];
                                     if (size) adjust("resize", ...size);
                                 }}
-                                style={[
-                                    styles.resizeTarget,
-                                    { backgroundColor: colors.authForeground },
-                                ]}>
-                                <MoveDiagonal2
-                                    size={20}
-                                    color={colors.background}
-                                    accessible={false}
-                                />
+                                style={styles.resizeTarget}>
+                                <View
+                                    style={[
+                                        styles.resizeAffordance,
+                                        { backgroundColor: colors.deviceTileSubtle },
+                                    ]}>
+                                    <MoveDiagonal2
+                                        size={16}
+                                        color={colors.authForeground}
+                                        accessible={false}
+                                    />
+                                </View>
                             </View>
                         </View>
                     </View>
@@ -339,7 +349,7 @@ const styles = StyleSheet.create({
         overflow: "hidden",
     },
     occupiedName: { fontSize: 12, lineHeight: 16 },
-    draft: { position: "absolute", borderWidth: 2, borderRadius: 12, zIndex: 1 },
+    draft: { position: "absolute", borderWidth: 1, borderRadius: 12, zIndex: 1 },
     moveTarget: {
         flex: 1,
         minHeight: 48,
@@ -352,12 +362,17 @@ const styles = StyleSheet.create({
     name: { fontSize: 14, lineHeight: 20, fontWeight: "600", textAlign: "center" },
     resizeTarget: {
         position: "absolute",
-        right: -2,
-        bottom: -2,
+        right: 0,
+        bottom: 0,
         width: 48,
         height: 48,
-        borderTopLeftRadius: 12,
-        borderBottomRightRadius: 12,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    resizeAffordance: {
+        width: 28,
+        height: 28,
+        borderRadius: 8,
         alignItems: "center",
         justifyContent: "center",
     },

@@ -90,7 +90,7 @@ components:
 
 This record captures the incumbent Android interface. Material Design 3 guides interaction, hierarchy, adaptive behavior and accessibility; the existing Senswave web product supplies the visual language. Native screens use React Native, the shared `ThemeProvider` and local React Native Reusables components.
 
-Light and dark semantic roles set the app canvas, reusable surfaces, fields, focus and destructive feedback. Home device tiles keep controls on neutral surfaces, use the existing amber action role, and show command failures inside the affected tile. This document records the native system and its required corrections; the dashboard/widget follow-up below is planned, not yet implemented. It does not establish a new identity or visual direction.
+Light and dark semantic roles set the app canvas, reusable surfaces, fields, focus and destructive feedback. Home device tiles keep controls on neutral surfaces, use the existing amber action role, and show command failures inside the affected tile. This document records the native system and its required corrections; the dashboard/widget follow-up is tracked in the implementation plan. It does not establish a new identity or visual direction.
 
 **Key Characteristics:**
 - Native system typography and controls.
@@ -165,8 +165,8 @@ Device grid tiles use gently rounded corners (`rounded.device-tile`); list rows 
 ### Dashboard Widgets
 
 **Required follow-up:** The [PR #29 correction plan](docs/superpowers/plans/2026-10-28-dashboard-pr29-corrections.md)
-tracks the changes below. Treat these as target rules and verify implementation
-before claiming that the current branch satisfies them.
+tracks implementation of the rules below. Verify outstanding tasks before claiming
+that the current branch satisfies every rule.
 
 Dashboard controls reuse the device-tile surface and border roles, 12 dp corners,
 8 dp compact insets and 14/20 dp labels. Button and selected Radio options use the
