@@ -5,86 +5,132 @@ import React, {
     useContext,
     PropsWithChildren,
     FC,
+    useRef,
 } from "react";
 import { useHttpClient } from "../HttpClientProvider";
 import { useHomes } from "../domain/HomeProvider";
 import { ListResponse } from "@/utils/httpClient";
-import { useToast } from "../ToastProvider";
 import { AutomationDto } from "@/types/AutomationsTypes";
 
-const AutomationListUrl: string = "v1/automations/display/?homeId=";
+const AutomationListUrl: string = "v1/automations/display?homeId=";
+const loadError = "Couldn't load automations. Try again.";
 
 interface AutomationListContextProps {
-    loading: boolean;
+    homeId?: string;
     automations: AutomationDto[];
+    loading: boolean;
+    error?: string;
+    refresh(expectedHomeId?: string): Promise<boolean>;
+}
 
-    refresh(): Promise<boolean>;
+interface AutomationListState {
+    homeId?: string;
+    automations: AutomationDto[];
+    loading: boolean;
+    error?: string;
 }
 
 const AutomationListContext = createContext<AutomationListContextProps>({
-    loading: false,
+    homeId: undefined,
     automations: [],
-
-    refresh: async () => {
-        console.warn("refresh not implemented.");
-        return false;
-    },
+    loading: false,
+    error: undefined,
+    refresh: async () => false,
 });
 
 export const useAutomationList = () => useContext(AutomationListContext);
 
 const AutomationListProvider: FC<PropsWithChildren> = ({ children }) => {
     const homes = useHomes();
-    const toast = useToast();
     const httpClient = useHttpClient();
-    const [automations, setAutomations] = useState<AutomationDto[]>([]);
-    const [loading, setLoading] = useState<boolean>(false);
+    const homeId = homes.current?.id;
+    const homeIdRef = useRef(homeId);
+    homeIdRef.current = homeId;
+    const requestId = useRef(0);
+    const [state, setState] = useState<AutomationListState>({
+        automations: [],
+        loading: false,
+    });
 
-    const fetchAutomations = async (): Promise<boolean> => {
-        if (!homes.current?.id) {
-            console.debug("[AutomationListProvider] No home selected.");
+    const refresh = async (expectedHomeId?: string): Promise<boolean> => {
+        const currentHomeId = homeIdRef.current;
+        if (!currentHomeId || (expectedHomeId !== undefined && expectedHomeId !== currentHomeId))
             return false;
-        }
-        const result = await httpClient.get(AutomationListUrl + homes.current?.id);
-        if (result.isSuccess) {
-            const data = (await result.response!.json()) as ListResponse<AutomationDto>;
-            setAutomations(data.items);
-            console.info("[AutomationListProvider] Successfully fetched automations.");
-            return true;
-        } else if (result.statusCode === 404) {
-            console.warn("[AutomationListProvider] No automations found for the current home.");
-            setAutomations([]);
-            return false;
-        } else {
-            toast.httpError(result);
-            setAutomations([]);
-            return false;
-        }
-    };
 
-    const refresh = async () => {
-        setLoading(true);
+        const currentRequestId = ++requestId.current;
+        const isCurrent = () =>
+            currentRequestId === requestId.current && homeIdRef.current === currentHomeId;
+        setState((previous) => ({
+            homeId: currentHomeId,
+            automations: previous.homeId === currentHomeId ? previous.automations : [],
+            loading: true,
+        }));
 
         try {
-            return fetchAutomations();
+            const response = await httpClient.get(AutomationListUrl + currentHomeId);
+            let items: AutomationDto[];
+            if (response.statusCode === 404) {
+                items = [];
+            } else {
+                if (!response.isSuccess || !response.response) throw new Error(loadError);
+                const payload = (await response.response.json()) as ListResponse<AutomationDto>;
+                if (
+                    !Array.isArray(payload?.items) ||
+                    !payload.items.every((item) => {
+                        if (!item || typeof item !== "object") return false;
+                        return (
+                            typeof item.id === "string" &&
+                            item.id.length > 0 &&
+                            item.homeId === currentHomeId &&
+                            typeof item.name === "string" &&
+                            typeof item.icon === "string" &&
+                            (item.conditionConnector === "And" ||
+                                item.conditionConnector === "Or") &&
+                            typeof item.isEnabled === "boolean" &&
+                            (item.conditions === undefined || Array.isArray(item.conditions)) &&
+                            (item.results === undefined || Array.isArray(item.results))
+                        );
+                    })
+                )
+                    throw new Error(loadError);
+                items = payload.items;
+            }
+
+            if (!isCurrent()) return false;
+            setState((previous) => ({
+                ...previous,
+                homeId: currentHomeId,
+                automations: items,
+                error: undefined,
+            }));
+            return true;
+        } catch {
+            if (isCurrent())
+                setState((previous) => ({ ...previous, homeId: currentHomeId, error: loadError }));
+            return false;
         } finally {
-            setLoading(false);
+            if (isCurrent())
+                setState((previous) => ({ ...previous, homeId: currentHomeId, loading: false }));
         }
     };
 
     useEffect(() => {
-        fetchAutomations();
-
+        if (homeId) {
+            void refresh(homeId);
+        } else {
+            requestId.current++;
+            setState({ automations: [], loading: false });
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [homes.current?.id]);
-
-    console.info("[AutomationListProvider] Initialized.");
+    }, [homeId]);
 
     return (
         <AutomationListContext.Provider
             value={{
-                automations,
-                loading,
+                homeId,
+                automations: state.homeId === homeId ? state.automations : [],
+                loading: Boolean(homeId) && (state.homeId !== homeId || state.loading),
+                error: state.homeId === homeId ? state.error : undefined,
                 refresh,
             }}>
             {children}

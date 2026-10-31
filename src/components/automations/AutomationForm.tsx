@@ -1,25 +1,21 @@
-import {
-    ConditionConnector,
-    AutomationConditionDto,
-    AutomationResultDto,
-} from "@/types/AutomationsTypes";
-import { View, StyleSheet } from "react-native";
-import Text from "@/components/common/Text";
-import IconSelector from "@/components//common/IconSelector";
-import HorizontalSelector from "@/components/common/HorizontalSelector";
-import ConditionResultTile from "@/components/automations/ConditionResultTile";
-import { useTheme } from "@/contexts/ThemeProvider";
-import LogicalConjuction from "@/components/automations/LogicalConjuction";
-import AutomationConditions from "@/components/automations/conditions/AutomationConditions";
-import AutomationResult from "@/components/automations/results/AutomationResults";
+import Button from "@/components/common/Button";
+import FormSection from "@/components/common/FormSection";
+import IconSelector from "@/components/common/IconSelector";
 import Input from "@/components/common/Input";
-import { shadowStyles } from "@/styles/shadowStyles";
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
-import AutomationTile from "@/components/automations/AutomationTile";
-import ImageButton from "@/components/common/ImageButton";
-import { ScrollView } from "react-native-gesture-handler";
-import Divider from "../common/Divider";
+import AutomationConditions from "@/components/automations/conditions/AutomationConditions";
+import AutomationResults from "@/components/automations/results/AutomationResults";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Text } from "@/components/ui/text";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useAutomation } from "@/contexts/custom/AutomationProvider";
+import { useHomes } from "@/contexts/domain/HomeProvider";
+import { useTheme } from "@/contexts/ThemeProvider";
+import { keyboardOffset } from "@/styles/defaultStyles";
+import { AutomationFormValues } from "@/types/AutomationsTypes";
+import { Check, CircleAlert } from "lucide-react-native";
+import React, { FC, ReactNode, useEffect, useRef, useState } from "react";
+import { StyleSheet, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 const AutomationIcons = [
     "flash-outline",
@@ -38,292 +34,419 @@ const AutomationIcons = [
     "thermometer-outline",
 ] as string[];
 
-export interface AutomationFormHandle {
-    triggerSave: () => void;
+export interface AutomationFormProps {
+    mode: "create" | "details";
+    sessionToken: string;
+    initialValues: AutomationFormValues;
+    readOnly: boolean;
+    canAddChildren: boolean;
+    pending: boolean;
+    accepted?: boolean;
+    actionError?: string;
+    footer?: ReactNode;
+    onSubmit(values: AutomationFormValues): Promise<void>;
 }
 
-const sections = ["Enabled", "Disabled"];
+const AutomationForm: FC<AutomationFormProps> = ({
+    mode,
+    sessionToken,
+    initialValues,
+    readOnly,
+    canAddChildren,
+    pending,
+    accepted = false,
+    actionError,
+    footer,
+    onSubmit,
+}) => {
+    const { colors } = useTheme().current;
+    const homes = useHomes();
+    const automation = useAutomation();
+    const [name, setName] = useState(initialValues.name);
+    const [icon, setIcon] = useState(initialValues.icon);
+    const [conditionConnector, setConditionConnector] = useState(initialValues.conditionConnector);
+    const [isEnabled, setIsEnabled] = useState(initialValues.isEnabled);
+    const [nameError, setNameError] = useState("");
+    const [createAttempted, setCreateAttempted] = useState(false);
+    const [localActionError, setLocalActionError] = useState("");
+    const automationRef = useRef(automation);
+    automationRef.current = automation;
+    const draftRef = useRef(initialValues);
+    const savedRef = useRef({ ...initialValues, name: initialValues.name.trim() });
+    const previousInitialRef = useRef(initialValues);
+    const inputRef = useRef<TextInput>(null);
+    const submitLock = useRef(false);
+    const pendingRef = useRef(pending);
+    const acceptedRef = useRef(accepted);
+    const readOnlyRef = useRef(readOnly);
+    pendingRef.current = pending;
+    acceptedRef.current = accepted;
+    readOnlyRef.current = readOnly;
+    draftRef.current = { name, icon, conditionConnector, isEnabled };
 
-interface AutomationFormProps {
-    automationId?: string;
-    initName?: string;
-    initIcon?: string;
-
-    initIsEnabled?: boolean;
-    initConditionConnector?: ConditionConnector;
-
-    initConditions?: AutomationConditionDto[];
-    initResults?: AutomationResultDto[];
-
-    onSubmit: (values: any) => Promise<void>;
-    edit?: boolean;
-    onDirtyChange?: (isDirty: boolean) => void;
-    hideInternalButton?: boolean;
-}
-
-const AutomationForm = forwardRef<AutomationFormHandle, AutomationFormProps>(
-    function AutomationForm(
-        {
-            automationId,
-            initName = "",
-            initIcon = "flash-outline",
-            initIsEnabled = undefined,
-            initConditionConnector = undefined,
-            initConditions = [],
-            initResults = [],
-            onSubmit,
-            edit = false,
-            onDirtyChange,
-            hideInternalButton = false,
-        },
-        ref,
-    ) {
-        const [automationName, setAutomationName] = useState<string>(initName ? initName : "");
-        const [nameError, setNameError] = useState<string>("");
-        const [automationIcon, setAutomationIcon] = useState<string>(
-            initIcon ? initIcon : "flash-outline",
-        );
-        const [automationIsEnabled, setAutomationIsEnabled] = useState<boolean | undefined>(
-            initIsEnabled,
-        );
-        const [logicalConjuction, setLogicalConjuction] = useState<ConditionConnector>(
-            initConditionConnector ? initConditionConnector : "And",
-        );
-
-        const automationDetails = useAutomation();
-
-        const [automationConditions, setAutomationConditions] =
-            useState<AutomationConditionDto[]>(initConditions); // TODO: Will be done in next Task
-
-        const [automationResults, setAutomationResults] =
-            useState<AutomationResultDto[]>(initResults); // TODO: Will be done in next Task
-
-        const theme = useTheme();
-        const [loading, setLoading] = useState(false);
-
-        useEffect(() => {
-            automationDetails.setAutomationResults(initResults);
-            automationDetails.setAutomationConditions(initConditions);
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, []);
-
-        useEffect(() => {
-            setAutomationResults(automationDetails.results);
-        }, [automationDetails.results]);
-
-        useEffect(() => {
-            setAutomationConditions(automationDetails.conditions);
-        }, [automationDetails.conditions]);
-
-        useEffect(() => {
-            onDirtyChange?.(buttonVisible());
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [automationName, automationIcon, automationIsEnabled, logicalConjuction]);
-
-        const toggleLogicalConjunction = () => {
-            setLogicalConjuction(logicalConjuction === "And" ? "Or" : "And");
+    useEffect(() => {
+        if (previousInitialRef.current === initialValues) return;
+        const previous = previousInitialRef.current;
+        const current = draftRef.current;
+        const next = {
+            name: current.name === previous.name ? initialValues.name : current.name,
+            icon: current.icon === previous.icon ? initialValues.icon : current.icon,
+            conditionConnector:
+                current.conditionConnector === previous.conditionConnector
+                    ? initialValues.conditionConnector
+                    : current.conditionConnector,
+            isEnabled:
+                current.isEnabled === previous.isEnabled
+                    ? initialValues.isEnabled
+                    : current.isEnabled,
         };
+        previousInitialRef.current = initialValues;
+        savedRef.current = { ...initialValues, name: initialValues.name.trim() };
+        draftRef.current = next;
+        setName(next.name);
+        setIcon(next.icon);
+        setConditionConnector(next.conditionConnector);
+        setIsEnabled(next.isEnabled);
+    }, [initialValues]);
 
-        const validateForm = (): boolean => {
-            let isValid = true;
+    const currentSession = () => {
+        const value = automationRef.current.session;
+        return value?.token === sessionToken && automationRef.current.isCurrentSession(sessionToken)
+            ? value
+            : undefined;
+    };
+    const session = currentSession();
+    const conditions = session?.conditions ?? [];
+    const results = session?.results ?? [];
+    const childAddAllowed = canAddChildren && !!session;
+    const latest = () => draftRef.current;
+    const hasDirtyChanges = () =>
+        latest().name.trim() !== savedRef.current.name ||
+        latest().icon !== savedRef.current.icon ||
+        latest().conditionConnector !== savedRef.current.conditionConnector ||
+        latest().isEnabled !== savedRef.current.isEnabled;
+    const dirty = hasDirtyChanges();
 
-            if (automationName.trim().length < 3 || automationName.trim().length > 64) {
-                isValid = false;
-                setNameError("Automation name must be between 3 and 64 characters long");
-                console.info("[AutomationForm] Automation name is required");
-            }
-
-            return isValid;
-        };
-
-        const buttonVisible = (): boolean => {
-            if (!edit) return true;
-
-            if (automationName !== initName) return true;
-            if (automationIcon !== initIcon) return true;
-            if (automationIsEnabled !== initIsEnabled) return true;
-            if (logicalConjuction !== initConditionConnector) return true;
-
-            return false;
-        };
-
-        const buttonClicked = async () => {
+    const editable = () => !readOnlyRef.current && !pendingRef.current && !acceptedRef.current;
+    const change = (field: keyof AutomationFormValues, value: string | boolean) => {
+        if (!editable()) return;
+        const next = { ...latest(), [field]: value } as AutomationFormValues;
+        draftRef.current = next;
+        if (field === "name") {
+            setName(value as string);
             setNameError("");
+        } else if (field === "icon") setIcon(value as string);
+        else if (field === "conditionConnector") setConditionConnector(value as "And" | "Or");
+        else setIsEnabled(value as boolean);
+    };
 
-            if (loading) {
-                console.info("[AutomationForm] Form is processing");
+    const submit = async () => {
+        if (submitLock.current || pendingRef.current || readOnlyRef.current) return;
+        const activeSession = currentSession();
+        if (!activeSession) return;
+        if (!acceptedRef.current && mode === "details" && !hasDirtyChanges()) return;
+
+        setLocalActionError("");
+        if (!acceptedRef.current) {
+            const nextName = latest().name.trim();
+            if (nextName.length < 3 || nextName.length > 64) {
+                setNameError(nextName.length === 0 ? "Name is required." : "Use 3–64 characters.");
+                inputRef.current?.focus();
                 return;
             }
-
-            if (!validateForm()) {
-                console.info("[AutomationForm] Form is invalid");
+            if (
+                mode === "create" &&
+                (activeSession.conditions.length < 1 ||
+                    activeSession.conditions.length > 7 ||
+                    activeSession.results.length < 1 ||
+                    activeSession.results.length > 7)
+            ) {
+                setCreateAttempted(true);
                 return;
             }
+        }
 
-            setLoading(true);
+        submitLock.current = true;
+        try {
+            await onSubmit({ ...latest(), name: latest().name.trim() });
+        } catch {
+            setLocalActionError("Couldn't save this automation. Try again.");
+        } finally {
+            submitLock.current = false;
+        }
+    };
 
-            const values: any = {};
-            if (automationName !== initName) {
-                values.name = automationName;
-            }
-            if (automationIcon !== initIcon) {
-                values.icon = automationIcon;
-            }
-            if (automationIsEnabled !== initIsEnabled) {
-                values.isEnabled = automationIsEnabled;
-            }
-            if (logicalConjuction !== initConditionConnector) {
-                values.conditionConnector = logicalConjuction;
-            }
-            if (automationConditions !== initConditions) {
-                values.conditions = automationConditions;
-            }
-            if (automationResults !== initResults) {
-                values.results = automationResults;
-            }
+    const formAction = accepted
+        ? "Return to automations"
+        : mode === "create"
+          ? "Create automation"
+          : "Save changes";
+    const actionFeedback = actionError || localActionError;
+    const canSubmit = !!session && (!readOnly || accepted);
+    const helper =
+        mode === "create"
+            ? `Create an automation for ${homes.current?.name ?? "this home"}. New automations start enabled.`
+            : readOnly
+              ? "Review this automation's name, icon, state, conditions and results."
+              : "Update this automation's name, icon, state and condition matching.";
+    const viewOnly = readOnly || accepted;
+    const formActions = !readOnly && (
+        <>
+            {!!actionFeedback && (
+                <Alert
+                    icon={CircleAlert}
+                    variant="destructive"
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite">
+                    <AlertDescription>{actionFeedback}</AlertDescription>
+                </Alert>
+            )}
+            <Button
+                name={formAction}
+                type="auth"
+                loading={pending}
+                disabled={
+                    !canSubmit ||
+                    (!accepted && mode === "details" && !dirty) ||
+                    (accepted && !canSubmit)
+                }
+                onPress={submit}
+            />
+        </>
+    );
+    const choiceStyle = (selected: boolean) => [
+        styles.choice,
+        {
+            backgroundColor: selected ? colors.authPrimary : colors.authBackground,
+            borderColor: selected ? colors.authOnPrimary : colors.authBorder,
+            borderWidth: selected ? 2 : 1,
+        },
+    ];
+    const choiceLabelStyle = (selected: boolean) => ({
+        color: selected ? colors.authOnPrimary : colors.authForeground,
+    });
 
-            await onSubmit(values);
-
-            setLoading(false);
-        };
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        useImperativeHandle(ref, () => ({ triggerSave: buttonClicked }), [loading]);
-
-        return (
-            <View style={styles.wrapper}>
-                <View style={styles.automationTileWrapper}>
-                    <AutomationTile
-                        automationId={automationId ? automationId : ""}
-                        automationName={automationName}
-                        automationIcon={automationIcon}
-                        automationIsEnabled={automationIsEnabled}
-                        isPressDisabled={true}
-                    />
-                </View>
-
-                <Divider />
-
-                <ScrollView
-                    style={styles.scrollContainer}
-                    contentContainerStyle={{ paddingBottom: 90 }}
-                    showsVerticalScrollIndicator={false}>
+    return (
+        <KeyboardAwareScrollView
+            bottomOffset={keyboardOffset}
+            keyboardShouldPersistTaps="handled"
+            style={[styles.screen, { backgroundColor: colors.background }]}
+            contentContainerStyle={styles.content}>
+            <View style={mode === "create" ? styles.createLayout : undefined}>
+                <FormSection
+                    title={mode === "create" ? "Create automation" : "Automation details"}
+                    helper={helper}
+                    actions={mode === "details" ? formActions : undefined}>
                     <Input
-                        error={nameError}
-                        value={automationName}
                         title="Name"
-                        placeholder="Your automation name"
-                        setValue={setAutomationName}
+                        placeholder="Automation name"
+                        value={name}
+                        setValue={(value) => change("name", value)}
+                        error={nameError}
+                        variant="auth"
+                        inputRef={inputRef}
+                        editable={!readOnly && !accepted}
+                        returnKeyType="done"
+                        submitBehavior="submit"
+                        onSubmitEditing={submit}
                     />
-
-                    <View>
-                        <IconSelector
-                            defaultIcon={automationIcon}
-                            onIconSelected={setAutomationIcon}
-                            iconList={AutomationIcons}
-                        />
-                    </View>
-
-                    <View>
-                        <HorizontalSelector
-                            options={sections}
-                            selected={automationIsEnabled ? sections[0] : sections[1]}
-                            onSelect={(value) => setAutomationIsEnabled(value === sections[0])}
-                            optionAdditionalStyles={[
-                                { backgroundColor: theme.current.colors.success },
-                                { backgroundColor: theme.current.colors.error },
-                            ]}
-                            margin={{ top: 10, right: 0, bottom: 10, left: 0 }}
-                            textColorWhenSelected="onPrimary"
-                        />
-                    </View>
-
-                    <View style={styles.ifElseTilesWraper}>
-                        <ConditionResultTile>
-                            <Text size={"medium"} color={"onPrimary"} bold={true}>
-                                If
+                    <IconSelector
+                        defaultIcon={icon}
+                        iconList={AutomationIcons}
+                        disabled={readOnly || pending || accepted}
+                        onIconSelected={(value) => change("icon", value)}
+                    />
+                    {mode === "details" && (
+                        <View style={styles.group}>
+                            <Text
+                                accessibilityRole="header"
+                                style={[styles.fieldTitle, { color: colors.authForeground }]}>
+                                State
                             </Text>
-                        </ConditionResultTile>
-
-                        <LogicalConjuction
-                            onPress={toggleLogicalConjunction}
-                            logicalConjuction={logicalConjuction}
-                        />
-                    </View>
-
-                    <View style={[{ ...styles.conditionsResultsWrapper }, shadowStyles.default]}>
-                        <AutomationConditions
-                            automationId={automationId}
-                            conditions={automationConditions ?? []}
-                        />
-                    </View>
-
-                    <View style={styles.ifElseTilesWraper}>
-                        <ConditionResultTile>
-                            <Text size={"medium"} color={"onPrimary"} bold={true}>
-                                Then
+                            {viewOnly ? (
+                                <Text style={{ color: colors.authForeground }}>
+                                    {isEnabled ? "Enabled" : "Disabled"}
+                                </Text>
+                            ) : (
+                                <ToggleGroup
+                                    type="single"
+                                    variant="outline"
+                                    value={isEnabled ? "Enabled" : "Disabled"}
+                                    accessibilityLabel="Automation state"
+                                    className="w-full rounded-lg"
+                                    onValueChange={(value) => {
+                                        if (value === "Enabled" || value === "Disabled")
+                                            change("isEnabled", value === "Enabled");
+                                    }}>
+                                    {(["Enabled", "Disabled"] as const).map((value, index) => (
+                                        <ToggleGroupItem
+                                            key={value}
+                                            value={value}
+                                            isFirst={index === 0}
+                                            isLast={index === 1}
+                                            className="flex-1"
+                                            accessibilityLabel={value}
+                                            accessibilityState={{
+                                                selected: isEnabled === (value === "Enabled"),
+                                            }}
+                                            disabled={pending || accepted}
+                                            style={choiceStyle(
+                                                isEnabled === (value === "Enabled"),
+                                            )}>
+                                            {isEnabled === (value === "Enabled") && (
+                                                <Check size={16} color={colors.authOnPrimary} />
+                                            )}
+                                            <Text
+                                                style={[
+                                                    styles.choiceLabel,
+                                                    choiceLabelStyle(
+                                                        isEnabled === (value === "Enabled"),
+                                                    ),
+                                                ]}>
+                                                {value}
+                                            </Text>
+                                        </ToggleGroupItem>
+                                    ))}
+                                </ToggleGroup>
+                            )}
+                        </View>
+                    )}
+                    <View style={styles.group}>
+                        <Text
+                            accessibilityRole="header"
+                            style={[styles.fieldTitle, { color: colors.authForeground }]}>
+                            Condition matching
+                        </Text>
+                        {viewOnly ? (
+                            <Text style={{ color: colors.authForeground }}>
+                                {conditionConnector === "And" ? "All conditions" : "Any condition"}
                             </Text>
-                        </ConditionResultTile>
+                        ) : (
+                            <ToggleGroup
+                                type="single"
+                                variant="outline"
+                                value={conditionConnector}
+                                accessibilityLabel="Condition matching"
+                                className="w-full rounded-lg"
+                                onValueChange={(value) => {
+                                    if (value === "And" || value === "Or")
+                                        change("conditionConnector", value);
+                                }}>
+                                <ToggleGroupItem
+                                    value="And"
+                                    isFirst
+                                    className="flex-1"
+                                    accessibilityLabel="All conditions"
+                                    accessibilityState={{ selected: conditionConnector === "And" }}
+                                    disabled={pending || accepted}
+                                    style={choiceStyle(conditionConnector === "And")}>
+                                    {conditionConnector === "And" && (
+                                        <Check size={16} color={colors.authOnPrimary} />
+                                    )}
+                                    <Text
+                                        style={[
+                                            styles.choiceLabel,
+                                            choiceLabelStyle(conditionConnector === "And"),
+                                        ]}>
+                                        All conditions
+                                    </Text>
+                                </ToggleGroupItem>
+                                <ToggleGroupItem
+                                    value="Or"
+                                    isLast
+                                    className="flex-1"
+                                    accessibilityLabel="Any condition"
+                                    accessibilityState={{ selected: conditionConnector === "Or" }}
+                                    disabled={pending || accepted}
+                                    style={choiceStyle(conditionConnector === "Or")}>
+                                    {conditionConnector === "Or" && (
+                                        <Check size={16} color={colors.authOnPrimary} />
+                                    )}
+                                    <Text
+                                        style={[
+                                            styles.choiceLabel,
+                                            choiceLabelStyle(conditionConnector === "Or"),
+                                        ]}>
+                                        Any condition
+                                    </Text>
+                                </ToggleGroupItem>
+                            </ToggleGroup>
+                        )}
                     </View>
-
-                    <View style={styles.conditionsResultsWrapper}>
-                        <AutomationResult
-                            automationId={automationId}
-                            results={automationResults ?? []}
-                        />
-                    </View>
-                </ScrollView>
-                {!hideInternalButton && buttonVisible() && (
-                    <View style={styles.buttonContainer}>
-                        <ImageButton
-                            size={40}
-                            icon={edit ? "checkmark-outline" : "add-outline"}
-                            loading={loading}
-                            onPress={buttonClicked}
-                        />
-                    </View>
+                    <AutomationConditions
+                        conditions={conditions}
+                        sessionToken={sessionToken}
+                        automationId={session?.automationId}
+                        mode={mode}
+                        canAdd={childAddAllowed}
+                        disabled={pending || accepted || readOnly}
+                    />
+                    {mode === "create" && createAttempted && conditions.length === 0 && (
+                        <Text style={{ color: colors.error }} accessibilityRole="alert">
+                            Add at least one condition.
+                        </Text>
+                    )}
+                    {mode === "create" && createAttempted && conditions.length > 7 && (
+                        <Text style={{ color: colors.error }} accessibilityRole="alert">
+                            Use no more than seven conditions.
+                        </Text>
+                    )}
+                    <AutomationResults
+                        results={results}
+                        sessionToken={sessionToken}
+                        automationId={session?.automationId}
+                        mode={mode}
+                        canAdd={childAddAllowed}
+                        disabled={pending || accepted || readOnly}
+                    />
+                    {mode === "create" && createAttempted && results.length === 0 && (
+                        <Text style={{ color: colors.error }} accessibilityRole="alert">
+                            Add at least one result.
+                        </Text>
+                    )}
+                    {mode === "create" && createAttempted && results.length > 7 && (
+                        <Text style={{ color: colors.error }} accessibilityRole="alert">
+                            Use no more than seven results.
+                        </Text>
+                    )}
+                </FormSection>
+                {mode === "create" && formActions && (
+                    <View style={styles.createActions}>{formActions}</View>
                 )}
             </View>
-        );
-    },
-);
+            {footer}
+        </KeyboardAwareScrollView>
+    );
+};
 
 export default AutomationForm;
 
 const styles = StyleSheet.create({
-    wrapper: {
-        flex: 1,
-        gap: 10,
+    screen: { flex: 1 },
+    content: {
+        flexGrow: 1,
+        width: "100%",
+        maxWidth: 448,
+        alignSelf: "center",
+        paddingHorizontal: 16,
+        paddingTop: 24,
+        paddingBottom: 16,
     },
-
-    scrollContainer: {
+    group: { gap: 8 },
+    fieldTitle: { fontSize: 16, lineHeight: 24, fontWeight: "600" },
+    choice: {
         flex: 1,
-        paddingHorizontal: 15,
-        paddingBottom: 20,
-    },
-
-    automationTileWrapper: {
-        paddingHorizontal: 15,
+        minWidth: 0,
+        minHeight: 48,
         alignItems: "center",
-    },
-
-    ifElseTilesWraper: {
-        width: "35%",
-        marginTop: 10,
-        marginBottom: 10,
+        justifyContent: "center",
         flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 10,
     },
-
-    conditionsResultsWrapper: {
-        marginTop: 5,
-    },
-
-    buttonContainer: {
-        position: "absolute",
-        bottom: 0,
-        right: 15,
-        justifyContent: "flex-end",
-        alignItems: "center",
-        marginBottom: 15,
-    },
+    choiceLabel: { flexShrink: 1, textAlign: "center" },
+    createLayout: { flexGrow: 1 },
+    createActions: { marginTop: "auto", paddingTop: 24, gap: 12 },
 });

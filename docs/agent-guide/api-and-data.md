@@ -88,7 +88,7 @@ type WidgetType = "Invalid" | "Empty" | "Button" | "Display" | "Switch" | "Radio
 type ConditionType = "BooleanCondition" | "NumberCondition" | "TextCondition" | "InvalidCondition";
 type ConditionConnector = "And" | "Or";  // joins all conditions in one automation
 
-const OperationToConditionMap: Record<OperationType, ConditionType> = {
+const OperationToConditionMap: Record<OperationType, Exclude<ConditionType, "InvalidCondition">> = {
     Boolean: "BooleanCondition",
     Number:  "NumberCondition",
     Integer: "NumberCondition",
@@ -98,6 +98,8 @@ const OperationToConditionMap: Record<OperationType, ConditionType> = {
 };
 ```
 An Automation has many `conditions` (joined by one `conditionConnector`) and many `results` (which Operations fire, with what value).
+
+Child operation choices use `GET v1/devices/operations/display?deviceId={deviceId}&size=2147483647`; keep both the selected device identity and full-collection limit. Map Boolean to `BooleanCondition`, Number/Integer to `NumberCondition`, and Text/HexColor/Options to `TextCondition`. A new automation keeps child drafts locally until its create POST. Adding to a saved automation is owner-only and uses `PUT v1/automations/conditions/{automationId}` with `{ operationId, conditionType, conditionConfiguration }`, or `PUT v1/automations/results/{automationId}` with `{ operationId, value }`. The result draft/read property remains `valueToSend`; preserve entered strings exactly. Number conditions require finite bounds with `minValue < maxValue`; Boolean `false`, zero and negative finite bounds are valid.
 
 **DataSources**
 ```ts

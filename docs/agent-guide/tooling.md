@@ -14,6 +14,7 @@ pnpm test:poc                 # native auth validation, submissions, route bound
 pnpm test:data-sources        # broker details, settings and subscription actions
 pnpm test:homes               # home selection, joining, creation, settings, maps and recovery
 pnpm test:dashboard           # home dashboard filtering, recovery and device-tile controls
+pnpm test:automations         # automation list, create, details, children and state
 pnpm test:build               # separate next-dev identity and Android version-code validation
 pnpm test:icons               # Home/Device catalogs, selectors, glyphs and submission keys
 ```

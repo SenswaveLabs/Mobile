@@ -287,15 +287,15 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                             keyboardShouldPersistTaps="handled">
                             {renderOptions
                                 ? renderOptions(close)
-                                : options.map((option) => (
+                                : options.map((option, index) => (
                                       <Pressable
-                                          key={option.label}
+                                          key={`${option.label}-${index}`}
                                           ref={option.selected ? selectedOptionRef : undefined}
                                           cssInterop={false}
                                           disabled={disabled}
                                           onPress={() => {
                                               if (disabled || !close()) return;
-                                              if (option.label !== value) option.onPress();
+                                              if (!option.selected) option.onPress();
                                           }}
                                           accessibilityRole="radio"
                                           accessibilityLabel={option.label}
