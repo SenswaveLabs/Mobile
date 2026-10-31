@@ -52,6 +52,7 @@ Dashboard identity, selection, management and the widget grid share one vertical
 Placement previews use a quiet neutral surface, thin outline and subdued resize affordance with a separate 48 dp hit area. Color selection uses a swatch/HEX field and a themed bottom-sheet editor; gestures and cancellation do not send commands. Operation creation includes its conditional and nested forms in the same native design system, with inline validation and accepted-once return; see the [mobile UI design policy](docs/agent-guide/interface.md).
 Home location uses a native MapLibre picker with OpenStreetMap. See [Tooling](docs/agent-guide/tooling.md) for its development-client rebuild requirement.
 Profile settings use one native scroll, immediate Light/Dark/System theme selection, read-only English, inline recovery, and a confirmed native account-deletion dialog; see the [mobile UI design policy](docs/agent-guide/interface.md).
+Automations use a home-scoped list and token-bound parent/child forms. Child forms load the full operation catalog, keep exact typed values, and own field validation; routes own permission checks, awaited saved-child PUTs, draft-only local append and accepted-once return. Only owners add children to saved automations. Keep errors inline and suppress legacy toasts; see the [mobile UI policy](docs/agent-guide/interface.md) and [domain/API contracts](docs/agent-guide/api-and-data.md).
 
 ## Finish the work
 

@@ -294,6 +294,37 @@ test("choosing another option runs once while the sheet finishes closing", () =>
     assert.equal(modal(form).props.visible, false);
 });
 
+test("duplicate selector labels keep distinct option keys", () => {
+    const form = mountSelect({
+        choices: [
+            { label: "Required", selected: true, onPress: () => {} },
+            { label: "Required", selected: false, onPress: () => {} },
+        ],
+    });
+    open(form);
+    const [selectedRow, otherRow] = radios(form);
+    assert.notEqual(selectedRow.props.key, otherRow.props.key);
+});
+
+test("duplicate selector labels invoke only the unselected row callback", () => {
+    const choices = [];
+    const options = [
+        { label: "Required", selected: true, onPress: () => choices.push("current") },
+        { label: "Required", selected: false, onPress: () => choices.push("other") },
+    ];
+    const currentForm = mountSelect({ choices: options });
+    open(currentForm);
+    const currentRow = radios(currentForm)[0];
+    currentRow.props.onPress();
+    assert.deepEqual(choices, [], "choosing current row does not change caller state");
+
+    const otherForm = mountSelect({ choices: options });
+    open(otherForm);
+    const [, otherRow] = radios(otherForm);
+    otherRow.props.onPress();
+    assert.deepEqual(choices, ["other"], "same-label unselected row still invokes its callback");
+});
+
 test("disabled selector blocks opening and option callbacks but keeps cancellation available", () => {
     let choices = 0;
     const options = [

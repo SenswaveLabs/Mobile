@@ -1,120 +1,75 @@
-import React from "react";
-import Text from "@/components/common/Text";
-import { View, StyleSheet, TouchableOpacity } from "react-native";
-import { AutomationConditionDto } from "@/types/AutomationsTypes";
-import { useTheme } from "@/contexts/ThemeProvider";
 import Icon from "@/components/common/Icon";
-import { useRouter } from "expo-router";
+import SectionHeaderAction from "@/components/common/SectionHeaderAction";
+import Text from "@/components/common/Text";
+import { useTheme } from "@/contexts/ThemeProvider";
+import { AutomationConditionDto } from "@/types/AutomationsTypes";
+import React, { FC } from "react";
+import { StyleSheet, View } from "react-native";
 
 interface AutomationConditionItemProps {
-    item: AutomationConditionDto | undefined;
-    automationId?: string;
+    item: AutomationConditionDto;
+    canRemove: boolean;
+    onRemove: () => void;
 }
 
-const isOnToDisplay = (isOn: boolean) => (isOn ? "On" : "Off");
-
-export default function AutomationConditionItem({
+const AutomationConditionItem: FC<AutomationConditionItemProps> = ({
     item,
-    automationId,
-}: AutomationConditionItemProps) {
-    const theme = useTheme();
-    const router = useRouter();
+    canRemove,
+    onRemove,
+}) => {
+    const { colors } = useTheme().current;
+    const configuration = item.conditionConfiguration;
+    let summary = "Configuration unavailable";
 
-    const renderConfigurationDisplay = () => {
-        if (!item?.conditionConfiguration) return null;
-
-        if (item?.conditionType === "BooleanCondition") {
-            const config = item.conditionConfiguration as { isOn: boolean };
-            return (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Text size={"medium"} color={"onPrimary"}>
-                        Is
-                    </Text>
-                    <Text size={"medium"} color={"onPrimary"} bold={true}>
-                        {isOnToDisplay(config.isOn)}
-                    </Text>
-                </View>
-            );
-        } else if (item?.conditionType === "TextCondition") {
-            const config = item.conditionConfiguration as { requiredValue: string };
-            return (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Text size={"medium"} color={"onPrimary"}>
-                        equals
-                    </Text>
-                    <Text
-                        size={"medium"}
-                        color={"onPrimary"}
-                        bold={true}
-                        numberOfLines={1}
-                        ellipsizeMode="tail">
-                        {config.requiredValue}
-                    </Text>
-                </View>
-            );
-        } else if (item?.conditionType === "NumberCondition") {
-            const config = item.conditionConfiguration as { minValue: number; maxValue: number };
-            return (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Text
-                        size={"medium"}
-                        color={"onPrimary"}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                        style={{ flex: 1 }}>
-                        between <Text bold={true}>{config.minValue}</Text> and{" "}
-                        <Text bold={true}>{config.maxValue}</Text>
-                    </Text>
-                </View>
-            );
-        }
-        return null;
-    };
-
-    const loadAddConditionPage = () => {
-        router.push({
-            pathname: "automation/conditions/add",
-            params: { automationId: automationId },
-        });
-    };
-
-    if (!item) {
-        return (
-            <View style={{ backgroundColor: theme.current.colors.primary, ...styles.wrapper }}>
-                <TouchableOpacity
-                    onPress={loadAddConditionPage}
-                    style={{ alignItems: "center", flexDirection: "row" }}>
-                    <View style={{ width: "88%" }}>
-                        <Text size={"medium"} color={"onPrimary"}>
-                            Add Automation Condition
-                        </Text>
-                    </View>
-                    <View style={{ flex: 1, alignItems: "center" }}>
-                        <Icon icon="add-outline" size={20} color="onPrimary" />
-                    </View>
-                </TouchableOpacity>
-            </View>
-        );
+    if (item.conditionType === "BooleanCondition" && typeof configuration?.isOn === "boolean") {
+        summary = configuration.isOn ? "Is on" : "Is off";
+    } else if (
+        item.conditionType === "TextCondition" &&
+        typeof configuration?.requiredValue === "string"
+    ) {
+        summary = `Equals ${configuration.requiredValue}`;
+    } else if (item.conditionType === "NumberCondition") {
+        const hasMin = typeof configuration?.minValue === "number";
+        const hasMax = typeof configuration?.maxValue === "number";
+        if (hasMin && hasMax)
+            summary = `Between ${configuration.minValue} and ${configuration.maxValue}`;
+        else if (hasMin) summary = `At least ${configuration.minValue}`;
+        else if (hasMax) summary = `At most ${configuration.maxValue}`;
     }
 
     return (
-        <View style={{ backgroundColor: theme.current.colors.primary, ...styles.wrapper }}>
-            <View style={{ width: "60%" }}>
-                <Text size={"medium"} color={"onPrimary"} numberOfLines={1} ellipsizeMode="tail">
-                    {item?.operationName}
+        <View style={[styles.row, { borderBottomColor: colors.authBorder }]}>
+            <View style={styles.text}>
+                <Text color="onBackground" bold numberOfLines={0}>
+                    {item.operationName}
+                </Text>
+                <Text color="onBackground" numberOfLines={0}>
+                    {summary}
                 </Text>
             </View>
-            <View style={{ flex: 1, alignItems: "center" }}>{renderConfigurationDisplay()}</View>
+            {canRemove && (
+                <SectionHeaderAction
+                    label="Remove"
+                    accessibilityLabel={`Remove ${item.operationName} condition`}
+                    icon={<Icon icon="trash-outline" size={18} color="onBackground" />}
+                    onPress={onRemove}
+                />
+            )}
         </View>
     );
-}
+};
+
+export default AutomationConditionItem;
 
 const styles = StyleSheet.create({
-    wrapper: {
-        display: "flex",
+    row: {
+        width: "100%",
+        minHeight: 48,
         flexDirection: "row",
-        paddingVertical: 10,
-        paddingHorizontal: 30,
-        gap: 20,
+        alignItems: "center",
+        gap: 8,
+        paddingVertical: 8,
+        borderBottomWidth: StyleSheet.hairlineWidth,
     },
+    text: { flex: 1, minWidth: 0, gap: 2 },
 });

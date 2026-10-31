@@ -7,145 +7,174 @@ import React, {
     useState,
     useRef,
 } from "react";
-import { useHttpClient } from "../HttpClientProvider";
-import { useToast } from "../ToastProvider";
+import { useHomes } from "../domain/HomeProvider";
 import {
     AutomationDto,
-    AutomationResultDto,
-    AutomationConditionDto,
+    AutomationConditionDraft,
+    AutomationResultDraft,
+    AutomationSession,
 } from "@/types/AutomationsTypes";
 
-const automationUrl: string = "v1/automations/";
-
 interface AutomationContextProps {
-    automationId?: string;
-    loading: boolean;
-
-    results: AutomationResultDto[];
-    setAutomationId: (id: string | undefined) => void;
-    addResult: (result: AutomationResultDto) => Promise<void>;
-    setAutomationResults: (results: AutomationResultDto[]) => void;
-    removeResult: (resultId: string) => Promise<void>;
-
-    conditions: AutomationConditionDto[];
-    addCondition: (condition: AutomationConditionDto) => Promise<void>;
-    setAutomationConditions: (conditions: AutomationConditionDto[]) => void;
-    removeCondition: (conditionId: string) => Promise<void>;
+    session: AutomationSession | undefined;
+    beginSession: (homeId: string, automation?: AutomationDto) => string;
+    clearSession: (token: string) => void;
+    isCurrentSession: (token: string) => boolean;
+    appendCondition: (token: string, value: AutomationConditionDraft) => boolean;
+    appendResult: (token: string, value: AutomationResultDraft) => boolean;
+    removeDraftCondition: (token: string, index: number) => boolean;
+    removeDraftResult: (token: string, index: number) => boolean;
 }
 
 const AutomationContext = createContext<AutomationContextProps>({
-    automationId: undefined,
-    loading: false,
-
-    results: [],
-    setAutomationId: () => {},
-    addResult: async () => {},
-    removeResult: async () => {},
-    setAutomationResults: () => {},
-
-    conditions: [],
-    addCondition: async () => {},
-    setAutomationConditions: () => {},
-    removeCondition: async () => {},
+    session: undefined,
+    beginSession: () => "",
+    clearSession: () => {},
+    isCurrentSession: () => false,
+    appendCondition: () => false,
+    appendResult: () => false,
+    removeDraftCondition: () => false,
+    removeDraftResult: () => false,
 });
 
 export const useAutomation = () => useContext(AutomationContext);
 
 const AutomationProvider: FC<PropsWithChildren> = ({ children }) => {
-    const httpClient = useHttpClient();
-    const toast = useToast();
-    const [loading, setLoading] = useState(true);
-    const [results, setResults] = useState<AutomationResultDto[]>([]);
-    const [conditions, setConditions] = useState<AutomationConditionDto[]>([]);
+    const homes = useHomes();
+    const [session, setSession] = useState<AutomationSession | undefined>();
+    const sessionRef = useRef<AutomationSession | undefined>(undefined);
+    const nextToken = useRef(0);
+    const currentHomeRef = useRef(homes.current);
+    currentHomeRef.current = homes.current;
+    const homeId = currentHomeRef.current?.id;
 
-    const [automationId, setAutomationIdState] = useState<string | undefined>(undefined);
-    const automationIdRef = useRef<string | undefined>(undefined);
-
-    const addResult = async (result: AutomationResultDto) => {
-        console.info("[AutomationProvider] Adding result to automation");
-        setResults((prev) => [...prev, result]);
+    const currentSession = (token: string) => {
+        const current = sessionRef.current;
+        const currentHome = currentHomeRef.current;
+        if (!current || current.token !== token || current.homeId !== currentHome?.id)
+            return undefined;
+        if (
+            current.automationId === undefined &&
+            currentHome?.isOwner !== true &&
+            currentHome?.canManage !== true
+        )
+            return undefined;
+        return current;
     };
 
-    const removeResult = async (resultId: string) => {
-        console.info("[AutomationProvider] Removing result with id: ", resultId);
-        setResults((prev) => prev.filter((result) => result.operationId !== resultId));
+    const updateSession = (next: AutomationSession) => {
+        sessionRef.current = next;
+        setSession(next);
     };
 
-    const setAutomationResults = (results: AutomationResultDto[]) => {
-        console.info("[AutomationProvider] Setting automation results: ");
-        setResults(results);
+    const beginSession = (requestedHomeId: string, automation?: AutomationDto): string => {
+        const currentHome = currentHomeRef.current;
+        if (!requestedHomeId || currentHome?.id !== requestedHomeId) return "";
+        if (
+            automation
+                ? automation.homeId !== requestedHomeId
+                : currentHome.isOwner !== true && currentHome.canManage !== true
+        )
+            return "";
+
+        const token = `automation-session-${++nextToken.current}`;
+        updateSession({
+            token,
+            homeId: requestedHomeId,
+            ...(automation && { automationId: automation.id }),
+            conditions: automation?.conditions?.slice() ?? [],
+            results: automation?.results?.slice() ?? [],
+        });
+        return token;
     };
 
-    const addCondition = async (condition: AutomationConditionDto) => {
-        console.info("[AutomationProvider] Adding condition to automation");
-        setConditions((prev) => [...prev, condition]);
+    const clearSession = (token: string) => {
+        if (sessionRef.current?.token !== token) return;
+        sessionRef.current = undefined;
+        setSession(undefined);
     };
 
-    const removeCondition = async (conditionId: string) => {
-        console.info("[AutomationProvider] Removing condition with id: ", conditionId);
-        setConditions((prev) => prev.filter((condition) => condition.operationId !== conditionId));
+    const isCurrentSession = (token: string) => Boolean(currentSession(token));
+
+    const appendCondition = (token: string, value: AutomationConditionDraft) => {
+        const current = currentSession(token);
+        if (!current) return false;
+        const owner = currentHomeRef.current?.isOwner === true;
+        if (current.automationId !== undefined ? !owner : current.conditions.length >= 7)
+            return false;
+        updateSession({ ...current, conditions: [...current.conditions, value] });
+        return true;
     };
 
-    const setAutomationConditions = (conditions: AutomationConditionDto[]) => {
-        console.info("[AutomationProvider] Setting automation conditions");
-        setConditions(conditions);
+    const appendResult = (token: string, value: AutomationResultDraft) => {
+        const current = currentSession(token);
+        if (!current) return false;
+        const owner = currentHomeRef.current?.isOwner === true;
+        if (current.automationId !== undefined ? !owner : current.results.length >= 7) return false;
+        updateSession({ ...current, results: [...current.results, value] });
+        return true;
     };
 
-    const setAutomationId = (id: string | undefined) => {
-        console.info("[AutomationProvider] Setting automation id: ", id);
-        setAutomationIdState(id);
-        automationIdRef.current = id;
+    const removeDraftCondition = (token: string, index: number) => {
+        const current = currentSession(token);
+        if (
+            !current ||
+            current.automationId !== undefined ||
+            !Number.isInteger(index) ||
+            index < 0 ||
+            index >= current.conditions.length
+        )
+            return false;
+        updateSession({
+            ...current,
+            conditions: current.conditions.filter((_, rowIndex) => rowIndex !== index),
+        });
+        return true;
+    };
+
+    const removeDraftResult = (token: string, index: number) => {
+        const current = currentSession(token);
+        if (
+            !current ||
+            current.automationId !== undefined ||
+            !Number.isInteger(index) ||
+            index < 0 ||
+            index >= current.results.length
+        )
+            return false;
+        updateSession({
+            ...current,
+            results: current.results.filter((_, rowIndex) => rowIndex !== index),
+        });
+        return true;
     };
 
     useEffect(() => {
-        if (automationIdRef.current === undefined) {
-            console.info("[AutomationProvider] Automation Id is empty.");
-            setResults([]);
-            setConditions([]);
-            return;
+        const current = sessionRef.current;
+        const currentHome = currentHomeRef.current;
+        if (
+            current &&
+            (current.homeId !== homeId ||
+                (current.automationId === undefined &&
+                    currentHome?.isOwner !== true &&
+                    currentHome?.canManage !== true))
+        ) {
+            sessionRef.current = undefined;
+            setSession(undefined);
         }
-
-        const getAutomation = async () => {
-            setLoading(true);
-            const result = await httpClient.get(`${automationUrl}${automationIdRef.current}`);
-
-            if (result.isSuccess) {
-                const content = (await result.response?.json()) as AutomationDto;
-                setResults(content.results ?? []);
-                setConditions(content.conditions ?? []);
-            } else if (result.statusCode === 404) {
-                setResults([]);
-                setConditions([]);
-                console.info("[AutomationProvider] No automation found.");
-            } else {
-                console.error("[AutomationProvider] Failed to fetch automation.", result);
-                toast.httpError(result);
-                setResults([]);
-                setConditions([]);
-            }
-            setLoading(false);
-        };
-
-        getAutomation();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [automationIdRef.current, automationId]);
+    }, [homeId, homes.current?.isOwner, homes.current?.canManage]);
 
     return (
         <AutomationContext.Provider
             value={{
-                loading,
-                automationId,
-                setAutomationId,
-
-                results,
-                addResult,
-                setAutomationResults,
-                removeResult,
-
-                conditions,
-                addCondition,
-                setAutomationConditions,
-                removeCondition,
+                session,
+                beginSession,
+                clearSession,
+                isCurrentSession,
+                appendCondition,
+                appendResult,
+                removeDraftCondition,
+                removeDraftResult,
             }}>
             {children}
         </AutomationContext.Provider>

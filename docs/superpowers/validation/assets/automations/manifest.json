@@ -1,0 +1,110 @@
+[
+  {
+    "image": "list-320-dark.png",
+    "viewportPx": {
+      "width": 960,
+      "height": 1440
+    },
+    "viewportDp": {
+      "width": 320.0,
+      "height": 480.0
+    },
+    "densityDpi": 480,
+    "fontScale": 1.0,
+    "theme": "Dark",
+    "role": "Owner",
+    "state": "automations-list-owner-320-dark",
+    "sourceTree": "904b1ef8eb7f10e4666abf1c29ca86a1564b4ff6",
+    "captureId": "qa-004"
+  },
+  {
+    "image": "create-post-failure-448-light.png",
+    "viewportPx": {
+      "width": 1344,
+      "height": 2992
+    },
+    "viewportDp": {
+      "width": 448.0,
+      "height": 997.33
+    },
+    "densityDpi": 480,
+    "fontScale": 1.0,
+    "theme": "Light",
+    "role": "Owner",
+    "state": "create-post-failure-retained-draft-448-light",
+    "sourceTree": "904b1ef8eb7f10e4666abf1c29ca86a1564b4ff6",
+    "captureId": "qa-013"
+  },
+  {
+    "image": "details-partial-save-448-light.png",
+    "viewportPx": {
+      "width": 1344,
+      "height": 2992
+    },
+    "viewportDp": {
+      "width": 448.0,
+      "height": 997.33
+    },
+    "densityDpi": 480,
+    "fontScale": 1.0,
+    "theme": "Light",
+    "role": "Owner",
+    "state": "details-state-saved-metadata-failed-448-light",
+    "sourceTree": "904b1ef8eb7f10e4666abf1c29ca86a1564b4ff6",
+    "captureId": "qa-016"
+  },
+  {
+    "image": "condition-device-retry-448-light.png",
+    "viewportPx": {
+      "width": 1344,
+      "height": 2992
+    },
+    "viewportDp": {
+      "width": 448.0,
+      "height": 997.33
+    },
+    "densityDpi": 480,
+    "fontScale": 1.0,
+    "theme": "Light",
+    "role": "Owner",
+    "state": "child-device-retry-error-448-light",
+    "sourceTree": "904b1ef8eb7f10e4666abf1c29ca86a1564b4ff6",
+    "captureId": "qa-032"
+  },
+  {
+    "image": "delete-confirmation-320-dark.png",
+    "viewportPx": {
+      "width": 960,
+      "height": 1440
+    },
+    "viewportDp": {
+      "width": 320.0,
+      "height": 480.0
+    },
+    "densityDpi": 480,
+    "fontScale": 1.0,
+    "theme": "Dark",
+    "role": "Owner",
+    "state": "delete-confirmation-320-dark",
+    "sourceTree": "042e8be2b3262e890853945623cdfefbcbec7dac",
+    "captureId": "qa-048"
+  },
+  {
+    "image": "create-action-ime-448-light.png",
+    "viewportPx": {
+      "width": 1344,
+      "height": 2992
+    },
+    "viewportDp": {
+      "width": 448.0,
+      "height": 997.33
+    },
+    "densityDpi": 480,
+    "fontScale": 1.3,
+    "theme": "Light",
+    "role": "Owner",
+    "state": "create-draft-action-visible-with-ime-open",
+    "sourceTree": "042e8be2b3262e890853945623cdfefbcbec7dac",
+    "captureId": "qa-051"
+  }
+]
