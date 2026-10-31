@@ -120,6 +120,14 @@ const Index: FC = () => {
                     header={
                         <View style={styles.intro}>
                             <HomeStateWidget />
+                            <View style={styles.automationAction}>
+                                <SectionHeaderAction
+                                    label="Automations"
+                                    accessibilityLabel="Automations"
+                                    icon={<Icon icon="flash-outline" size={18} color="brand" />}
+                                    onPress={() => router.navigate("automation/list")}
+                                />
+                            </View>
                             <View style={styles.heading}>
                                 <ContentSection
                                     title="Devices"
@@ -181,6 +189,7 @@ export default Index;
 const styles = StyleSheet.create({
     container: { flex: 1 },
     intro: { gap: 16, marginBottom: 20 },
+    automationAction: { alignItems: "flex-end" },
     heading: { marginTop: 8, gap: 2 },
     helper: { fontSize: 14, lineHeight: 20 },
     headingActions: {

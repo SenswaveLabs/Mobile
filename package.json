@@ -1,6 +1,7 @@
 {
     "name": "senswave",
     "version": "1.1.0",
+    "private": true,
     "main": "index.js",
     "scripts": {
         "start": "expo start",
@@ -10,7 +11,8 @@
         "fix": "oxfmt '**/*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}' && oxlint --fix .",
         "hooks:install": "git config core.hooksPath .githooks",
         "typecheck": "tsc --noEmit",
-    "test:poc": "node --test tests/authValidation.test.mjs tests/authPanel.test.mjs tests/resetPasswordForm.test.mjs tests/feedback.test.mjs tests/profile.test.mjs",
+        "test:poc": "node --test tests/authValidation.test.mjs tests/authPanel.test.mjs tests/resetPasswordForm.test.mjs tests/feedback.test.mjs tests/profile.test.mjs",
+        "test:automations": "node --test tests/automationList.test.mjs tests/automationCreate.test.mjs tests/automationDetails.test.mjs tests/automationChildren.test.mjs tests/automationState.test.mjs",
         "test:data-sources": "node --test tests/dataSourceCreate.test.mjs tests/dataSourceDetails.test.mjs tests/bottomSheetSelect.test.mjs tests/startBrokerClient.test.mjs tests/addSubscription.test.mjs",
         "test:homes": "node --test tests/homeList.test.mjs tests/joinHomeForm.test.mjs tests/homeForm.test.mjs tests/roomForm.test.mjs tests/locationMapPicker.test.mjs",
         "test:device-details": "node --test tests/deviceDetails.test.mjs tests/roomSelector.test.mjs tests/bottomSheetSelect.test.mjs tests/dashboardCreate.test.mjs tests/dashboardDetails.test.mjs tests/dashboardView.test.mjs tests/deviceDashboard.test.mjs tests/dashboardGrid.test.mjs tests/dashboardGridActions.test.mjs tests/widgetPlacement.test.mjs tests/widgetPicker.test.mjs tests/widgetActions.test.mjs tests/widgetConfigPermissions.test.mjs tests/widgetFormValidation.test.mjs tests/widgetTypeForms.test.mjs tests/widgetCreate.test.mjs tests/widgetDetails.test.mjs tests/operationCreate.test.mjs tests/operationForm.test.mjs tests/colorPickerField.test.mjs tests/widgetCommandSnackbar.test.mjs tests/feedback.test.mjs",
@@ -81,9 +83,8 @@
         "tailwindcss": "3.4.19",
         "typescript": "5.9.3"
     },
-    "private": true,
-    "packageManager": "pnpm@12.8.1",
     "engines": {
         "node": ">=26.12.1"
-    }
+    },
+    "packageManager": "pnpm@12.8.1"
 }

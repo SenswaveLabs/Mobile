@@ -262,9 +262,24 @@ function InternalLayout() {
                 }}
             />
             <Stack.Screen
+                name="automation/list"
+                options={{
+                    headerShown: true,
+                    header: () => <DefaultHeader titlePrefix="Automations" variant="brand" />,
+                    contentStyle: { backgroundColor: theme.current.colors.background },
+                }}
+            />
+
+            <Stack.Screen
                 name="automation/details"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Automation" titleSuffix="Details" />,
+                    header: () => (
+                        <DefaultHeader
+                            titlePrefix="Automation"
+                            titleSuffix="Details"
+                            variant="brand"
+                        />
+                    ),
                 }}
             />
 
@@ -272,7 +287,13 @@ function InternalLayout() {
                 name="automation/results/add"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Automation" titleSuffix="Result" />,
+                    header: () => (
+                        <DefaultHeader
+                            titlePrefix="Automation"
+                            titleSuffix="Result"
+                            variant="brand"
+                        />
+                    ),
                 }}
             />
 
@@ -280,7 +301,9 @@ function InternalLayout() {
                 name="automation/add"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Add" titleSuffix="Automation" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Add" titleSuffix="Automation" variant="brand" />
+                    ),
                 }}
             />
 
@@ -288,7 +311,9 @@ function InternalLayout() {
                 name="automation/conditions/add"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Add" titleSuffix="Condition" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Add" titleSuffix="Condition" variant="brand" />
+                    ),
                 }}
             />
         </Stack>

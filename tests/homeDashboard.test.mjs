@@ -1461,6 +1461,87 @@ test("empty dashboard offers primary creation only to managers with a data sourc
     }
 });
 
+test("home entry exists for Display without a source", () => {
+    const navigation = [];
+    const homes = {
+        loading: false,
+        current: {
+            id: "home-display",
+            name: "Shared home",
+            icon: "home-outline",
+            isOwner: false,
+            canManage: false,
+            dataSource: undefined,
+            rooms: [],
+        },
+    };
+    const component = mountNativeComponent("src/app/(app)/index.tsx", {
+        modules: {
+            "expo-router": {
+                useFocusEffect() {},
+                useRouter: () => ({
+                    navigate: (route) => navigation.push(route),
+                    push: (route) => navigation.push(route),
+                }),
+            },
+            "react-native": {
+                View: "View",
+                Text: "Text",
+                Modal: "Modal",
+                StyleSheet: { create: (value) => value },
+                BackHandler: {
+                    addEventListener() {
+                        return { remove() {} };
+                    },
+                },
+            },
+            "@rn-primitives/portal": { PortalHost: "PortalHost" },
+            "@/contexts/domain/HomeProvider": { useHomes: () => homes },
+            "@/contexts/custom/DeviceListProvider": {
+                useDeviceList: () => ({ loading: false, error: null, devices: [] }),
+            },
+            "@/contexts/ThemeProvider": {
+                useTheme: () => ({
+                    current: { colors: { background: "background", authMuted: "muted" } },
+                }),
+            },
+            "@/hooks/useDeviceLayout": {
+                useDeviceLayout: () => ({ layout: "list", setLayout() {} }),
+            },
+            "@/components/common/Button": "Button",
+            "@/components/common/ContentSection": "ContentSection",
+            "@/components/common/Icon": "Icon",
+            "@/components/common/Loading": "Loading",
+            "@/components/common/SectionHeaderAction": "SectionHeaderAction",
+            "@/components/common/WhatsNewModal": { WhatsNewModal: "WhatsNewModal" },
+            "@/components/device/DeviceList": "DeviceList",
+            "@/components/device/DeviceLayoutToggle": "DeviceLayoutToggle",
+            "@/components/home/NoHomeScreen": "NoHomeScreen",
+            "@/components/home/widgets/HomeStateWidget": "HomeStateWidget",
+            "@/components/room/RoomsView": "RoomsView",
+            "@/components/ui/alert-dialog": {
+                AlertDialog: "AlertDialog",
+                AlertDialogAction: "AlertDialogAction",
+                AlertDialogCancel: "AlertDialogCancel",
+                AlertDialogContent: "AlertDialogContent",
+                AlertDialogDescription: "AlertDialogDescription",
+                AlertDialogFooter: "AlertDialogFooter",
+                AlertDialogHeader: "AlertDialogHeader",
+                AlertDialogTitle: "AlertDialogTitle",
+            },
+        },
+    });
+
+    const action = component
+        .elements()
+        .find((node) => node.type === "SectionHeaderAction" && node.props.label === "Automations");
+    assert.ok(action);
+    assert.equal(action.props.accessibilityLabel, "Automations");
+    action.props.onPress();
+    assert.deepEqual(navigation, ["automation/list"]);
+    assert.equal(component.text().includes("Add device"), false);
+});
+
 for (const kind of ["Display"]) {
     test(
         kind + " tile clears recovery feedback after successful same-value refresh only",
