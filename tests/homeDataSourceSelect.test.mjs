@@ -5,9 +5,12 @@ import { mountNativeComponent } from "./nativeComponentHarness.mjs";
 const home = (id = "home-a", overrides = {}) => ({
     id,
     name: id === "home-a" ? "Home A" : "Home B",
+    icon: `legacy-home-icon:${id}`,
     isOwner: true,
     canManage: true,
-    dataSource: undefined,
+    dataSource: null,
+    location: null,
+    rooms: [],
     ...overrides,
 });
 const success = (data) => ({
@@ -139,7 +142,14 @@ test("accepted link survives assigned-home refresh and Retry never repeats PUT",
         current: home(),
         refreshCurrent: async (options) => {
             routeOptions.push(options && JSON.parse(JSON.stringify(options)));
-            if (refresh) route.homes.current = home("home-a", { dataSource: { id: "source-11" } });
+            if (refresh)
+                route.homes.current = home("home-a", {
+                    dataSource: {
+                        id: "source-11",
+                        name: "Kitchen broker",
+                        state: "Connected",
+                    },
+                });
             return refresh;
         },
     });
@@ -156,7 +166,9 @@ test("accepted link survives assigned-home refresh and Retry never repeats PUT",
     assert.ok(failedRefresh);
 
     refresh = true;
-    route.homes.current = home("home-a", { dataSource: { id: "source-11" } });
+    route.homes.current = home("home-a", {
+        dataSource: { id: "source-11", name: "Kitchen broker", state: "Connected" },
+    });
     route.component.render();
     const retry = route.buttons().find((button) => button.props.name === "Retry");
     assert.ok(retry, route.component.text());
@@ -253,6 +265,45 @@ test("a changed home blocks stale return and offers return to current home", asy
     assert.ok(returnButton);
     await returnButton.props.onPress();
     assert.deepEqual(route.navigation, [["replace", "/home/details"]]);
+});
+
+test("changed-home return failure stays local and retries navigation without refresh or PUT", async () => {
+    const request = deferred();
+    let failReturn = true;
+    const route = mountSelection({
+        put: () => request.promise,
+        replace: () => {
+            if (failReturn) {
+                failReturn = false;
+                throw new Error("navigation failed");
+            }
+        },
+    });
+    const pending = route.list().props.onListItemSelected("source-11");
+    route.homes.current = home("home-b");
+    route.component.render();
+    request.resolve({ isSuccess: true, statusCode: 204, response: null });
+    await pending;
+    await settle(route.component);
+
+    assert.equal(route.linkCalls.length, 1);
+    assert.deepEqual(route.refreshCalls, []);
+    const firstReturn = route.buttons().find((button) => /home/i.test(button.props.name ?? ""));
+    assert.ok(firstReturn);
+    assert.doesNotThrow(() => firstReturn.props.onPress());
+    await settle(route.component);
+    assert.match(route.component.text(), /couldn't return/i);
+    const retry = route.buttons().find((button) => button.props.name === "Retry");
+    assert.ok(retry);
+    await retry.props.onPress();
+    await settle(route.component);
+
+    assert.equal(route.linkCalls.length, 1);
+    assert.deepEqual(route.refreshCalls, []);
+    assert.deepEqual(route.navigation, [
+        ["replace", "/home/details"],
+        ["replace", "/home/details"],
+    ]);
 });
 
 test("no history returns to Home details and a thrown return retries without another PUT", async () => {
@@ -356,5 +407,85 @@ test("refresh rejects malformed and thrown home responses and releases loading",
         assert.equal(refreshed, false);
         provider.provider.render();
         assert.equal(provider.homes().loading, false);
+    }
+});
+
+test("refresh rejects matching-ID malformed homes and retains the valid cache", async () => {
+    const malformed = [
+        { id: "home-a" },
+        home("home-a", { name: null }),
+        home("home-a", { icon: 4 }),
+        home("home-a", { isOwner: "true" }),
+        home("home-a", { canManage: "true" }),
+        home("home-a", { rooms: undefined }),
+        home("home-a", { rooms: [{ id: 12, name: "Kitchen" }] }),
+        home("home-a", { location: { latitude: "0", longitude: 0 } }),
+        home("home-a", { dataSource: { id: 12, name: "Broker", state: "Connected" } }),
+    ];
+
+    for (const body of malformed) {
+        const cached = home("home-a", {
+            name: "Cached Home",
+            icon: "opaque:stored-icon-key",
+            dataSource: null,
+            location: null,
+            rooms: [{ id: "room-1", name: "Kitchen" }],
+        });
+        let homeRead = 0;
+        const provider = mountHomeProvider(async (path) => {
+            if (path === "v1/homes/current")
+                return { isSuccess: false, statusCode: 404, response: null };
+            if (homeRead++ === 0) return success(cached);
+            return success(body);
+        });
+        await settle(provider.provider);
+        await provider.homes().setCurrent("home-a");
+        provider.provider.render();
+        const previous = provider.homes().current;
+
+        assert.equal(
+            await provider.homes().refreshCurrent({ homeId: "home-a", background: true }),
+            false,
+        );
+        provider.provider.render();
+        assert.equal(provider.homes().current, previous);
+        assert.equal(provider.homes().current.name, "Cached Home");
+        assert.equal(provider.homes().loading, false);
+    }
+});
+
+test("refresh accepts optional/null source/location and opaque icon values", async () => {
+    const refreshed = [
+        home("home-a", {
+            icon: "external:home-icon/key-17",
+            dataSource: null,
+            location: null,
+            rooms: [{ id: "room-1", name: "Kitchen" }],
+        }),
+        home("home-a", {
+            icon: "external:home-icon/key-18",
+            dataSource: undefined,
+            location: { latitude: 0, longitude: 0 },
+            rooms: [],
+        }),
+    ];
+
+    for (const body of refreshed) {
+        let homeRead = 0;
+        const provider = mountHomeProvider(async (path) => {
+            if (path === "v1/homes/current")
+                return { isSuccess: false, statusCode: 404, response: null };
+            return success(homeRead++ === 0 ? home("home-a") : body);
+        });
+        await settle(provider.provider);
+        await provider.homes().setCurrent("home-a");
+        provider.provider.render();
+
+        assert.equal(
+            await provider.homes().refreshCurrent({ homeId: "home-a", background: true }),
+            true,
+        );
+        provider.provider.render();
+        assert.deepEqual(provider.homes().current, body);
     }
 });

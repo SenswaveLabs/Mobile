@@ -159,7 +159,18 @@ No-argument callers retain the existing full loading behavior. Passing
 `{ homeId, background: true }` reads only that captured home, updates it only
 while it is still selected, and leaves global loading unchanged; stale, invalid
 or failed responses return `false`. This is a client context option with no API
-contract change.
+contract change. The captured-home guard is scoped to the authenticated app's
+`HomeProvider` lifetime: the app layout unmounts it on logout, while access-token
+rotation retains it for the same account. If the app later switches authenticated
+accounts without remounting the provider, add an account-generation guard.
+
+`DataSourceStateGet` reads `GET v1/datasources/brokers/{id}/clients`; the response
+uses string `connectionStatus` and `latestSessionId` fields. List tiles enable
+inline recovery: failed, malformed and thrown reads keep the status unavailable
+with Retry for that same GET. Focus and request generations bind results to the
+current broker row, and the authenticated app teardown invalidates late work.
+Other tile callers keep the default toast feedback. These client behaviors do
+not change the API contract.
 
 `DeviceListProvider` owns client-side device-list loading and error recovery. It
 requests the complete V1 collection with `size=2147483647` (the API's full-collection

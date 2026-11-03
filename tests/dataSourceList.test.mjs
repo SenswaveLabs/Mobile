@@ -75,6 +75,51 @@ function mountList({ get } = {}) {
     };
 }
 
+function mountStatusReader({ id = "source-11", inlineRecovery = true, get } = {}) {
+    let focusEffect;
+    const reads = [];
+    const toastCalls = [];
+    const component = mountNativeComponent(
+        "src/components/dataSource/state/DataSourceStateGet.tsx",
+        {
+            props: { id, inlineRecovery },
+            modules: {
+                "expo-router": { useFocusEffect: (callback) => (focusEffect = callback) },
+                "@/contexts/HttpClientProvider": {
+                    useHttpClient: () => ({
+                        get: (path) => {
+                            reads.push(path);
+                            return get(path);
+                        },
+                    }),
+                },
+                "@/contexts/ToastProvider": {
+                    useToast: () => ({
+                        error: (...args) => toastCalls.push(["error", ...args]),
+                        httpError: (...args) => toastCalls.push(["httpError", ...args]),
+                    }),
+                },
+                "@/components/common/Loading": "Loading",
+                "@/components/common/Text": "Text",
+                "@/components/common/Button": "Button",
+                "./DataSourceState": "DataSourceState",
+                "@/components/ui/alert": { Alert: "Alert", AlertDescription: "AlertDescription" },
+            },
+        },
+    );
+    return {
+        component,
+        reads,
+        toastCalls,
+        focus: () => focusEffect?.(),
+        start() {
+            const cleanup = focusEffect?.();
+            component.flushEffects();
+            return cleanup;
+        },
+    };
+}
+
 test("source list loads all sources once per focus and keys rows by source ID", async () => {
     const list = mountList({ get: async () => response([source("source-11")]) });
     list.flushEffects();
@@ -218,6 +263,136 @@ test("selected linking row keeps status badge and names the source", () => {
     assert.match(JSON.stringify(row.props.children), /Linking/);
     assert.match(JSON.stringify(row.props.children), /Kitchen broker/);
     assert.match(JSON.stringify(row.props.trailing.props.children), /DataSourceStateGet/);
+    const stateReader = tile
+        .elements(row.props.trailing)
+        .find((node) => node.type === "DataSourceStateGet");
+    assert.equal(stateReader.props.inlineRecovery, true);
+});
+
+test("row status failures stay local and Retry rereads status without bubbling", async () => {
+    let next = { isSuccess: false, statusCode: 503, response: null };
+    const status = mountStatusReader({ get: async () => next });
+    const blur = status.start();
+    await settle(status.component);
+
+    const alert = status.component.elements().find((node) => node.type === "Alert");
+    const retry = status.component.elements().find((node) => node.type === "Button");
+    assert.ok(alert, status.component.text());
+    assert.equal(alert.props.accessibilityRole, "alert");
+    assert.ok(retry);
+    assert.equal(retry.props.name, "Retry status");
+    assert.equal(retry.props.accessibilityLabel, "Retry data source status");
+
+    let propagationStopped = false;
+    next = {
+        isSuccess: true,
+        response: {
+            json: async () => ({ connectionStatus: "Connected", latestSessionId: "session-2" }),
+        },
+    };
+    await retry.props.onPress({ stopPropagation: () => (propagationStopped = true) });
+    await settle(status.component);
+
+    assert.deepEqual(status.reads, [
+        "v1/datasources/brokers/source-11/clients",
+        "v1/datasources/brokers/source-11/clients",
+    ]);
+    assert.equal(propagationStopped, true);
+    assert.equal(status.toastCalls.length, 0);
+    assert.equal(
+        status.component.elements().some((node) => node.type === "Alert"),
+        false,
+    );
+    const badge = status.component.elements().find((node) => node.type === "DataSourceState");
+    assert.equal(badge.props.connectionStatus, "Connected");
+    blur?.();
+});
+
+test("row status handles thrown and malformed responses with local recovery", async () => {
+    const failures = [
+        async () => {
+            throw new Error("offline");
+        },
+        async () => ({
+            isSuccess: true,
+            response: { json: async () => ({ connectionStatus: 4 }) },
+        }),
+    ];
+    for (const get of failures) {
+        const status = mountStatusReader({ get });
+        const blur = status.start();
+        await settle(status.component);
+        assert.ok(status.component.elements().some((node) => node.type === "Alert"));
+        assert.ok(status.component.elements().some((node) => node.type === "Button"));
+        assert.equal(status.toastCalls.length, 0);
+        blur?.();
+    }
+});
+
+test("row status ignores completion after blur, source change, and authenticated unmount", async () => {
+    const oldRead = deferred();
+    const newRead = deferred();
+    let read = 0;
+    const status = mountStatusReader({
+        get: () => (read++ === 0 ? oldRead.promise : newRead.promise),
+    });
+    const oldBlur = status.start();
+    oldBlur?.();
+    status.component.render({ id: "source-12", inlineRecovery: true });
+    const newBlur = status.start();
+    oldRead.resolve({ isSuccess: false, statusCode: 503, response: null });
+    newRead.resolve({
+        isSuccess: true,
+        response: {
+            json: async () => ({ connectionStatus: "Connecting", latestSessionId: "session-3" }),
+        },
+    });
+    await settle(status.component);
+    assert.deepEqual(status.reads, [
+        "v1/datasources/brokers/source-11/clients",
+        "v1/datasources/brokers/source-12/clients",
+    ]);
+    assert.equal(status.toastCalls.length, 0);
+    assert.equal(
+        status.component.elements().some((node) => node.type === "Alert"),
+        false,
+    );
+    assert.equal(
+        status.component.elements().find((node) => node.type === "DataSourceState")?.props
+            .connectionStatus,
+        "Connecting",
+    );
+    newBlur?.();
+
+    const unmountedRead = deferred();
+    const unmounted = mountStatusReader({ get: () => unmountedRead.promise });
+    const unmountBlur = unmounted.start();
+    unmountBlur?.();
+    unmounted.component.unmount();
+    unmountedRead.resolve({ isSuccess: false, statusCode: 503, response: null });
+    await settle(unmounted.component);
+    assert.deepEqual(unmounted.toastCalls, []);
+    assert.equal(
+        unmounted.component.elements().some((node) => node.type === "Alert"),
+        false,
+    );
+});
+
+test("other status reader callers keep legacy toast feedback by default", async () => {
+    const status = mountStatusReader({
+        inlineRecovery: false,
+        get: async () => ({ isSuccess: false, statusCode: 503, response: null }),
+    });
+    status.start();
+    await settle(status.component);
+    assert.deepEqual(
+        status.toastCalls.map(([name]) => name),
+        ["httpError"],
+    );
+    assert.equal(
+        status.component.elements().some((node) => node.type === "Button"),
+        false,
+    );
 });
 
 test("account source Add action stays available in list header", () => {

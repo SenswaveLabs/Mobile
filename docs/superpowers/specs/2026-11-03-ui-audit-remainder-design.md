@@ -142,7 +142,10 @@ needs no additional confirmation or new selection/submit step. While assignment
 is pending, keep rows visible, disable further choices/Add and label the selected
 source as linking with busy semantics. Show action failure and Retry beside that
 choice. Use safe general failure copy rather than blaming every failure on the
-one-broker rule.
+one-broker rule. List-row broker status reads own their persistent error and
+Retry: reissue `GET v1/datasources/brokers/{id}/clients`, suppress legacy toasts,
+stop row-action propagation and ignore results after focus, row-ID or authenticated
+provider-lifetime changes. Default status-reader callers retain toast feedback.
 
 Read the routed `homeId`, normalize it consistently and bind it to the current
 home before permitting selection. Both existing entry points must pass that ID:
@@ -156,11 +159,17 @@ Latch successful assignment before refreshing that same home. Extend
 and background refresh mode and return success/failure. Preserve default callers'
 loading behavior. The new caller keeps its list mounted; failed/malformed reads
 always clear loading, return failure, and cannot overwrite a different current
-home. Existing `StartBrokerClientForm` and `BrokerClient` callers keep their
+home. Required Home detail fields are validated before replacing the cache, while
+nullable/omitted source and location values and arbitrary string icon keys remain
+valid. The captured-home guard is scoped to the authenticated app's `HomeProvider`
+lifetime: logout unmounts it, while same-account token rotation retains it. If a
+future account switch keeps the provider mounted, add a separate account-generation
+guard. Existing `StartBrokerClientForm` and `BrokerClient` callers keep their
 no-argument behavior and receive regression coverage. After accepted assignment,
 Retry refreshes/returns only. Prefer Back; without history return to Home details
 for that home. A changed home invalidates the old return and instead offers a
-safe return to the current home.
+safe return to the current home; failed fallback navigation stays local and can
+retry only that return.
 
 ## Device Tile/Presence and operation selection
 

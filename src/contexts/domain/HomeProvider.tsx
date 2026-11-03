@@ -27,6 +27,45 @@ export interface RefreshCurrentHomeOptions {
     background?: boolean;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    !!value && typeof value === "object" && !Array.isArray(value);
+
+const isHomeRefreshResponse = (value: unknown, homeId: string): value is Home => {
+    if (
+        !isRecord(value) ||
+        value.id !== homeId ||
+        typeof value.name !== "string" ||
+        typeof value.icon !== "string" ||
+        typeof value.isOwner !== "boolean" ||
+        !Array.isArray(value.rooms) ||
+        (value.canManage !== undefined && typeof value.canManage !== "boolean")
+    )
+        return false;
+
+    if (
+        value.dataSource !== undefined &&
+        value.dataSource !== null &&
+        (!isRecord(value.dataSource) ||
+            typeof value.dataSource.id !== "string" ||
+            typeof value.dataSource.name !== "string" ||
+            typeof value.dataSource.state !== "string")
+    )
+        return false;
+
+    if (
+        value.location !== undefined &&
+        value.location !== null &&
+        (!isRecord(value.location) ||
+            !Number.isFinite(value.location.latitude) ||
+            !Number.isFinite(value.location.longitude))
+    )
+        return false;
+
+    return value.rooms.every(
+        (room) => isRecord(room) && typeof room.id === "string" && typeof room.name === "string",
+    );
+};
+
 interface HomesContextProps {
     loading: boolean;
     current: Home | undefined;
@@ -194,9 +233,9 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
             if (!homeId || currentHomeRef.current?.id !== homeId) return false;
             const response = await httpClient.get(`v1/homes/${homeId}`);
             if (!response.isSuccess || !response.response) return false;
-            const home = (await response.response.json()) as Home;
-            if (!home || typeof home !== "object" || Array.isArray(home) || home.id !== homeId)
-                return false;
+            const body: unknown = await response.response.json();
+            if (!isHomeRefreshResponse(body, homeId)) return false;
+            const home = body;
             if (currentHomeRef.current?.id !== homeId) return false;
             currentHomeRef.current = home;
             setCurrentHome(home);

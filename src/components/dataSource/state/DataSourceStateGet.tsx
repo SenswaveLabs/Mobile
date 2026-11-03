@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
-import { View } from "react-native";
-import React from "react";
+import React, { useCallback, useRef, useState } from "react";
+import { View, StyleSheet } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { CircleAlert } from "lucide-react-native";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useToast } from "@/contexts/ToastProvider";
 import Loading from "@/components/common/Loading";
 import Text from "@/components/common/Text";
+import Button from "@/components/common/Button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import DataSourceState from "./DataSourceState";
 
 type BrokerClientStateResponse = {
@@ -14,62 +17,143 @@ type BrokerClientStateResponse = {
 
 interface BrokerClientStateGetProperties {
     id: string;
+    inlineRecovery?: boolean;
 }
 
-function BrokerClientStateGet({ id }: BrokerClientStateGetProperties) {
+interface LoadState {
+    id: string;
+    loading: boolean;
+    state?: BrokerClientStateResponse;
+    error?: boolean;
+}
+
+const isBrokerClientState = (value: unknown): value is BrokerClientStateResponse => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const body = value as Record<string, unknown>;
+    return typeof body.connectionStatus === "string" && typeof body.latestSessionId === "string";
+};
+
+function BrokerClientStateGet({ id, inlineRecovery = false }: BrokerClientStateGetProperties) {
     const httpClient = useHttpClient();
     const toast = useToast();
+    const toastRef = useRef(toast);
+    toastRef.current = toast;
+    const idRef = useRef(id);
+    idRef.current = id;
+    const focusGeneration = useRef(0);
+    const request = useRef(0);
+    const retryRef = useRef<() => void>(() => {});
+    const [loadState, setLoadState] = useState<LoadState>({ id, loading: !!id });
+    const visibleState: LoadState = loadState.id === id ? loadState : { id, loading: !!id };
+    const renderedFocus = focusGeneration.current;
 
-    const [loading, setLoading] = useState(true);
-    const [state, setState] = useState<BrokerClientStateResponse | undefined>(undefined);
+    useFocusEffect(
+        useCallback(() => {
+            const capturedFocus = ++focusGeneration.current;
+            let active = true;
+            const current = (requestId: number) =>
+                active &&
+                focusGeneration.current === capturedFocus &&
+                request.current === requestId;
 
-    const fetchBrokerClientState = async () => {
-        setLoading(true);
+            const fetchBrokerClientState = () => {
+                const requestId = ++request.current;
+                setLoadState({ id, loading: true });
 
-        try {
-            const result = await httpClient.get(`v1/datasources/brokers/${id}/clients`);
+                void (async () => {
+                    try {
+                        const result = await httpClient.get(`v1/datasources/brokers/${id}/clients`);
+                        if (!current(requestId)) return;
+                        if (!result.isSuccess || !result.response) {
+                            if (inlineRecovery) setLoadState({ id, loading: false, error: true });
+                            else {
+                                setLoadState({ id, loading: false });
+                                if (!result.isSuccess) toastRef.current.httpError(result);
+                                else toastRef.current.error("Failed to fetch broker client state.");
+                            }
+                            return;
+                        }
 
-            if (result.isSuccess) {
-                const response = (await result.response!.json()) as BrokerClientStateResponse;
-                setState(response as BrokerClientStateResponse);
-            } else {
-                toast.httpError(result);
-            }
-        } catch (error) {
-            toast.error("Failed to fetch broker client state.");
-            console.error("Failed to fetch broker client state", error);
-        }
+                        const body: unknown = await result.response.json();
+                        if (!current(requestId)) return;
+                        if (!isBrokerClientState(body) && inlineRecovery)
+                            throw new Error("Invalid broker client state");
+                        setLoadState({
+                            id,
+                            loading: false,
+                            state: body as BrokerClientStateResponse,
+                        });
+                    } catch (error) {
+                        if (!current(requestId)) return;
+                        console.error("Failed to fetch broker client state", error);
+                        if (inlineRecovery) setLoadState({ id, loading: false, error: true });
+                        else {
+                            setLoadState({ id, loading: false });
+                            toastRef.current.error("Failed to fetch broker client state.");
+                        }
+                    }
+                })();
+            };
 
-        setLoading(false);
-    };
+            retryRef.current = fetchBrokerClientState;
+            if (id) fetchBrokerClientState();
+            else setLoadState({ id, loading: false });
 
-    useEffect(() => {
-        if (!id) {
-            setLoading(false);
-            return;
-        }
-
-        fetchBrokerClientState();
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]);
+            return () => {
+                active = false;
+                if (focusGeneration.current === capturedFocus) {
+                    focusGeneration.current += 1;
+                    request.current += 1;
+                }
+                if (retryRef.current === fetchBrokerClientState) retryRef.current = () => {};
+            };
+        }, [httpClient, id, inlineRecovery]),
+    );
 
     return (
-        <View style={{ width: "100%", alignItems: "center" }}>
-            {loading ? (
+        <View style={styles.container}>
+            {visibleState.loading ? (
                 <>
-                    <View style={{ height: 28 }}>
+                    <View style={styles.loadingIcon}>
                         <Loading size={28} useBackgroundColor={false} />
                     </View>
-                    <Text size={"medium"} color={"onPrimary"}>
+                    <Text size="medium" color="onPrimary">
                         Loading...
                     </Text>
                 </>
+            ) : inlineRecovery && visibleState.error ? (
+                <View style={styles.recovery}>
+                    <Alert
+                        variant="destructive"
+                        icon={CircleAlert}
+                        accessibilityRole="alert"
+                        accessibilityLiveRegion="polite">
+                        <AlertDescription>Couldn't load status. Try again.</AlertDescription>
+                    </Alert>
+                    <Button
+                        name="Retry status"
+                        accessibilityLabel="Retry data source status"
+                        type="brand-outline"
+                        loading={false}
+                        onPress={(event) => {
+                            event?.stopPropagation?.();
+                            if (idRef.current !== id || focusGeneration.current !== renderedFocus)
+                                return;
+                            retryRef.current();
+                        }}
+                    />
+                </View>
             ) : (
-                <DataSourceState connectionStatus={state?.connectionStatus} />
+                <DataSourceState connectionStatus={visibleState.state?.connectionStatus} />
             )}
         </View>
     );
 }
 
 export default BrokerClientStateGet;
+
+const styles = StyleSheet.create({
+    container: { width: "100%", alignItems: "center" },
+    loadingIcon: { height: 28 },
+    recovery: { width: "100%", gap: 8 },
+});

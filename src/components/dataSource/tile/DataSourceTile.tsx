@@ -71,7 +71,7 @@ const DataSourceTile: FC<DataSourceTileProps> = ({
                                     color={theme.current.colors.authMuted}
                                 />
                             )}
-                            <DataSourceStateGet id={id} />
+                            <DataSourceStateGet id={id} inlineRecovery />
                         </View>
                     }
                     onPress={dataSourceClicked}

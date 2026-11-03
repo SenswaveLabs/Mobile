@@ -23,6 +23,13 @@ interface ActionFeedback {
     returnToCurrent?: boolean;
 }
 
+interface FallbackNavigationError {
+    homeId: string;
+    currentHomeId?: string;
+    focusId: number;
+    message: string;
+}
+
 const SelectHomeDataSource: FC = () => {
     const { homeId: rawHomeId } = useLocalSearchParams();
     const homeIdValue = Array.isArray(rawHomeId) ? rawHomeId[0] : rawHomeId;
@@ -47,6 +54,8 @@ const SelectHomeDataSource: FC = () => {
     const [pending, setPending] = useState(false);
     const [selectedSourceId, setSelectedSourceId] = useState<string>();
     const [feedback, setFeedback] = useState<ActionFeedback>();
+    const [fallbackNavigationError, setFallbackNavigationError] =
+        useState<FallbackNavigationError>();
 
     const isFocused = (capturedFocus: number) =>
         active.current && focusId.current === capturedFocus;
@@ -265,6 +274,48 @@ const SelectHomeDataSource: FC = () => {
                     }
                   : undefined;
 
+    const currentFallbackError =
+        fallbackNavigationError?.homeId === homeId &&
+        fallbackNavigationError.currentHomeId === home?.id &&
+        fallbackNavigationError.focusId === focusId.current
+            ? fallbackNavigationError
+            : undefined;
+    const fallbackFocusId = focusId.current;
+
+    const navigateFromFallback = (
+        path: string,
+        capturedHomeId: string,
+        capturedCurrentHomeId: string | undefined,
+        capturedFocus: number,
+    ) => {
+        if (
+            !isFocused(capturedFocus) ||
+            homeIdRef.current !== capturedHomeId ||
+            homeRef.current?.id !== capturedCurrentHomeId
+        )
+            return;
+
+        setFallbackNavigationError(undefined);
+        try {
+            routerRef.current.replace(path);
+        } catch {
+            if (
+                isFocused(capturedFocus) &&
+                homeIdRef.current === capturedHomeId &&
+                homeRef.current?.id === capturedCurrentHomeId
+            )
+                setFallbackNavigationError({
+                    homeId: capturedHomeId,
+                    currentHomeId: capturedCurrentHomeId,
+                    focusId: capturedFocus,
+                    message:
+                        path === "/home/list"
+                            ? "Couldn't return to the home list. Try again."
+                            : "Couldn't return to the current home. Try again.",
+                });
+        }
+    };
+
     if (homes.loading && !home && homeId) return <Loading activityColor="textOnBackground" />;
     if (issue) {
         return (
@@ -274,13 +325,17 @@ const SelectHomeDataSource: FC = () => {
                     icon={CircleAlert}
                     accessibilityRole="alert"
                     accessibilityLiveRegion="polite">
-                    <AlertDescription>{issue.message}</AlertDescription>
+                    <AlertDescription>
+                        {currentFallbackError?.message ?? issue.message}
+                    </AlertDescription>
                 </Alert>
                 <Button
-                    name={issue.action}
+                    name={currentFallbackError ? "Retry" : issue.action}
                     type="brand-outline"
                     loading={false}
-                    onPress={() => router.replace(issue.path)}
+                    onPress={() =>
+                        navigateFromFallback(issue.path, homeId, home?.id, fallbackFocusId)
+                    }
                 />
             </View>
         );
