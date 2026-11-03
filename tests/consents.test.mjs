@@ -32,6 +32,12 @@ const successResponse = (body = {}) => ({
     response: { json: async () => ({ ...activeUser(), ...body }) },
 });
 
+const rawSuccessResponse = (body) => ({
+    isSuccess: true,
+    statusCode: 200,
+    response: { json: async () => body },
+});
+
 const failureResponse = (statusCode = 500) => ({
     isSuccess: false,
     statusCode,
@@ -404,6 +410,187 @@ test("accepted consent keeps its latch through refocus and Continue retries navi
     assert.deepEqual(app.replacements, ["/", "/"]);
     assert.equal(app.requests.post.length, 1);
     assert.equal(app.requests.get.length, 2);
+});
+
+test("retained Accept cannot submit after the consent gate blurs", async () => {
+    const app = mountConsent();
+    app.focus();
+    app.screen.flushEffects();
+    app.requests.get[0].resolve(successResponse());
+    await flush();
+    app.provider.render();
+    app.render();
+
+    const accept = app.button("Accept").props.onPress;
+    app.blur();
+    app.router().push("/terms");
+    const acceptResult = accept();
+    if (app.requests.post[0]) app.requests.post[0].resolve(failureResponse());
+    await acceptResult;
+
+    assert.equal(app.path(), "/terms");
+    assert.equal(app.requests.post.length, 0);
+});
+
+test("retained Continue cannot leave a legal page for the app", async () => {
+    const app = mountConsent();
+    app.focus();
+    app.screen.flushEffects();
+    app.requests.get[0].resolve(successResponse());
+    await flush();
+    app.provider.render();
+    app.render();
+
+    const acceptPromise = app.button("Accept").props.onPress();
+    app.requests.post[0].resolve({ isSuccess: true, statusCode: 204, response: null });
+    await flush();
+    app.failNextReplace();
+    app.requests.get[1].resolve(successResponse({ hasActiveConsent: true }));
+    await acceptPromise;
+    await flush();
+    app.render();
+
+    const continueFromConsent = app.button("Continue").props.onPress;
+    app.blur();
+    app.router().push("/privacy");
+    continueFromConsent();
+
+    assert.equal(app.path(), "/privacy");
+    assert.deepEqual(app.replacements, ["/"]);
+});
+
+for (const [kind, body] of [
+    ["string", { ...activeUser(), hasActiveConsent: "false" }],
+    [
+        "missing",
+        { Id: "user-1", email: "user@example.com", theme: ThemeMode.Light, language: "en" },
+    ],
+]) {
+    test(`${kind} consent status is a read failure, not active or missing consent`, async () => {
+        const app = mountConsent();
+        app.focus();
+        app.screen.flushEffects();
+        app.requests.get[0].resolve(rawSuccessResponse(body));
+        await flush();
+        app.provider.render();
+        app.render();
+
+        assert.ok(app.button("Retry account check"));
+        assert.equal(app.button("Accept")?.props.disabled, true);
+        assert.deepEqual(app.replacements, []);
+    });
+}
+
+test("default theme reset cannot overwrite a newer session theme after storage resolves", async () => {
+    let currentSession = {
+        loading: false,
+        authenticated: true,
+        accessToken: "access-1",
+        refreshToken: "refresh-1",
+    };
+    const deleteRequests = [];
+    const setRequests = [];
+    const requests = [];
+    const secureStore = {
+        getItemAsync: async () => null,
+        deleteItemAsync: (key) => {
+            const request = deferred();
+            deleteRequests.push({ key, ...request });
+            return request.promise;
+        },
+        setItemAsync: (key, value) => {
+            const request = deferred();
+            setRequests.push({ key, value, ...request });
+            return request.promise;
+        },
+    };
+    const themeProvider = mountNativeComponent("src/contexts/ThemeProvider.tsx", {
+        exportName: "ThemeProvider",
+        props: { children: "UserProvider" },
+        modules: {
+            "react-native": { useColorScheme: () => "dark" },
+            "expo-secure-store": secureStore,
+        },
+    });
+    const themeValue = () =>
+        themeProvider.elements().find((node) => node.type === "ContextProvider").props.value;
+    themeProvider.flushEffects();
+    await flush();
+    themeProvider.render();
+
+    const session = {
+        get session() {
+            return currentSession;
+        },
+        logout: () => {},
+    };
+    const provider = mountNativeComponent("src/contexts/domain/UserProvider.tsx", {
+        exportName: "UserProvider",
+        props: { children: "Consent test" },
+        modules: {
+            "../HttpClientProvider": {
+                useHttpClient: () => ({
+                    get: () => {
+                        const request = deferred();
+                        requests.push(request);
+                        return request.promise;
+                    },
+                }),
+            },
+            "../ToastProvider": { useToast: () => ({ httpError: () => {} }) },
+            "../ThemeProvider": { useTheme: themeValue },
+            "../SessionProvider": { useSession: () => session },
+        },
+    });
+    provider.flushEffects();
+    assert.equal(requests.length, 1);
+
+    requests[0].resolve(successResponse({ theme: ThemeMode.Default, hasActiveConsent: false }));
+    await flush();
+    assert.equal(deleteRequests[0].key, "theme");
+
+    currentSession = {
+        loading: false,
+        authenticated: true,
+        accessToken: "access-2",
+        refreshToken: "refresh-2",
+    };
+    provider.render();
+    const value = provider.elements().find((node) => node.type === "ContextProvider").props.value;
+    const newSessionRead = value.getUserData();
+    assert.equal(requests.length, 2);
+    requests[1].resolve(successResponse({ theme: ThemeMode.Light, hasActiveConsent: false }));
+    const newResult = await newSessionRead;
+    assert.equal(newResult.isSuccess, true);
+    themeProvider.render();
+    assert.equal(themeValue().current.type, "light");
+
+    deleteRequests[0].resolve();
+    await flush();
+    themeProvider.render();
+    assert.equal(themeValue().current.type, "light");
+
+    setRequests[0].resolve();
+    await flush();
+    const darkChange = themeValue().darkTheme();
+    themeProvider.render();
+    assert.equal(themeValue().current.type, "dark");
+    setRequests[1].resolve();
+    await darkChange;
+
+    const lightChange = themeValue().lightTheme();
+    themeProvider.render();
+    assert.equal(themeValue().current.type, "light");
+    setRequests[2].resolve();
+    await lightChange;
+
+    const defaultReset = themeValue().resetTheme();
+    assert.equal(deleteRequests[1].key, "theme");
+    assert.equal(themeValue().current.type, "light");
+    deleteRequests[1].resolve();
+    await defaultReset;
+    themeProvider.render();
+    assert.equal(themeValue().current.type, "dark");
 });
 
 test("a different session clears the accepted latch before its own consent decision", async () => {

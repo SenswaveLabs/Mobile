@@ -104,6 +104,14 @@ provider's session-initialization read is silent too, so its late failure cannot
 surface on a later route. Ordinary getter calls keep legacy feedback unless their
 captured authentication identity has changed.
 
+Validate `hasActiveConsent` as a boolean at the UserProvider response boundary;
+a string or missing value is a read failure, so only `true` permits entry and only
+`false` permits acceptance. Retained Accept and Continue callbacks recheck focus and
+cancellation before writing or navigating. A delayed Default theme reset receives
+the captured session predicate and checks it after SecureStore deletion before
+applying theme state. The optional predicate defaults to true, preserving existing
+no-argument reset callers; Light and Dark still apply visible state synchronously.
+
 Accept sends the existing empty consent POST once. On acceptance, latch success
 before checking account state. If that GET fails or still reports no active
 consent, show “Consent submitted. Check account status to continue.” with Retry
@@ -286,7 +294,7 @@ the final row reachable. No new metadata fields or links.
 | Authenticated routes | `(app)/_layout.tsx`; `dataSource/list.tsx`; `home/dataSource/select.tsx`; Home details source entry; device details; operation details/list alias; user info/privacy/terms |
 | Shared components | `headers/DefaultHeader`; `dataSource/DataSourceList` and existing `DataSourceTile` disabled/busy presentation as needed; `device/DeviceForm`; `operation/OperationSelector`, `OperationTile`, `OperationForm` footer; `widgets/WidgetList` forwards device ID; legal wrappers and new `user/LegalDocumentView` |
 | Deletion | Remove sole-use `device/operation/OperationList.tsx`; keep legacy URL alias |
-| Providers | `UserProvider`: result-owned consent failure and stale session read guard; `HomeProvider`: captured/background refresh result; `SessionProvider`: encoded confirmation URL and safe catch logging; `LegalProvider`: reliable validated Result failures; `ToastProvider`: inline-route suppression |
+| Providers | `UserProvider`: result-owned consent failure, boolean consent validation and stale session read guard; `ThemeProvider`: optional session-guarded Default reset at the SecureStore boundary; `HomeProvider`: captured/background refresh result; `SessionProvider`: encoded confirmation URL and safe catch logging; `LegalProvider`: reliable validated Result failures; `ToastProvider`: inline-route suppression |
 | Other callers | Read/regress unchanged `BrokerClient`, `StartBrokerClientForm`, profile/account reads, HomeStateWidget, public auth legal links, WidgetList picker/management variants, operation creation/read-only form |
 | Tests | Focused consent/confirmation/maintenance/legal/info route checks; source-list/assignment checks; operation-selector/details/alias checks; update device-details selectors and feedback expectations; preserve icon/form/widget-picker regressions |
 | Config and exports | Add focused tests to existing `test:poc`, `test:data-sources` and `test:device-details` scripts; no dependencies, lockfile, platform/env/build config or domain DTO change; retain existing legal component exports |

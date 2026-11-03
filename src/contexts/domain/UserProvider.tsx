@@ -30,7 +30,7 @@ interface UserData {
     email: string;
     name: string;
     image?: string;
-    hasActiveConsent?: boolean;
+    hasActiveConsent: boolean;
 }
 
 interface UserProperties {
@@ -43,7 +43,13 @@ interface UserProperties {
 }
 
 const UserContext = createContext<UserProperties>({
-    data: { language: "en", theme: ThemeMode.Default, email: "", name: "" },
+    data: {
+        language: "en",
+        theme: ThemeMode.Default,
+        email: "",
+        name: "",
+        hasActiveConsent: false,
+    },
     updateTheme: async () => SimpleResult.failure("Not implemented."),
     updateLanguage: async () => SimpleResult.failure("Not implemented."),
     makeConsents: async () => SimpleResult.failure("Not implemented."),
@@ -69,9 +75,10 @@ export const UserProvider = ({ children }: any) => {
         hasActiveConsent: false,
     });
 
-    const updateThemeInternal = async (internalTheme: ThemeMode) => {
+    const updateThemeInternal = async (internalTheme: ThemeMode, isCurrent?: () => boolean) => {
         if (internalTheme === ThemeMode.Default) {
-            await theme.resetTheme();
+            if (isCurrent) await theme.resetTheme(isCurrent);
+            else await theme.resetTheme();
         } else if (internalTheme === ThemeMode.Light) {
             await theme.lightTheme();
         } else {
@@ -135,11 +142,19 @@ export const UserProvider = ({ children }: any) => {
         if (response.isSuccess) {
             console.debug("[User Provider] User data loaded.");
 
-            const data: UserResponse = await response.response?.json();
+            const parsedData: unknown = await response.response?.json();
+            if (
+                typeof parsedData !== "object" ||
+                parsedData === null ||
+                typeof (parsedData as { hasActiveConsent?: unknown }).hasActiveConsent !== "boolean"
+            )
+                return Result.failure<UserData>("Failed to load account details.");
+
+            const data = parsedData as UserResponse;
             if (!isCurrentSession())
                 return Result.failure<UserData>("Failed to load account details.");
 
-            updateThemeInternal(data.theme);
+            updateThemeInternal(data.theme, isCurrentSession);
             const name = data.email.charAt(0).toUpperCase() + data.email.split("@")[0].slice(1);
 
             const userData: UserData = {

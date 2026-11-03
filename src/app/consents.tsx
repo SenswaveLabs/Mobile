@@ -78,7 +78,7 @@ const ConsentsPage: FC = () => {
             const result = await user.getUserData({ silent: true });
             if (!sessionIsCurrent(value)) return;
             if (!screenIsCurrent(value, epoch)) return;
-            if (result.isSuccess && result.data?.hasActiveConsent) {
+            if (result.isSuccess && result.data?.hasActiveConsent === true) {
                 verifiedIdentity.current = value;
                 returnToApp(value, epoch);
             } else {
@@ -112,9 +112,9 @@ const ConsentsPage: FC = () => {
         try {
             const result = await user.getUserData({ silent: true });
             if (!sessionIsCurrent(value) || !screenIsCurrent(value, epoch)) return;
-            if (!result.isSuccess || !result.data) {
+            if (!result.isSuccess || typeof result.data?.hasActiveConsent !== "boolean") {
                 setGate("read-error");
-            } else if (result.data.hasActiveConsent) {
+            } else if (result.data.hasActiveConsent === true) {
                 verifiedIdentity.current = value;
                 returnToApp(value, epoch);
             } else {
@@ -134,14 +134,14 @@ const ConsentsPage: FC = () => {
     };
 
     const accept = async () => {
+        if (inFlight.current || !focused.current || cancelled.current) return;
         if (
-            inFlight.current ||
             !["needs-consent", "write-error"].includes(gateStateRef.current) ||
             acceptedIdentity.current
         )
             return;
         const value = identity();
-        if (!value) {
+        if (!value || !sessionIsCurrent(value)) {
             setGate("read-error");
             return;
         }
@@ -182,16 +182,14 @@ const ConsentsPage: FC = () => {
     };
 
     const continueToApp = () => {
+        if (inFlight.current || !focused.current || cancelled.current) return;
         const value = identity();
-        if (inFlight.current || verifiedIdentity.current !== value || !value) return;
-        inFlight.current = true;
         const epoch = focusEpoch.current;
+        if (!value || verifiedIdentity.current !== value || !screenIsCurrent(value, epoch)) return;
+        inFlight.current = true;
         setGate("returning");
         try {
-            router.replace("/");
-            setGate("returned");
-        } catch {
-            if (screenIsCurrent(value, epoch)) setGate("return-error");
+            returnToApp(value, epoch);
         } finally {
             inFlight.current = false;
         }

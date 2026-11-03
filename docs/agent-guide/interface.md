@@ -402,6 +402,11 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
   document Back returns to the gate. Suppress legacy toast overlays on this route.
   `DefaultHeader` keeps its `/` brand fallback, supports `backFallback` for public
   legal headers and lets `onBack` override history after keyboard dismissal.
+  Validate consumed consent status as a boolean before routing; ignore retained
+  Accept/Continue handlers after blur or cancellation. Default theme resets from a
+  user-data read check the captured session after SecureStore deletion before
+  applying the reset; no-argument resets and synchronous Light/Dark updates retain
+  their existing behavior.
 - Native `Input` connects its visible label to the field, exposes errors to assistive
   technology and shows focus/error borders. `PasswordInput` adds a named 48 dp
   visibility toggle. Auth-field labels sit 8 dp above their fields. Buttons retain
