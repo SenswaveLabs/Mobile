@@ -16,10 +16,9 @@ import DeviceTile from "./tile/DeviceTile";
 import { useHomes } from "@/contexts/domain/HomeProvider";
 import { DevicePresenceType, OperationDto, TileReadingConfiguration } from "@/types/DeviceTypes";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
-import Dropdown, { Option } from "../common/Dropdown";
+import BottomSheetSelect from "../common/BottomSheetSelect";
 import OperationSelector from "./operation/OperationSelector";
 import RoomSelector from "../room/RoomSelector";
-import { useToast } from "@/contexts/ToastProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import Expander from "../common/Expander";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -30,16 +29,10 @@ import { Text as UiText } from "@/components/ui/text";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const DefaultDeviceIcon = "bulb-outline";
-const TileTypeOptions: Option[] = [
-    { name: "Default", value: "Default" },
-    { name: "Switch", value: "Switch" },
-    { name: "Display", value: "Display" },
-    { name: "Slider", value: "Slider" },
-    { name: "Options", value: "Options" },
-];
-const PresenceTypeOptions: Option[] = [
-    { value: "Default", name: "No presence" },
-    { value: "BooleanOperation", name: "Boolean operation" },
+const TileTypeOptions = ["Default", "Switch", "Display", "Slider", "Options"];
+const PresenceTypeOptions = [
+    { value: "Default", label: "No presence" },
+    { value: "BooleanOperation", label: "Boolean operation" },
 ];
 
 interface DeviceValues {
@@ -79,6 +72,7 @@ interface DeviceFormProps {
     onSubmit: (values: any) => Promise<void | boolean>;
     onHasChanges?: (hasChanges: boolean) => void;
     edit?: boolean;
+    disabled?: boolean;
     children?: ReactNode;
 }
 
@@ -100,12 +94,12 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
         onSubmit,
         onHasChanges,
         edit = false,
+        disabled = false,
         children,
     },
     ref,
 ) {
     const homes = useHomes();
-    const toast = useToast();
     const httpClient = useHttpClient();
     const catalog = useIconCatalog("devices");
     const { colors } = useTheme().current;
@@ -130,6 +124,12 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
     const [saved, setSaved] = useState(initial);
     const [loading, setLoading] = useState(false);
     const submitting = useRef(false);
+    const disabledRef = useRef(disabled);
+    disabledRef.current = disabled;
+    const loadingRef = useRef(loading);
+    loadingRef.current = loading;
+    const canMutate = () => !disabledRef.current && !loadingRef.current && !submitting.current;
+    const formDisabled = disabled || loading;
     const [submitError, setSubmitError] = useState("");
     const [name, setName] = useState(initial.name);
     const [nameError, setNameError] = useState("");
@@ -149,12 +149,14 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
     const [tileReadings, setTileReadings] = useState(initial.tileReadings);
     const tileLabelError = tileLabel.length > 64 ? "Label must be at most 64 characters." : "";
     const readingIds = [
-        tileDisplayableOperationId,
+        ...(tileDisplayableOperationId && tileDisplayableOperationId !== "None"
+            ? [tileDisplayableOperationId]
+            : []),
         ...tileReadings.map((reading) => reading.operationId),
     ];
     const tileReadingsError =
         tileReadings.length > 8 ||
-        readingIds.some((id) => !id || id === "None") ||
+        tileReadings.some((reading) => !reading.operationId || reading.operationId === "None") ||
         new Set(readingIds).size !== readingIds.length
             ? "Select a different operation for every reading (up to 8 additional readings)."
             : tileReadings.some((reading) => reading.label.length > 64 || reading.unit.length > 5)
@@ -170,6 +172,14 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
     const [presenceOperationId, setPresenceOperationId] = useState(initial.presenceOperationId);
     const [tileExpanded, setTileExpanded] = useState(false);
     const [presenceExpanded, setPresenceExpanded] = useState(false);
+    const [operationErrors, setOperationErrors] = useState({
+        tileOperation: "",
+        displayOperation: "",
+        presenceOperation: "",
+    });
+    const clearOperationError = (field: keyof typeof operationErrors) => {
+        setOperationErrors((current) => (current[field] ? { ...current, [field]: "" } : current));
+    };
 
     const values: DeviceValues = {
         name,
@@ -195,6 +205,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
 
     const validateForm = () => {
         let valid = true;
+        const missingOperations: Partial<typeof operationErrors> = {};
         if (name.trim().length < 3) {
             setNameError("Name is too short.");
             valid = false;
@@ -207,7 +218,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
             ["Switch", "Slider", "Options"].includes(tileType) &&
             (tileOperationId === "None" || tileOperationId === "")
         ) {
-            toast.info("Select operation for this tile.");
+            missingOperations.tileOperation = "Select an operation for this tile.";
             setTileExpanded(true);
             valid = false;
         }
@@ -219,7 +230,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
             tileType === "Display" &&
             (tileDisplayableOperationId === "None" || tileDisplayableOperationId === "")
         ) {
-            toast.info("Select operation for display tile.");
+            missingOperations.displayOperation = "Select an operation for the Display tile.";
             setTileExpanded(true);
             valid = false;
         }
@@ -231,15 +242,17 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
             presenceType === "BooleanOperation" &&
             (presenceOperationId === "None" || presenceOperationId === "")
         ) {
-            toast.info("Select operation for presence.");
+            missingOperations.presenceOperation = "Select an operation for presence.";
             setPresenceExpanded(true);
             valid = false;
         }
+        if (Object.keys(missingOperations).length)
+            setOperationErrors((current) => ({ ...current, ...missingOperations }));
         return valid && isIconValid;
     };
 
     const save = async () => {
-        if (submitting.current || !validateForm()) return;
+        if (!canMutate() || !validateForm()) return;
         submitting.current = true;
         setLoading(true);
         setSubmitError("");
@@ -313,6 +326,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
     };
 
     const reset = () => {
+        if (!canMutate()) return;
         setName(saved.name);
         setIcon(saved.icon);
         setRoomId(saved.roomId);
@@ -325,6 +339,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
         setTileReadings(saved.tileReadings);
         setPresenceType(saved.presenceType);
         setPresenceOperationId(saved.presenceOperationId);
+        setOperationErrors({ tileOperation: "", displayOperation: "", presenceOperation: "" });
         setSubmitError("");
     };
 
@@ -369,11 +384,32 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
     }, [name]);
 
     const onNameChange = (value: string) => {
+        if (!canMutate()) return;
         setName(value);
         setSubmitError("");
     };
     const onRoomSelected = (value: string) => {
+        if (!canMutate()) return;
         setRoomId(value);
+        setSubmitError("");
+    };
+    const onTileTypeSelected = (value: string) => {
+        if (!canMutate()) return;
+        setTileType(value);
+        setSubmitError("");
+    };
+    const onPresenceTypeSelected = (value: string) => {
+        if (!canMutate()) return;
+        setPresenceType(value);
+        setSubmitError("");
+    };
+    const updateReading = (index: number, update: Partial<TileReadingConfiguration>) => {
+        if (!canMutate()) return;
+        setTileReadings((current) =>
+            current.map((reading, position) =>
+                position === index ? { ...reading, ...update } : reading,
+            ),
+        );
         setSubmitError("");
     };
     const tileSummary = `${tileType} tile`;
@@ -441,7 +477,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                 placeholder="Your device name"
                 variant="auth"
                 setValue={onNameChange}
-                editable={!loading}
+                editable={!formDisabled}
                 returnKeyType={!edit ? "done" : undefined}
                 onSubmitEditing={!edit ? save : undefined}
             />
@@ -451,43 +487,51 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                 resource="devices"
                 variant="brand"
                 onIconSelected={(value) => {
+                    if (!canMutate()) return;
                     setIcon(value);
                     setSubmitError("");
                 }}
-                disabled={loading}
+                disabled={formDisabled}
             />
             {!catalog.loading && !catalog.error && !isIconValid && (
                 <Text color="error" accessibilityRole="alert">
                     Select an available icon.
                 </Text>
             )}
-            <RoomSelector initialRoomId={roomId} onSelected={onRoomSelected} disabled={loading} />
+            <RoomSelector
+                initialRoomId={roomId}
+                onSelected={onRoomSelected}
+                disabled={formDisabled}
+            />
 
             {edit && (
                 <Expander
                     title="Tile"
                     summary={tileSummary}
                     expanded={tileExpanded}
-                    onExpandedChange={setTileExpanded}
+                    onExpandedChange={(expanded) => {
+                        if (canMutate()) setTileExpanded(expanded);
+                    }}
                     padding={{ paddingTop: 4 }}>
-                    <Dropdown
+                    <BottomSheetSelect
                         title="Tile Type"
-                        options={TileTypeOptions}
-                        selectedValue={tileType}
-                        onSelected={(value) => {
-                            setTileType(value);
-                            setSubmitError("");
-                        }}
-                        disablePress={loading}
+                        value={tileType}
+                        options={TileTypeOptions.map((value) => ({
+                            label: value,
+                            selected: tileType === value,
+                            onPress: () => onTileTypeSelected(value),
+                        }))}
+                        disabled={formDisabled}
                     />
                     {["Switch", "Slider", "Options"].includes(tileType) && (
-                        <View
-                            style={styles.disclosureField}
-                            pointerEvents={loading ? "none" : "auto"}>
+                        <View style={styles.disclosureField}>
                             <OperationSelector
                                 key={tileType}
                                 initialOperationId={tileOperationId}
                                 deviceId={deviceId!}
+                                title="Tile operation"
+                                error={operationErrors.tileOperation}
+                                disabled={formDisabled}
                                 filterTypes={
                                     tileType === "Slider"
                                         ? ["Number", "Integer"]
@@ -496,7 +540,9 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                                           : ["Boolean"]
                                 }
                                 onSelected={(value) => {
+                                    if (!canMutate()) return;
                                     setTileOperationId(value);
+                                    clearOperationError("tileOperation");
                                     setSubmitError("");
                                 }}
                             />
@@ -511,8 +557,9 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                                 value={tileStep}
                                 keyboardType="decimal-pad"
                                 variant="auth"
-                                editable={!loading}
+                                editable={!formDisabled}
                                 setValue={(value) => {
+                                    if (!canMutate()) return;
                                     setTileStep(value);
                                     setSubmitError("");
                                 }}
@@ -527,8 +574,9 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                                 value={tileUnit}
                                 placeholder="e.g. %"
                                 variant="auth"
-                                editable={!loading}
+                                editable={!formDisabled}
                                 setValue={(value) => {
+                                    if (!canMutate()) return;
                                     setTileUnit(value);
                                     setSubmitError("");
                                 }}
@@ -537,17 +585,20 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                     )}
                     {tileType === "Display" && (
                         <View style={styles.disclosureField}>
-                            <View pointerEvents={loading ? "none" : "auto"}>
-                                <OperationSelector
-                                    initialOperationId={tileDisplayableOperationId}
-                                    deviceId={deviceId!}
-                                    filterTypes={["Number", "Integer", "Boolean"]}
-                                    onSelected={(value) => {
-                                        setTileDisplayableOperationId(value);
-                                        setSubmitError("");
-                                    }}
-                                />
-                            </View>
+                            <OperationSelector
+                                initialOperationId={tileDisplayableOperationId}
+                                deviceId={deviceId!}
+                                title="Primary reading operation"
+                                error={operationErrors.displayOperation}
+                                disabled={formDisabled}
+                                filterTypes={["Number", "Integer", "Boolean"]}
+                                onSelected={(value) => {
+                                    if (!canMutate()) return;
+                                    setTileDisplayableOperationId(value);
+                                    clearOperationError("displayOperation");
+                                    setSubmitError("");
+                                }}
+                            />
                             {!!tileDisplayableOperationId &&
                                 tileDisplayableOperationId !== "None" && (
                                     <Input
@@ -555,12 +606,13 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                                         title="Unit"
                                         placeholder="e.g. °C"
                                         setValue={(value) => {
+                                            if (!canMutate()) return;
                                             setTileUnit(value);
                                             setSubmitError("");
                                         }}
                                         error={tileUnitError}
                                         variant="auth"
-                                        editable={!loading}
+                                        editable={!formDisabled}
                                     />
                                 )}
                             <Input
@@ -569,8 +621,9 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                                 value={tileLabel}
                                 error={tileLabelError}
                                 variant="auth"
-                                editable={!loading}
+                                editable={!formDisabled}
                                 setValue={(value) => {
+                                    if (!canMutate()) return;
                                     setTileLabel(value);
                                     setSubmitError("");
                                 }}
@@ -582,23 +635,16 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                             {tileReadings.map((reading, index) => (
                                 <View key={index} style={styles.disclosureField}>
                                     <Text>Reading {index + 2}</Text>
-                                    <View pointerEvents={loading ? "none" : "auto"}>
-                                        <OperationSelector
-                                            initialOperationId={reading.operationId}
-                                            deviceId={deviceId!}
-                                            filterTypes={["Number", "Integer", "Boolean"]}
-                                            onSelected={(operationId) => {
-                                                setTileReadings((current) =>
-                                                    current.map((item, position) =>
-                                                        position === index
-                                                            ? { ...item, operationId }
-                                                            : item,
-                                                    ),
-                                                );
-                                                setSubmitError("");
-                                            }}
-                                        />
-                                    </View>
+                                    <OperationSelector
+                                        initialOperationId={reading.operationId}
+                                        deviceId={deviceId!}
+                                        title={`Reading ${index + 2} operation`}
+                                        disabled={formDisabled}
+                                        filterTypes={["Number", "Integer", "Boolean"]}
+                                        onSelected={(operationId) =>
+                                            updateReading(index, { operationId })
+                                        }
+                                    />
                                     <Input
                                         title={`Reading ${index + 2} label`}
                                         placeholder="Operation name by default"
@@ -609,15 +655,8 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                                                 : ""
                                         }
                                         variant="auth"
-                                        editable={!loading}
-                                        setValue={(label) => {
-                                            setTileReadings((current) =>
-                                                current.map((item, position) =>
-                                                    position === index ? { ...item, label } : item,
-                                                ),
-                                            );
-                                            setSubmitError("");
-                                        }}
+                                        editable={!formDisabled}
+                                        setValue={(label) => updateReading(index, { label })}
                                     />
                                     <Input
                                         title={`Reading ${index + 2} unit`}
@@ -629,22 +668,16 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                                                 : ""
                                         }
                                         variant="auth"
-                                        editable={!loading}
-                                        setValue={(unit) => {
-                                            setTileReadings((current) =>
-                                                current.map((item, position) =>
-                                                    position === index ? { ...item, unit } : item,
-                                                ),
-                                            );
-                                            setSubmitError("");
-                                        }}
+                                        editable={!formDisabled}
+                                        setValue={(unit) => updateReading(index, { unit })}
                                     />
                                     <Button
                                         name={`Remove reading ${index + 2}`}
                                         type="brand-outline"
                                         loading={false}
-                                        disabled={loading}
+                                        disabled={formDisabled}
                                         onPress={() => {
+                                            if (!canMutate()) return;
                                             setTileReadings((current) =>
                                                 current.filter((_, position) => position !== index),
                                             );
@@ -658,8 +691,9 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                                 name="Add reading"
                                 type="brand-outline"
                                 loading={false}
-                                disabled={loading || tileReadings.length >= 8}
+                                disabled={formDisabled || tileReadings.length >= 8}
                                 onPress={() => {
+                                    if (!canMutate() || tileReadings.length >= 8) return;
                                     setTileReadings((current) => [
                                         ...current,
                                         { operationId: "None", label: "", unit: "" },
@@ -678,28 +712,36 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                     title="Presence"
                     summary={presenceSummary}
                     expanded={presenceExpanded}
-                    onExpandedChange={setPresenceExpanded}
+                    onExpandedChange={(expanded) => {
+                        if (canMutate()) setPresenceExpanded(expanded);
+                    }}
                     padding={{ paddingTop: 4 }}>
-                    <Dropdown
+                    <BottomSheetSelect
                         title="Presence Type"
-                        options={PresenceTypeOptions}
-                        selectedValue={presenceType}
-                        onSelected={(value) => {
-                            setPresenceType(value);
-                            setSubmitError("");
-                        }}
-                        disablePress={loading}
+                        value={
+                            PresenceTypeOptions.find((option) => option.value === presenceType)
+                                ?.label ?? "Unavailable presence"
+                        }
+                        options={PresenceTypeOptions.map((option) => ({
+                            label: option.label,
+                            selected: presenceType === option.value,
+                            onPress: () => onPresenceTypeSelected(option.value),
+                        }))}
+                        disabled={formDisabled}
                     />
                     {presenceType === "BooleanOperation" && (
-                        <View
-                            style={styles.disclosureField}
-                            pointerEvents={loading ? "none" : "auto"}>
+                        <View style={styles.disclosureField}>
                             <OperationSelector
                                 deviceId={deviceId!}
                                 initialOperationId={presenceOperationId}
+                                title="Presence operation"
+                                error={operationErrors.presenceOperation}
+                                disabled={formDisabled}
                                 filterTypes={["Boolean"]}
                                 onSelected={(value) => {
+                                    if (!canMutate()) return;
                                     setPresenceOperationId(value);
+                                    clearOperationError("presenceOperation");
                                     setSubmitError("");
                                 }}
                             />
@@ -726,7 +768,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                     name="Save changes"
                     type="auth"
                     loading={loading}
-                    disabled={!dirty || !isIconValid}
+                    disabled={!dirty || !isIconValid || formDisabled}
                     onPress={save}
                 />
                 {dirty && (
@@ -734,7 +776,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                         name="Reset"
                         type="brand-ghost"
                         loading={false}
-                        disabled={loading}
+                        disabled={formDisabled}
                         onPress={reset}
                     />
                 )}
@@ -747,7 +789,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                 name="Create device"
                 type="auth"
                 loading={loading}
-                disabled={!isIconValid}
+                disabled={!isIconValid || formDisabled}
                 onPress={save}
             />
         </View>

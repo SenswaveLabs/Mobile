@@ -3,24 +3,28 @@ import test from "node:test";
 import { mountNativeComponent } from "./nativeComponentHarness.mjs";
 
 function mountForm(onSubmit, props = {}) {
+    const ref = { current: null };
+    const formProps = {
+        deviceId: "device-1",
+        edit: true,
+        initName: "Lamp",
+        initIcon: "bulb-outline",
+        initRoomId: "room-1",
+        initTileType: "Switch",
+        initTileOperationId: "operation-1",
+        initPresenceType: "Default",
+        onSubmit,
+        ...props,
+        ref,
+    };
     const form = mountNativeComponent("src/components/device/DeviceForm.tsx", {
-        props: {
-            deviceId: "device-1",
-            edit: true,
-            initName: "Lamp",
-            initIcon: "bulb-outline",
-            initRoomId: "room-1",
-            initTileType: "Switch",
-            initTileOperationId: "operation-1",
-            initPresenceType: "Default",
-            onSubmit,
-            ...props,
-        },
+        props: formProps,
         modules: {
             "../common/ImageButton": "ImageButton",
             "../common/Input": "Input",
             "../common/IconSelector": "IconSelector",
             "../common/Dropdown": "Dropdown",
+            "../common/BottomSheetSelect": "BottomSheetSelect",
             "../common/Divider": "Divider",
             "../common/Expander": "Expander",
             "../common/Text": "Text",
@@ -44,7 +48,111 @@ function mountForm(onSubmit, props = {}) {
         },
     });
     form.flushEffects();
-    return form;
+    return {
+        ...form,
+        ref,
+        update: (changes) => form.render({ ...formProps, ...changes, ref }),
+    };
+}
+
+function mountDeviceDetails(overrides = {}) {
+    const device = {
+        id: "device-1",
+        name: "Lamp",
+        icon: "bulb-outline",
+        roomId: null,
+        tile: { type: "Default" },
+        presence: null,
+    };
+    const state = {
+        params: { deviceId: "device-1" },
+        homes: { loading: false, current: { id: "home-1", isOwner: true, canManage: false } },
+        device,
+        get: async () => ({ isSuccess: true, response: { json: async () => state.device } }),
+        patch: async () => ({ isSuccess: true }),
+        delete: async () => ({ isSuccess: true }),
+        refresh: async () => true,
+        router: {
+            canGoBack: () => true,
+            back() {},
+            replace() {},
+            push() {},
+        },
+        toasts: [],
+        ...overrides,
+    };
+    let focusCallback;
+    let blur;
+    const route = mountNativeComponent("src/app/(app)/device/details.tsx", {
+        modules: {
+            "@/components/common/ConfirmDialog": "ConfirmDialog",
+            "@/components/common/ContentSection": "ContentSection",
+            "@/components/common/ListRow": "ListRow",
+            "@/components/common/Loading": "Loading",
+            "@/components/common/Button": "Button",
+            "@/components/device/DeviceForm": "DeviceForm",
+            "@/contexts/custom/DeviceListProvider": {
+                useDeviceList: () => ({ refresh: (...args) => state.refresh(...args) }),
+            },
+            "@/contexts/domain/HomeProvider": { useHomes: () => state.homes },
+            "@/contexts/HttpClientProvider": {
+                useHttpClient: () => ({
+                    get: (...args) => state.get(...args),
+                    patch: (...args) => state.patch(...args),
+                    delete: (...args) => state.delete(...args),
+                }),
+            },
+            "@/contexts/ToastProvider": {
+                useToast: () => ({
+                    success: (message) => state.toasts.push(["success", message]),
+                    error: (message) => state.toasts.push(["error", message]),
+                    httpError: (response) => state.toasts.push(["http", response]),
+                }),
+            },
+            "expo-router": {
+                useFocusEffect: (callback) => {
+                    focusCallback = callback;
+                },
+                useLocalSearchParams: () => state.params,
+                useRouter: () => state.router,
+            },
+            "react-native": { View: "View" },
+        },
+    });
+    route.flushEffects();
+    const focus = () => {
+        blur?.();
+        blur = focusCallback?.();
+    };
+    focus();
+    return {
+        route,
+        state,
+        focus,
+        blur: () => blur?.(),
+        ready: async () => {
+            await new Promise((resolve) => setImmediate(resolve));
+            route.render();
+            route.flushEffects();
+            route.render();
+        },
+        form: () => route.elements().find((node) => node.type === "DeviceForm"),
+        deleteButton: () =>
+            route
+                .elements()
+                .find((node) => node.type === "Button" && node.props.name === "Delete device"),
+        dialog: () => route.elements().find((node) => node.type === "ConfirmDialog"),
+        retry: () =>
+            route.elements().find((node) => node.type === "Button" && node.props.name === "Retry"),
+    };
+}
+
+function selectField(form, title) {
+    const field = form
+        .elements()
+        .find((node) => node.type === "BottomSheetSelect" && node.props.title === title);
+    assert.ok(field, `${title} uses native BottomSheetSelect`);
+    return field;
 }
 
 test("Display settings preserve multiple readings, strip runtime metadata and reset drafts", async () => {
@@ -126,10 +234,7 @@ for (const [type, filterTypes] of [
                 initTileUnit: "%",
                 initTileStep: 2,
             });
-            const select = () =>
-                form
-                    .elements()
-                    .find((node) => node.type === "Dropdown" && node.props.title === "Tile Type");
+            const select = () => selectField(form, "Tile Type");
             assert.deepEqual(
                 Array.from(
                     form.elements().find((node) => node.type === "OperationSelector").props
@@ -137,15 +242,19 @@ for (const [type, filterTypes] of [
                 ),
                 filterTypes,
             );
-            assert.ok(select().props.options.some((option) => option.value === type));
-            select().props.onSelected("Default");
+            assert.ok(select().props.options.some((option) => option.label === type));
+            select()
+                .props.options.find((option) => option.label === "Default")
+                .onPress();
             form.render();
             await form
                 .elements()
                 .find((node) => node.type === "Button" && node.props.name === "Save changes")
                 .props.onPress();
             form.render();
-            select().props.onSelected(type);
+            select()
+                .props.options.find((option) => option.label === type)
+                .onPress();
             form.render();
             await form
                 .elements()
@@ -222,6 +331,129 @@ test("saving invalid hidden tile config reveals Tile disclosure and keeps curren
         .elements()
         .find((node) => node.type === "Expander" && node.props.title === "Tile");
     assert.equal(tile.props.expanded, true);
+    const operationField = form.elements().find((node) => node.type === "OperationSelector");
+    assert.equal(operationField.props.title, "Tile operation");
+    assert.match(operationField.props.error, /Select an operation/);
+});
+
+test("missing stored operation survives unrelated save", async () => {
+    let request;
+    const form = mountForm(async (values) => (request = values), {
+        initTileOperationId: "missing-operation",
+    });
+    const name = form.elements().find((node) => node.type === "Input");
+    name.props.setValue("Desk lamp");
+    form.render();
+    await form
+        .elements()
+        .find((node) => node.type === "Button" && node.props.name === "Save changes")
+        .props.onPress();
+    assert.deepEqual(JSON.parse(JSON.stringify(request)), { name: "Desk lamp" });
+    assert.equal(Object.hasOwn(request, "operationId"), false);
+});
+
+test("operation selectors have distinct field titles for command, primary, additional and presence", () => {
+    const command = mountForm(async () => {});
+    assert.equal(
+        command.elements().find((node) => node.type === "OperationSelector").props.title,
+        "Tile operation",
+    );
+
+    const display = mountForm(async () => {}, {
+        initTileType: "Display",
+        initTileDisplayableOperationId: "primary",
+        initTileReadings: [{ operationId: "extra", label: "", unit: "" }],
+        initPresenceType: "BooleanOperation",
+        initPresenceOperationId: "presence",
+    });
+    assert.deepEqual(
+        display
+            .elements()
+            .filter((node) => node.type === "OperationSelector")
+            .map((node) => node.props.title),
+        ["Primary reading operation", "Reading 2 operation", "Presence operation"],
+    );
+});
+
+test("required operation errors stay inline and selecting one field clears only its error", async () => {
+    const form = mountForm(async () => {}, {
+        initTileType: "Display",
+        initTileDisplayableOperationId: "None",
+        initPresenceType: "BooleanOperation",
+        initPresenceOperationId: "None",
+    });
+    form.elements()
+        .find((node) => node.type === "Input")
+        .props.setValue("Desk lamp");
+    form.render();
+    await form
+        .elements()
+        .find((node) => node.type === "Button" && node.props.name === "Save changes")
+        .props.onPress();
+    form.render();
+
+    const operation = (title) => {
+        const field = form
+            .elements()
+            .find((node) => node.type === "OperationSelector" && node.props.title === title);
+        assert.ok(field, `${title} is a named operation field`);
+        return field;
+    };
+    const tile = form
+        .elements()
+        .find((node) => node.type === "Expander" && node.props.title === "Tile");
+    const presence = form
+        .elements()
+        .find((node) => node.type === "Expander" && node.props.title === "Presence");
+    assert.equal(tile.props.expanded, true);
+    assert.equal(presence.props.expanded, true);
+    assert.match(operation("Primary reading operation").props.error, /Select an operation/);
+    assert.match(operation("Presence operation").props.error, /Select an operation/);
+
+    operation("Primary reading operation").props.onSelected("display-1");
+    form.render();
+    assert.equal(operation("Primary reading operation").props.error, "");
+    assert.match(operation("Presence operation").props.error, /Select an operation/);
+
+    operation("Presence operation").props.onSelected("presence-1");
+    form.render();
+    assert.equal(operation("Presence operation").props.error, "");
+});
+
+test("retained selectors and reset cannot mutate a DeviceForm while externally disabled", async () => {
+    let submits = 0;
+    const form = mountForm(async () => submits++);
+    const name = form.elements().find((node) => node.type === "Input");
+    name.props.setValue("Desk lamp");
+    form.render();
+    const staleNameChange = form.elements().find((node) => node.type === "Input").props.setValue;
+    const staleOperationChange = form.elements().find((node) => node.type === "OperationSelector")
+        .props.onSelected;
+    const staleTypeChoice = selectField(form, "Tile Type").props.options.find(
+        (option) => option.label === "Default",
+    ).onPress;
+    const staleSave = form.ref.current.save;
+    const staleReset = form.ref.current.reset;
+
+    form.update({ disabled: true });
+    const currentSelector = form.elements().find((node) => node.type === "OperationSelector");
+    assert.equal(currentSelector.props.disabled, true);
+    assert.equal(selectField(form, "Tile Type").props.disabled, true);
+    assert.equal(form.elements().find((node) => node.type === "RoomSelector").props.disabled, true);
+    staleNameChange("Ignored rename");
+    staleOperationChange("operation-2");
+    staleTypeChoice();
+    await staleSave();
+    staleReset();
+    form.render();
+
+    assert.equal(form.elements().find((node) => node.type === "Input").props.value, "Desk lamp");
+    assert.equal(
+        form.elements().find((node) => node.type === "OperationSelector").props.initialOperationId,
+        "operation-1",
+    );
+    assert.equal(selectField(form, "Tile Type").props.value, "Switch");
+    assert.equal(submits, 0);
 });
 
 test("device edit form keeps preview inside Tile disclosure and presents identity fields first", () => {
@@ -264,19 +496,20 @@ test("Boolean presence type transition includes retained operation ID", async ()
         initPresenceType: "BooleanOperation",
         initPresenceOperationId: "operation-1",
     });
-    const type = () =>
-        form
-            .elements()
-            .find((node) => node.type === "Dropdown" && node.props.title === "Presence Type");
+    const type = () => selectField(form, "Presence Type");
     const save = () =>
         form
             .elements()
             .find((node) => node.type === "Button" && node.props.name === "Save changes");
-    type().props.onSelected("Default");
+    type()
+        .props.options.find((option) => option.label === "No presence")
+        .onPress();
     form.render();
     await save().props.onPress();
     form.render();
-    type().props.onSelected("BooleanOperation");
+    type()
+        .props.options.find((option) => option.label === "Boolean operation")
+        .onPress();
     form.render();
     await save().props.onPress();
     assert.deepEqual(JSON.parse(JSON.stringify(requests[1])), {
@@ -315,10 +548,7 @@ test("Display reactivation resends hidden unit draft after Default save", async 
         initTileDisplayableOperationId: "operation-1",
         initTileUnit: "°C",
     });
-    const tileType = () =>
-        form
-            .elements()
-            .find((node) => node.type === "Dropdown" && node.props.title === "Tile Type");
+    const tileType = () => selectField(form, "Tile Type");
     const unit = () =>
         form.elements().find((node) => node.type === "Input" && node.props.title === "Unit");
     const save = () =>
@@ -327,13 +557,17 @@ test("Display reactivation resends hidden unit draft after Default save", async 
             .find((node) => node.type === "Button" && node.props.name === "Save changes");
 
     unit().props.setValue("°F");
-    tileType().props.onSelected("Default");
+    tileType()
+        .props.options.find((option) => option.label === "Default")
+        .onPress();
     form.render();
     await save().props.onPress();
     form.render();
     assert.deepEqual(JSON.parse(JSON.stringify(requests[0])), { type: "Default" });
 
-    tileType().props.onSelected("Display");
+    tileType()
+        .props.options.find((option) => option.label === "Display")
+        .onPress();
     form.render();
     await save().props.onPress();
     assert.deepEqual(JSON.parse(JSON.stringify(requests[1])), {
@@ -346,22 +580,23 @@ test("Display reactivation resends hidden unit draft after Default save", async 
 test("Switch type transition includes retained operation after a successful Default save", async () => {
     const requests = [];
     const form = mountForm(async (values) => requests.push(values));
-    const tileType = () =>
-        form
-            .elements()
-            .find((node) => node.type === "Dropdown" && node.props.title === "Tile Type");
+    const tileType = () => selectField(form, "Tile Type");
     const save = () =>
         form
             .elements()
             .find((node) => node.type === "Button" && node.props.name === "Save changes");
 
-    tileType().props.onSelected("Default");
+    tileType()
+        .props.options.find((option) => option.label === "Default")
+        .onPress();
     form.render();
     await save().props.onPress();
     form.render();
     assert.deepEqual(JSON.parse(JSON.stringify(requests[0])), { type: "Default" });
 
-    tileType().props.onSelected("Switch");
+    tileType()
+        .props.options.find((option) => option.label === "Switch")
+        .onPress();
     form.render();
     await save().props.onPress();
     assert.deepEqual(JSON.parse(JSON.stringify(requests[1])), {
@@ -556,7 +791,10 @@ test("device details load failure shows retry and recovers on the same device ro
                 useDeviceList: () => ({ refresh: async () => true }),
             },
             "@/contexts/domain/HomeProvider": {
-                useHomes: () => ({ loading: false, current: { isOwner: true, canManage: false } }),
+                useHomes: () => ({
+                    loading: false,
+                    current: { id: "home-1", isOwner: true, canManage: false },
+                }),
             },
             "@/contexts/HttpClientProvider": {
                 useHttpClient: () => ({
@@ -610,4 +848,198 @@ test("device details load failure shows retry and recovers on the same device ro
     route.render();
     assert.equal(attempts, 2);
     assert.ok(route.elements().some((node) => node.type === "DeviceForm"));
+});
+
+test("device delete Cancel and stale confirmation callbacks do not send a request", async () => {
+    for (const invalidate of [
+        (mounted) =>
+            (mounted.state.homes.current = { ...mounted.state.homes.current, id: "home-2" }),
+        (mounted) =>
+            (mounted.state.homes.current = { ...mounted.state.homes.current, isOwner: false }),
+        (mounted) => (mounted.state.params = { deviceId: "device-2" }),
+        (mounted) => mounted.blur(),
+    ]) {
+        let deletes = 0;
+        const mounted = mountDeviceDetails({
+            delete: async () => (deletes++, { isSuccess: true }),
+        });
+        await mounted.ready();
+        mounted.deleteButton().props.onPress();
+        mounted.route.render();
+        const staleConfirm = mounted.dialog().props.onConfirm;
+        invalidate(mounted);
+        mounted.route.render();
+        mounted.route.flushEffects();
+        mounted.route.render();
+        assert.equal(mounted.dialog()?.props.visible ?? false, false);
+        staleConfirm();
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(deletes, 0);
+    }
+
+    let deletes = 0;
+    const mounted = mountDeviceDetails({ delete: async () => (deletes++, { isSuccess: true }) });
+    await mounted.ready();
+    mounted.deleteButton().props.onPress();
+    mounted.route.render();
+    mounted.dialog().props.onCancel();
+    mounted.route.render();
+    assert.equal(mounted.dialog().props.visible, false);
+    assert.equal(deletes, 0);
+});
+
+test("pending device delete locks form and duplicate confirmation", async () => {
+    let finishDelete;
+    let deletes = 0;
+    let refreshes = 0;
+    let backs = 0;
+    const mounted = mountDeviceDetails({
+        delete: () => {
+            deletes++;
+            return new Promise((resolve) => (finishDelete = resolve));
+        },
+        refresh: async () => (refreshes++, true),
+        router: { canGoBack: () => true, back: () => backs++, replace() {}, push() {} },
+    });
+    await mounted.ready();
+    mounted.deleteButton().props.onPress();
+    mounted.route.render();
+    const confirm = mounted.dialog().props.onConfirm;
+    confirm();
+    confirm();
+    mounted.route.render();
+    assert.equal(deletes, 1);
+    assert.equal(mounted.form().props.disabled, true);
+    assert.equal(mounted.deleteButton().props.disabled, true);
+
+    finishDelete({ isSuccess: true });
+    await new Promise((resolve) => setImmediate(resolve));
+    mounted.route.render();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(deletes, 1);
+    assert.equal(refreshes, 1);
+    assert.equal(backs, 1);
+    assert.deepEqual(mounted.state.toasts, []);
+});
+
+test("failed device delete shows local Retry and repeats only the rejected request", async () => {
+    let deletes = 0;
+    let refreshes = 0;
+    let backs = 0;
+    const mounted = mountDeviceDetails({
+        delete: async () => ({ isSuccess: ++deletes > 1 }),
+        refresh: async () => (refreshes++, true),
+        router: { canGoBack: () => true, back: () => backs++, replace() {}, push() {} },
+    });
+    await mounted.ready();
+    mounted.deleteButton().props.onPress();
+    mounted.route.render();
+    await mounted.dialog().props.onConfirm();
+    mounted.route.render();
+    assert.match(mounted.route.text(), /Couldn't delete device/);
+    assert.equal(mounted.retry().props.accessibilityLabel ?? mounted.retry().props.name, "Retry");
+    await mounted.retry().props.onPress();
+    mounted.route.render();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(deletes, 2);
+    assert.equal(refreshes, 1);
+    assert.equal(backs, 1);
+    assert.deepEqual(mounted.state.toasts, []);
+});
+
+test("accepted device deletion retries return only", async () => {
+    let deletes = 0;
+    let refreshes = 0;
+    let backs = 0;
+    const mounted = mountDeviceDetails({
+        delete: async () => (deletes++, { isSuccess: true }),
+        refresh: async () => (refreshes++, true),
+        router: {
+            canGoBack: () => true,
+            back: () => {
+                backs++;
+                if (backs === 1) throw new Error("navigation unavailable");
+            },
+            replace() {},
+            push() {},
+        },
+    });
+    await mounted.ready();
+    mounted.deleteButton().props.onPress();
+    mounted.route.render();
+    await mounted.dialog().props.onConfirm();
+    mounted.route.render();
+    assert.match(mounted.route.text(), /Device deleted/);
+    assert.equal(mounted.form().props.disabled, true);
+
+    await mounted.retry().props.onPress();
+    mounted.route.render();
+    assert.equal(deletes, 1);
+    assert.equal(refreshes, 1);
+    assert.equal(backs, 2);
+    assert.equal(mounted.state.toasts.length, 0);
+});
+
+test("accepted device deletion refresh Retry cannot repeat DELETE", async () => {
+    let deletes = 0;
+    let refreshes = 0;
+    let backs = 0;
+    const mounted = mountDeviceDetails({
+        delete: async () => (deletes++, { isSuccess: true }),
+        refresh: async () => {
+            if (++refreshes === 1) throw new Error("offline");
+            return true;
+        },
+        router: { canGoBack: () => true, back: () => backs++, replace() {}, push() {} },
+    });
+    await mounted.ready();
+    mounted.deleteButton().props.onPress();
+    mounted.route.render();
+    await mounted.dialog().props.onConfirm();
+    mounted.route.render();
+    assert.match(mounted.route.text(), /Device deleted/);
+    await mounted.retry().props.onPress();
+    mounted.route.render();
+    assert.equal(deletes, 1);
+    assert.equal(refreshes, 2);
+    assert.equal(backs, 1);
+});
+
+test("accepted device deletion after blur returns on refocus without repeating DELETE", async () => {
+    let finishDelete;
+    let deletes = 0;
+    let refreshes = 0;
+    let backs = 0;
+    const mounted = mountDeviceDetails({
+        delete: () => {
+            deletes++;
+            return new Promise((resolve) => (finishDelete = resolve));
+        },
+        refresh: async () => (refreshes++, true),
+        router: {
+            canGoBack: () => false,
+            back() {},
+            replace() {
+                backs++;
+            },
+            push() {},
+        },
+    });
+    await mounted.ready();
+    mounted.deleteButton().props.onPress();
+    mounted.route.render();
+    const accepted = mounted.dialog().props.onConfirm();
+    mounted.blur();
+    finishDelete({ isSuccess: true });
+    await accepted;
+    assert.equal(deletes, 1);
+    assert.equal(refreshes, 0);
+    assert.equal(backs, 0);
+
+    mounted.focus();
+    await new Promise((resolve) => setImmediate(resolve));
+    mounted.route.render();
+    assert.equal(deletes, 1);
+    assert.equal(refreshes, 1);
+    assert.equal(backs, 1);
 });

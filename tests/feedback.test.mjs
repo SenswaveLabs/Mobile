@@ -347,6 +347,7 @@ test("redesigned forms and home selection suppress legacy overlays without dismi
         "/home/room/add",
         "/home/room/details",
         "/device/add",
+        "/device/details",
         "/device/device",
         "/device/dashboard/add",
         "/device/dashboard/details",

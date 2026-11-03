@@ -59,6 +59,7 @@ function mountForm(config, props = {}, catalogOverrides = {}) {
             },
             "../common/Divider": "Divider",
             "../common/Dropdown": "Dropdown",
+            "../common/BottomSheetSelect": "BottomSheetSelect",
             "../common/Expander": "Expander",
             "../common/ImageButton": "ImageButton",
             "./operation/OperationSelector": "OperationSelector",
@@ -98,6 +99,9 @@ test("Device details updates the saved icon baseline before list refresh, preser
             "@/components/common/FAB": "FAB",
             "@/contexts/custom/DeviceListProvider": {
                 useDeviceList: () => ({ refresh: async () => false }),
+            },
+            "@/contexts/domain/HomeProvider": {
+                useHomes: () => ({ loading: false, current: { id: "home-1", isOwner: true } }),
             },
             "@/contexts/HttpClientProvider": {
                 useHttpClient: () => ({
