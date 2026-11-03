@@ -41,7 +41,8 @@ src/
   components/
     ui/                     # copied React Native Reusables primitives
     common/                 # shared UI (Button, Input, Text, ListRow, ContentSection, FormSection, ...)
-    auth/ automations/ dataSource/ device/ headers/ home/ homeSharing/ room/ user/
+    auth/ automations/ dataSource/ device/ headers/ home/ homeSharing/ room/
+    user/                   # shared LegalDocumentView, wrapped by terms/privacy
   contexts/
     ConfigurationProvider   # API URL, SignalR URL, version check
     SessionProvider         # auth state + all auth flows

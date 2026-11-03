@@ -1,12 +1,6 @@
 import PrivacyPolicy from "@/components/user/PrivacyPolicy";
-import { View } from "react-native";
+import { FC } from "react";
 
-function PrivacyPage() {
-    return (
-        <View style={{ flex: 1 }}>
-            <PrivacyPolicy />
-        </View>
-    );
-}
+const PrivacyPage: FC = () => <PrivacyPolicy />;
 
 export default PrivacyPage;

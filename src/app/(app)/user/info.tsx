@@ -1,9 +1,10 @@
 import SimlpleItemList, { SimpleListItem } from "@/components/common/SimpleItemList";
-import { View } from "react-native";
+import { FC } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 
-function AppInfo() {
+const AppInfo: FC = () => {
     const router = useRouter();
 
     const itemList: SimpleListItem[] = [
@@ -35,10 +36,23 @@ function AppInfo() {
     ];
 
     return (
-        <View style={{ flex: 1, padding: 15 }}>
-            <SimlpleItemList items={itemList} />
-        </View>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+            <View style={styles.content}>
+                <SimlpleItemList items={itemList} />
+            </View>
+        </ScrollView>
     );
-}
+};
 
 export default AppInfo;
+
+const styles = StyleSheet.create({
+    scroll: { flex: 1 },
+    container: {
+        flexGrow: 1,
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+    },
+    content: { width: "100%", maxWidth: 448 },
+});

@@ -1,12 +1,6 @@
 import TermsAndConditions from "@/components/user/TermsAndConditions";
-import { View } from "react-native";
+import { FC } from "react";
 
-function TermsPage() {
-    return (
-        <View style={{ flex: 1 }}>
-            <TermsAndConditions />
-        </View>
-    );
-}
+const TermsPage: FC = () => <TermsAndConditions />;
 
 export default TermsPage;

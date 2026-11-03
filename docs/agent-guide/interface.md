@@ -407,6 +407,25 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
   user-data read check the captured session after SecureStore deletion before
   applying the reset; no-argument resets and synchronous Light/Dark updates retain
   their existing behavior.
+- `/confirmEmail` uses one growing native scroll with local status, Retry and Sign
+  in recovery. Accept only one nonempty scalar `userId` and `code`; preserve the
+  opaque code through URL query encoding. Lock each server/user/code request while
+  pending and latch accepted success so refocus never repeats it. Ignore feedback
+  after identity changes or blur, and suppress legacy toasts.
+- Public `/privacy` and `/terms` use brand `DefaultHeader` with `/start` as the
+  no-history fallback; history Back remains intact. Private legal routes let the
+  authenticated Stack own the header. `LegalDocumentView` owns the single growing
+  scroll, document loading and local Retry, with a 448 dp content cap. Render exact
+  server version, summary and markdown; allow an empty summary, but reject blank
+  version/content and malformed consumed data. Bind reads to document kind and
+  API base URL, ignore stale kind/server/focus results, and suppress legacy toasts.
+- `/maintenance` uses one native scroll and local Retry plus pull-to-refresh under
+  one request lock. After `initialize()` completes, read current provider state
+  before routing; keep provider-owned consent navigation intact. `/user/info`
+  keeps all unchanged metadata and legal destinations in one 448 dp scroll.
+  Essential status/explanation and metadata values must wrap without truncation;
+  the info-only `SimpleItemList` value opts out of `common/Text`'s default line cap.
+  Suppress legacy toasts on these routes; do not change the shared text default.
 - Native `Input` connects its visible label to the field, exposes errors to assistive
   technology and shows focus/error borders. `PasswordInput` adds a named 48 dp
   visibility toggle. Auth-field labels sit 8 dp above their fields. Buttons retain

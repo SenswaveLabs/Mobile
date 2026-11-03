@@ -251,7 +251,7 @@ clients expect string arrays and reject the object catalogs.
 | `v1/auth/login/google` | POST | Google OAuth login (always forces `rememberMe`) |
 | `v1/auth/register` | POST | Register |
 | `v1/auth/refresh` | POST | Refresh access token |
-| `v1/auth/confirmEmail` | POST | Confirm email (userId + code) |
+| `v1/auth/confirmEmail` | POST | Confirm email (`userId` + opaque `code` query parameters) |
 | `v1/auth/resendConfirmationEmail` | POST | Resend confirmation |
 | `v1/auth/forgotPassword` | POST | Send reset email |
 | `v1/auth/resetPassword` | POST | Reset password (code) |
@@ -289,6 +289,16 @@ clients expect string arrays and reject the object catalogs.
 3. False → show Terms + Privacy → `POST v1/users/consents`.
 4. Any 403 → logout (consent expired/revoked).
 5. Legal docs served versioned from API (summary + full markdown).
+
+The confirmation link accepts one nonempty scalar `userId` and `code`. Treat the
+code as opaque text and serialize both values with `URL.searchParams`; do not
+decode, trim, or log the code or complete request URL. The HTTP timeout helper's
+rejection log must also avoid request URL interpolation.
+
+The mobile legal reader consumes `version`, `summary`, and `content`. `version`
+and `content` must be nonblank strings; `summary` may be empty. Preserve their
+exact values. Keep any other response members optional at runtime unless the
+mobile reader consumes them.
 
 ## Real-time (SignalR)
 

@@ -339,6 +339,11 @@ test("redesigned forms and home selection suppress legacy overlays without dismi
         "/forgotPassword",
         "/server",
         "/resetPassword",
+        "/consents",
+        "/confirmEmail",
+        "/maintenance",
+        "/privacy",
+        "/terms",
         "/home/list",
         "/home/join",
         "/home/add",
@@ -365,6 +370,9 @@ test("redesigned forms and home selection suppress legacy overlays without dismi
         "/dataSource/brokers/startBrokerClient",
         "/dataSource/brokers/addSubscription",
         "/user/profile",
+        "/user/privacy",
+        "/user/terms",
+        "/user/info",
     ]) {
         provider.navigate(route);
         lateCallback.error("Legacy error");
@@ -399,7 +407,7 @@ test("entering an inline flow hides the existing toast and other screens retain 
     assert.equal(provider.shown.length, shownCount);
 });
 
-test("an HTTP error arriving after navigation cannot bring back the old overlay", async () => {
+test("an HTTP error arriving after navigation to maintenance cannot restore the overlay", async () => {
     const provider = mountFeedback();
     let finish;
     const pending = provider.feedback().httpError({
@@ -411,7 +419,7 @@ test("an HTTP error arriving after navigation cannot bring back the old overlay"
                 }),
         },
     });
-    provider.navigate("/login");
+    provider.navigate("/maintenance");
     finish('{"errors":[]}');
     await pending;
     assert.deepEqual(provider.shown, []);

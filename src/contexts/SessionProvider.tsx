@@ -123,9 +123,9 @@ export const SessionProvider: FC<PropsWithChildren> = ({ children }) => {
 
     const confirmEmail = async (userId: string, code: string): Promise<SimpleResult> => {
         try {
-            const url = configuration.getApiUrl(
-                `v1/auth/confirmEmail?userId=${userId}&code=${code}`,
-            );
+            const url = configuration.getApiUrl("v1/auth/confirmEmail");
+            url.searchParams.set("userId", userId);
+            url.searchParams.set("code", code);
             const options: RequestInit = {
                 method: "POST",
                 headers: {
@@ -145,8 +145,8 @@ export const SessionProvider: FC<PropsWithChildren> = ({ children }) => {
             );
 
             return SimpleResult.failure("Failed to confirm email.");
-        } catch (error) {
-            console.error(`[Session Provider] Confirm email error: ${error}`);
+        } catch {
+            console.error("[Session Provider] Confirm email request failed.");
             return SimpleResult.failure("Confirm email failed unexpectedly.");
         }
     };

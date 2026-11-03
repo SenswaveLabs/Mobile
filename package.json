@@ -11,7 +11,7 @@
         "fix": "oxfmt '**/*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}' && oxlint --fix .",
         "hooks:install": "git config core.hooksPath .githooks",
         "typecheck": "tsc --noEmit",
-        "test:poc": "node --test tests/authValidation.test.mjs tests/authPanel.test.mjs tests/resetPasswordForm.test.mjs tests/feedback.test.mjs tests/profile.test.mjs tests/consents.test.mjs",
+        "test:poc": "node --test tests/authValidation.test.mjs tests/authPanel.test.mjs tests/resetPasswordForm.test.mjs tests/feedback.test.mjs tests/profile.test.mjs tests/consents.test.mjs tests/confirmEmail.test.mjs tests/legalDocuments.test.mjs tests/statusScreens.test.mjs",
         "test:automations": "node --test tests/automationList.test.mjs tests/automationCreate.test.mjs tests/automationDetails.test.mjs tests/automationChildren.test.mjs tests/automationState.test.mjs",
         "test:data-sources": "node --test tests/dataSourceCreate.test.mjs tests/dataSourceDetails.test.mjs tests/dataSourceList.test.mjs tests/homeDataSourceSelect.test.mjs tests/bottomSheetSelect.test.mjs tests/startBrokerClient.test.mjs tests/addSubscription.test.mjs",
         "test:homes": "node --test tests/homeList.test.mjs tests/joinHomeForm.test.mjs tests/homeForm.test.mjs tests/roomForm.test.mjs tests/locationMapPicker.test.mjs",

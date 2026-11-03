@@ -35,6 +35,17 @@ Automation details regressions cover the native modal/host binding, cancellation
   malformed consent booleans are rejected, and a deferred reset on the real
   `ThemeProvider` cannot overwrite a newer session theme. These checks establish
   handler behavior, not native layout, keyboard, safe-area or TalkBack behavior.
+  Email confirmation checks use the real `SessionProvider` and `executeTimeout`
+  with rejected fetches, verifying exact `URL.searchParams` values and that neither
+  request log exposes raw or encoded code. Route checks cover missing/repeated
+  parameters, request locking, retry, accepted-once success, stale identity and
+  blur/refocus. Legal checks cover exact consumed server fields, malformed/request
+  recovery, kind/server binding, local Retry, shared wrappers, public history Back
+  and the `/start` fallback through the real `DefaultHeader`. Maintenance and info
+  checks cover completion-gated session routing, lock/Retry/pull-refresh behavior,
+  inline failures, unchanged destinations and wrapping values. These handler tests
+  do not verify native layout, keyboard, safe areas, hardware Back or screen-reader
+  behavior.
   The focused profile, feedback and sheet
   checks are `pnpm exec node --test tests/profile.test.mjs tests/feedback.test.mjs tests/bottomSheetSelect.test.mjs`.
   Dialog action checks execute the real label styling against both theme palettes,
@@ -160,6 +171,12 @@ For user-facing changes, exercise the affected flow in a native development buil
 or emulator when available. Check navigation/Back, keyboard/scrolling, safe areas,
 light/dark mode, text scaling and applicable loading, empty, success and error
 states. Check screen-reader labels, focus order and usable touch targets.
+For email confirmation, test opaque links with `+`, `%`, `&` and Unicode values,
+missing/duplicate parameters, request failure/Retry and Sign in. For legal pages,
+check public history Back and `/start` fallback, private Stack Back, long server
+markdown and local Retry. For maintenance, confirm refresh waits for initialization
+and respects current authenticated/loading/maintenance state. For App information,
+check full value wrapping and legal navigation in the shared scroll.
 For Profile, open Theme and verify Light/Dark/System persistence, read-only English,
 Data sources and App information navigation, wrapping for long identity text at
 normal and 200% scale, the avatar initial at 200% scale, and fully visible scalable

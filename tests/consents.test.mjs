@@ -708,17 +708,53 @@ test("consent Back signs out while legal Back returns to gate", () => {
                 "react-native": {
                     View: "View",
                     Pressable: "Pressable",
+                    Text: "NativeText",
                     StyleSheet: { create: (styles) => styles },
+                    Keyboard: { dismiss: () => {} },
                 },
-                "@/components/common/ImageButton": "ImageButton",
+                "@/components/headers/DefaultHeader": "DefaultHeader",
                 "@/components/common/Text": "Text",
                 "@/components/user/TermsAndConditions": "TermsAndConditions",
                 "@/components/user/PrivacyPolicy": "PrivacyPolicy",
             },
         });
-        const back = legal.elements().find((node) => node.type === "ImageButton");
-        assert.ok(back, `${label} page should expose Back`);
-        back.props.onPress();
+        const header = legal.elements().find((node) => node.type === "DefaultHeader");
+        assert.ok(header, `${label} page should expose Back`);
+        assert.equal(header.props.variant, "brand");
+        assert.equal(header.props.backFallback, "/start");
+        const back = mountNativeComponent("src/components/headers/DefaultHeader.tsx", {
+            props: header.props,
+            modules: {
+                "expo-router": { useRouter: app.router },
+                "react-native": {
+                    View: "View",
+                    Pressable: "Pressable",
+                    Text: "NativeText",
+                    StyleSheet: { create: (styles) => styles },
+                    Keyboard: { dismiss: () => {} },
+                },
+                "@/contexts/ThemeProvider": {
+                    useTheme: () => ({
+                        current: {
+                            colors: {
+                                background: "#fff",
+                                authBackground: "#fff",
+                                authForeground: "#111",
+                            },
+                        },
+                    }),
+                },
+                "../common/Icon": "Icon",
+                "../common/Text": "Text",
+            },
+        });
+        const backButton = back
+            .elements()
+            .find(
+                (node) => node.type === "Pressable" && node.props.accessibilityLabel === "Go back",
+            );
+        assert.ok(backButton, `${label} page should expose an accessible Back action`);
+        backButton.props.onPress();
         assert.equal(app.path(), previousPath);
     }
 

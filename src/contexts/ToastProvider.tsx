@@ -10,6 +10,10 @@ const usesInlineFeedback = (pathname: string) =>
     isAuthSurface(pathname) ||
     [
         "/consents",
+        "/confirmEmail",
+        "/maintenance",
+        "/privacy",
+        "/terms",
         "/home/list",
         "/home/join",
         "/home/add",
@@ -39,6 +43,9 @@ const usesInlineFeedback = (pathname: string) =>
         "/dataSource/brokers/startBrokerClient",
         "/dataSource/brokers/addSubscription",
         "/user/profile",
+        "/user/privacy",
+        "/user/terms",
+        "/user/info",
     ].includes(pathname);
 
 interface ToastContextType {
