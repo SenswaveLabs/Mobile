@@ -392,6 +392,16 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
   32 dp section gaps. Native fields have a 52 dp minimum height, 1 dp border and
   8 dp radius; submit buttons have a 48 dp minimum height and 8 dp radius.
   Their keyboard-aware scroll content includes context, errors and actions.
+- `/consents` uses one auth-style scroll with a Senswave brand header, separate
+  named Terms and Privacy links, local account feedback and stacked full-width
+  Accept/Cancel actions. Keep Accept disabled until an account read confirms that
+  consent is missing. A failed read offers Retry; after an accepted POST, retry
+  checks account status only. Use the exact follow-up copy “Consent submitted.
+  Check account status to continue.” A failed return offers navigation-only
+  Continue. Cancel, header Back and Android Back call `session.logout()`; legal
+  document Back returns to the gate. Suppress legacy toast overlays on this route.
+  `DefaultHeader` keeps its `/` brand fallback, supports `backFallback` for public
+  legal headers and lets `onBack` override history after keyboard dismissal.
 - Native `Input` connects its visible label to the field, exposes errors to assistive
   technology and shows focus/error borders. `PasswordInput` adds a named 48 dp
   visibility toggle. Auth-field labels sit 8 dp above their fields. Buttons retain

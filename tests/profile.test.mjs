@@ -90,8 +90,8 @@ function mountProfile({
             data: userData,
             updateTheme,
             updateLanguage,
-            getUserData: async () => {
-                const result = await getUserData();
+            getUserData: async (options) => {
+                const result = await getUserData(options);
                 if (result.isSuccess && result.data) userData = result.data;
                 return result;
             },
@@ -470,14 +470,16 @@ test("profile missing identity can retry without exposing account mutations", as
     const themeRequests = [];
     let deleteCalls = 0;
     let identityRequests = 0;
+    const identityOptions = [];
     const screen = mountProfile({
         data: { email: "", name: "", language: "en", theme: ThemeMode.Light },
         updateTheme: async (theme) => {
             themeRequests.push(theme);
             return success();
         },
-        getUserData: async () => {
+        getUserData: async (options) => {
             identityRequests++;
+            identityOptions.push(options);
             return {
                 isSuccess: true,
                 data: {
@@ -507,6 +509,8 @@ test("profile missing identity can retry without exposing account mutations", as
     await flush();
     screen.render();
     assert.equal(identityRequests, 1);
+    assert.equal(identityOptions.length, 1);
+    assert.equal(identityOptions[0].silent, true);
     assert.equal(screen.userData().email, "recovered@example.com");
     assert.equal(screen.themeField().props.disabled, false);
 });

@@ -1,146 +1,384 @@
 import Button from "@/components/common/Button";
-import ImageButton from "@/components/common/ImageButton";
-import Loading from "@/components/common/Loading";
-import { useUser } from "@/contexts/domain/UserProvider";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { View } from "react-native";
 import Text from "@/components/common/Text";
-import { Text as RNText } from "react-native";
+import DefaultHeader from "@/components/headers/DefaultHeader";
+import { useSession } from "@/contexts/SessionProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { useToast } from "@/contexts/ToastProvider";
+import { useUser } from "@/contexts/domain/UserProvider";
+import { BackHandler, Pressable, StyleSheet, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { useFocusEffect, useRouter } from "expo-router";
+import { FC, useCallback, useEffect, useRef, useState } from "react";
 
-const ConsentsPage = () => {
-    const theme = useTheme();
+type GateState =
+    | "checking"
+    | "read-error"
+    | "needs-consent"
+    | "submitting"
+    | "write-error"
+    | "verifying"
+    | "accepted-error"
+    | "returning"
+    | "return-error"
+    | "returned";
+
+const ConsentsPage: FC = () => {
     const user = useUser();
+    const session = useSession();
     const router = useRouter();
-    const toast = useToast();
+    const { colors } = useTheme().current;
+    const [gateState, setGateState] = useState<GateState>("checking");
+    const gateStateRef = useRef<GateState>("checking");
+    const sessionRef = useRef(session.session);
+    sessionRef.current = session.session;
+    const observedIdentity = useRef(
+        session.session.authenticated ? session.session.accessToken : "",
+    );
+    const focused = useRef(false);
+    const cancelled = useRef(false);
+    const inFlight = useRef(false);
+    const operationId = useRef(0);
+    const initialReadStarted = useRef(false);
+    const focusEpoch = useRef(0);
+    const acceptedIdentity = useRef<string | null>(null);
+    const verifiedIdentity = useRef<string | null>(null);
+    const deferredState = useRef<GateState | null>(null);
+    const cancelRef = useRef<() => void>(() => {});
+    const focusRef = useRef<() => void>(() => {});
 
-    const [loading, setLoading] = useState<boolean>(false);
-
-    const cancelleClicked = async () => {
-        console.info("[Consents Page] User did not agree to consents");
-
-        router.replace("/start");
+    const identity = () => (sessionRef.current.authenticated ? sessionRef.current.accessToken : "");
+    const sessionIsCurrent = (value: string) =>
+        !!value && !cancelled.current && identity() === value;
+    const screenIsCurrent = (value: string, epoch: number) =>
+        sessionIsCurrent(value) && focused.current && focusEpoch.current === epoch;
+    const setGate = (next: GateState) => {
+        gateStateRef.current = next;
+        if (focused.current && !cancelled.current) setGateState(next);
+        else deferredState.current = next;
     };
 
-    const acceptClicked = async () => {
-        setLoading(true);
-
+    const returnToApp = (value: string, epoch: number) => {
+        if (!screenIsCurrent(value, epoch) || verifiedIdentity.current !== value) return;
         try {
-            const result = await user.makeConsents();
-
-            if (result.isSuccess) {
-                const updatedUser = await user.getUserData();
-
-                if (!updatedUser.isSuccess) {
-                    toast.error("Failed to confirm. Please try again.");
-                    return;
-                }
-
-                if (!updatedUser.data!.hasActiveConsent) {
-                    toast.error("Failed to update consents.");
-                    return;
-                }
-
-                router.replace("/");
-            }
-        } finally {
-            setLoading(false);
+            router.replace("/");
+            setGate("returned");
+        } catch {
+            if (screenIsCurrent(value, epoch)) setGate("return-error");
         }
     };
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            const userData = await user.getUserData();
-            setLoading(false);
+    const verifyAccepted = async (value: string) => {
+        if (inFlight.current || acceptedIdentity.current !== value || !sessionIsCurrent(value))
+            return;
+        const operation = ++operationId.current;
+        inFlight.current = true;
+        const epoch = focusEpoch.current;
+        setGate("verifying");
 
-            if (userData.isSuccess && userData.data!.hasActiveConsent) {
-                console.info("[Consents Page] User has active consent.");
-                router.replace("/");
+        try {
+            const result = await user.getUserData({ silent: true });
+            if (!sessionIsCurrent(value)) return;
+            if (!screenIsCurrent(value, epoch)) return;
+            if (result.isSuccess && result.data?.hasActiveConsent) {
+                verifiedIdentity.current = value;
+                returnToApp(value, epoch);
+            } else {
+                setGate("accepted-error");
+            }
+        } catch {
+            if (screenIsCurrent(value, epoch)) setGate("accepted-error");
+        } finally {
+            if (operationId.current === operation) {
+                inFlight.current = false;
+                if (focused.current && sessionIsCurrent(value) && focusEpoch.current !== epoch) {
+                    void verifyAccepted(value);
+                }
+            }
+        }
+    };
+
+    const readAccount = async () => {
+        if (inFlight.current || initialReadStarted.current) return;
+        const value = identity();
+        if (!value) {
+            setGate("read-error");
+            return;
+        }
+
+        const operation = ++operationId.current;
+        initialReadStarted.current = true;
+        inFlight.current = true;
+        const epoch = focusEpoch.current;
+        setGate("checking");
+        try {
+            const result = await user.getUserData({ silent: true });
+            if (!sessionIsCurrent(value) || !screenIsCurrent(value, epoch)) return;
+            if (!result.isSuccess || !result.data) {
+                setGate("read-error");
+            } else if (result.data.hasActiveConsent) {
+                verifiedIdentity.current = value;
+                returnToApp(value, epoch);
+            } else {
+                setGate("needs-consent");
+            }
+        } catch {
+            if (screenIsCurrent(value, epoch)) setGate("read-error");
+        } finally {
+            if (operationId.current === operation) {
+                inFlight.current = false;
+                if (focused.current && sessionIsCurrent(value) && focusEpoch.current !== epoch) {
+                    initialReadStarted.current = false;
+                    void readAccount();
+                }
+            }
+        }
+    };
+
+    const accept = async () => {
+        if (
+            inFlight.current ||
+            !["needs-consent", "write-error"].includes(gateStateRef.current) ||
+            acceptedIdentity.current
+        )
+            return;
+        const value = identity();
+        if (!value) {
+            setGate("read-error");
+            return;
+        }
+
+        const operation = ++operationId.current;
+        inFlight.current = true;
+        setGate("submitting");
+        let accepted = false;
+        try {
+            const result = await user.makeConsents();
+            if (!sessionIsCurrent(value)) return;
+            if (!result.isSuccess) {
+                setGate("write-error");
                 return;
             }
 
-            console.warn("[Consents Page] User has no active consent.");
-        };
+            acceptedIdentity.current = value;
+            accepted = true;
+            setGate("verifying");
+        } catch {
+            if (sessionIsCurrent(value)) setGate("write-error");
+        } finally {
+            if (operationId.current === operation) inFlight.current = false;
+        }
 
-        fetchData();
+        if (accepted && sessionIsCurrent(value) && focused.current) await verifyAccepted(value);
+    };
 
+    const retryAccountCheck = () => {
+        if (inFlight.current) return;
+        const value = identity();
+        if (acceptedIdentity.current === value && value) {
+            void verifyAccepted(value);
+            return;
+        }
+        initialReadStarted.current = false;
+        void readAccount();
+    };
+
+    const continueToApp = () => {
+        const value = identity();
+        if (inFlight.current || verifiedIdentity.current !== value || !value) return;
+        inFlight.current = true;
+        const epoch = focusEpoch.current;
+        setGate("returning");
+        try {
+            router.replace("/");
+            setGate("returned");
+        } catch {
+            if (screenIsCurrent(value, epoch)) setGate("return-error");
+        } finally {
+            inFlight.current = false;
+        }
+    };
+
+    const cancel = useCallback(() => {
+        if (cancelled.current) return;
+        cancelled.current = true;
+        operationId.current++;
+        inFlight.current = false;
+        session.logout();
+    }, [session]);
+    cancelRef.current = cancel;
+
+    useEffect(() => {
+        const currentIdentity = identity();
+        if (currentIdentity === observedIdentity.current) return;
+        observedIdentity.current = currentIdentity;
+        operationId.current++;
+        inFlight.current = false;
+        acceptedIdentity.current = null;
+        verifiedIdentity.current = null;
+        initialReadStarted.current = false;
+        deferredState.current = null;
+        if (!currentIdentity) return;
+        cancelled.current = false;
+        setGate("checking");
+        if (focused.current) void readAccount();
+        // Session changes invalidate any accepted consent latch and its recovery state.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [session.session.authenticated, session.session.accessToken]);
+
+    focusRef.current = () => {
+        if (cancelled.current) return;
+        if (deferredState.current) {
+            gateStateRef.current = deferredState.current;
+            setGateState(deferredState.current);
+            deferredState.current = null;
+        }
+        const value = identity();
+        if (acceptedIdentity.current === value && gateStateRef.current === "verifying") {
+            void verifyAccepted(value);
+        } else if (!initialReadStarted.current && gateStateRef.current === "checking") {
+            void readAccount();
+        }
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            focused.current = true;
+            focusEpoch.current++;
+            focusRef.current();
+            const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+                cancelRef.current();
+                return true;
+            });
+            return () => {
+                focused.current = false;
+                focusEpoch.current++;
+                if (gateStateRef.current === "checking") initialReadStarted.current = false;
+                subscription.remove();
+            };
+        }, []),
+    );
+
+    const isBusy = ["checking", "submitting", "verifying", "returning"].includes(gateState);
+    const canAccept = gateState === "needs-consent" || gateState === "write-error";
+    const statusText =
+        gateState === "checking"
+            ? "Checking account status…"
+            : gateState === "submitting"
+              ? "Submitting consent…"
+              : gateState === "verifying"
+                ? "Checking account status…"
+                : gateState === "read-error"
+                  ? "Could not check account status. Retry to continue."
+                  : gateState === "write-error"
+                    ? "Could not submit consent. Please try again."
+                    : gateState === "accepted-error"
+                      ? "Consent submitted. Check account status to continue."
+                      : gateState === "return-error"
+                        ? "Consent confirmed. Continue to open the app."
+                        : null;
 
     return (
-        <View style={{ flex: 1 }}>
-            {loading ? (
-                <Loading />
-            ) : (
-                <View style={{ flex: 1 }}>
-                    <View
-                        style={{
-                            height: "15%",
-                            width: "100%",
-                            justifyContent: "center",
-                            paddingTop: 30,
-                        }}>
-                        <ImageButton onPress={cancelleClicked} style={{ marginLeft: 15 }} />
+        <KeyboardAwareScrollView
+            keyboardShouldPersistTaps="handled"
+            style={[styles.screen, { backgroundColor: colors.background }]}
+            contentContainerStyle={styles.content}>
+            <View style={styles.page}>
+                <DefaultHeader titlePrefix="Senswave" variant="brand" onBack={cancel} />
+                <View style={styles.body}>
+                    <Text accessibilityRole="header" size="large" color="onBackground" bold>
+                        Review and accept
+                    </Text>
+                    <Text size="medium" color="onBackground">
+                        Before continuing, please review and accept our Terms of Service and Privacy
+                        Policy.
+                    </Text>
+                    <View style={styles.legalLinks}>
+                        <Pressable
+                            accessibilityRole="link"
+                            accessibilityLabel="Terms of Service"
+                            onPress={() => router.push("/terms")}
+                            style={styles.legalLink}>
+                            <Text size="medium" color="complementary" style={styles.underlined}>
+                                Terms of Service
+                            </Text>
+                        </Pressable>
+                        <Pressable
+                            accessibilityRole="link"
+                            accessibilityLabel="Privacy Policy"
+                            onPress={() => router.push("/privacy")}
+                            style={styles.legalLink}>
+                            <Text size="medium" color="complementary" style={styles.underlined}>
+                                Privacy Policy
+                            </Text>
+                        </Pressable>
                     </View>
-                    <View style={{ height: "85%", paddingHorizontal: 15 }}>
-                        <Text size={"large"} color={"onBackground"} bold={true}>
-                            Before continuing, please review and accept our Terms of Service and
-                            Privacy Policy.
+                    <Text size="medium" color="onBackground">
+                        By tapping Accept, you confirm that you have read and agree to our Terms of
+                        Service and Privacy Policy.
+                    </Text>
+                    <Text size="medium" color="onBackground">
+                        You can tap Cancel if you do not wish to continue.
+                    </Text>
+                    {statusText && (
+                        <Text
+                            accessibilityLiveRegion="polite"
+                            size="small"
+                            color={
+                                gateState === "read-error" || gateState === "write-error"
+                                    ? "error"
+                                    : "onBackground"
+                            }>
+                            {statusText}
                         </Text>
-
-                        <View style={{ width: "100%" }}>
-                            <Text size={"medium"} color={"onBackground"} style={{ marginTop: 20 }}>
-                                By tapping Accept, you confirm that you have read and agree to our{" "}
-                                <RNText
-                                    style={{
-                                        color: theme.current.colors.complementary,
-                                        textDecorationLine: "underline",
-                                    }}
-                                    onPress={() => router.push("terms")}>
-                                    Terms of Service
-                                </RNText>{" "}
-                                and{" "}
-                                <RNText
-                                    style={{
-                                        color: theme.current.colors.complementary,
-                                        textDecorationLine: "underline",
-                                    }}
-                                    onPress={() => router.push("privacy")}>
-                                    Privacy Policy
-                                </RNText>
-                                .
-                            </Text>
-
-                            <Text size={"medium"} color={"onBackground"} style={{ marginTop: 20 }}>
-                                You can tap Cancel if you do not wish to continue.
-                            </Text>
-
-                            <View style={{ flexDirection: "row", gap: 16, marginTop: 20 }}>
-                                <View style={{ flex: 0.5 }}>
-                                    <Button
-                                        name={"Cancel"}
-                                        type="alternative"
-                                        loading={false}
-                                        onPress={cancelleClicked}
-                                    />
-                                </View>
-                                <View style={{ flex: 0.5 }}>
-                                    <Button
-                                        name={"Accept"}
-                                        loading={false}
-                                        onPress={acceptClicked}
-                                    />
-                                </View>
-                            </View>
-                        </View>
-                    </View>
+                    )}
+                    {gateState === "read-error" || gateState === "accepted-error" ? (
+                        <Button
+                            name="Retry account check"
+                            type="brand-outline"
+                            loading={false}
+                            disabled={isBusy}
+                            onPress={retryAccountCheck}
+                        />
+                    ) : null}
+                    {gateState === "return-error" ? (
+                        <Button
+                            name="Continue"
+                            type="auth"
+                            loading={false}
+                            disabled={false}
+                            onPress={continueToApp}
+                        />
+                    ) : null}
                 </View>
-            )}
-        </View>
+                <View style={styles.actions}>
+                    <Button
+                        name="Accept"
+                        type="auth"
+                        loading={gateState === "submitting"}
+                        disabled={!canAccept || isBusy || !!acceptedIdentity.current}
+                        onPress={accept}
+                    />
+                    <Button name="Cancel" type="brand-outline" loading={false} onPress={cancel} />
+                </View>
+            </View>
+        </KeyboardAwareScrollView>
     );
 };
 
 export default ConsentsPage;
+
+const styles = StyleSheet.create({
+    screen: { flex: 1 },
+    content: {
+        flexGrow: 1,
+        width: "100%",
+        maxWidth: 448,
+        alignSelf: "center",
+        padding: 24,
+    },
+    page: { flex: 1 },
+    body: { gap: 16, paddingTop: 16 },
+    legalLinks: { gap: 4 },
+    legalLink: { minHeight: 48, justifyContent: "center", alignSelf: "flex-start" },
+    underlined: { textDecorationLine: "underline" },
+    actions: { gap: 12, marginTop: "auto", paddingTop: 32 },
+});

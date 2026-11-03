@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import React, { FC } from "react";
 import { Pressable, View, StyleSheet, Keyboard, Text as NativeText } from "react-native";
 import Icon from "../common/Icon";
@@ -9,12 +9,16 @@ interface DefaultHeaderProps {
     titlePrefix?: string;
     titleSuffix?: string;
     variant?: "default" | "brand";
+    onBack?: () => void;
+    backFallback?: Href;
 }
 
 const DefaultHeader: FC<DefaultHeaderProps> = ({
     titlePrefix,
     titleSuffix,
     variant = "default",
+    onBack,
+    backFallback = "/",
 }) => {
     const router = useRouter();
     const { colors } = useTheme().current;
@@ -22,7 +26,8 @@ const DefaultHeader: FC<DefaultHeaderProps> = ({
     const backClicked = () => {
         console.debug("[Default Header] Back clicked");
         Keyboard.dismiss();
-        if (brand && !router.canGoBack()) router.replace("/");
+        if (onBack) onBack();
+        else if (brand && !router.canGoBack()) router.replace(backFallback);
         else router.back();
     };
 

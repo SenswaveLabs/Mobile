@@ -280,7 +280,14 @@ test("Profile can silence a delayed identity retry without changing the default 
                 }),
             },
             "../SessionProvider": {
-                useSession: () => ({ session: { authenticated: false }, logout: () => {} }),
+                useSession: () => ({
+                    session: {
+                        authenticated: true,
+                        accessToken: "access-1",
+                        refreshToken: "refresh-1",
+                    },
+                    logout: () => {},
+                }),
             },
         },
     });
@@ -295,9 +302,13 @@ test("Profile can silence a delayed identity retry without changing the default 
         },
     });
 
+    pendingRequests[0](failedResponse());
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(feedback.shown, []);
+
     const retry = user.getUserData({ silent: true });
     feedback.navigate("/");
-    pendingRequests[0](failedResponse());
+    pendingRequests[1](failedResponse());
     const retryResult = await retry;
     await new Promise((resolve) => setImmediate(resolve));
 
@@ -306,7 +317,7 @@ test("Profile can silence a delayed identity retry without changing the default 
     assert.equal(retryResult.errorMessage, "Failed to load account details.");
 
     const defaultRead = user.getUserData();
-    pendingRequests[1](failedResponse());
+    pendingRequests[2](failedResponse());
     const defaultResult = await defaultRead;
     await new Promise((resolve) => setImmediate(resolve));
 

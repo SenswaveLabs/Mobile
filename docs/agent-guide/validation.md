@@ -26,6 +26,13 @@ Automation details regressions cover the native modal/host binding, cancellation
   A delayed identity-retry test composes the real `UserProvider` and `ToastProvider`,
   requiring Profile's silent getter not to toast or dismiss the destination keyboard
   after navigation, while the default getter retains its legacy toast.
+  Consent checks in `tests/consents.test.mjs` run the real route and `UserProvider`
+  with deferred HTTP plus the real `ToastProvider`. They cover account read retry,
+  active consent, failed/thrown POST, synchronous double-press locking, accepted
+  POST recovery without duplicate writes, refocus, navigation-only Continue,
+  cancellation/logout, legal Back, stale-session data/theme/toast guards and shared
+  header fallback behavior. These checks establish handler behavior, not native
+  layout, keyboard, safe-area or TalkBack behavior.
   The focused profile, feedback and sheet
   checks are `pnpm exec node --test tests/profile.test.mjs tests/feedback.test.mjs tests/bottomSheetSelect.test.mjs`.
   Dialog action checks execute the real label styling against both theme palettes,

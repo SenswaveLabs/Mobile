@@ -1,6 +1,6 @@
 import React from "react";
 import { Result, SimpleResult } from "@/utils/result";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useHttpClient } from "../HttpClientProvider";
 import { useToast } from "../ToastProvider";
 import { useTheme } from "../ThemeProvider";
@@ -58,6 +58,8 @@ export const UserProvider = ({ children }: any) => {
     const toast = useToast();
     const theme = useTheme();
     const session = useSession();
+    const sessionRef = useRef(session.session);
+    sessionRef.current = session.session;
 
     const [userData, setUserData] = useState<UserData>({
         language: "en",
@@ -118,18 +120,25 @@ export const UserProvider = ({ children }: any) => {
             console.debug("[User provider] Consents made.");
             return SimpleResult.success();
         } else {
-            toast.httpError(result);
             return SimpleResult.failure("Failed to make consents.");
         }
     };
 
     const getUserData = async ({ silent = false }: GetUserDataOptions = {}) => {
+        const requestAuthenticated = sessionRef.current.authenticated;
+        const requestAccessToken = sessionRef.current.accessToken;
+        const isCurrentSession = () =>
+            sessionRef.current.authenticated === requestAuthenticated &&
+            sessionRef.current.accessToken === requestAccessToken;
         const response = await httpClient.get("v1/users");
 
         if (response.isSuccess) {
             console.debug("[User Provider] User data loaded.");
 
             const data: UserResponse = await response.response?.json();
+            if (!isCurrentSession())
+                return Result.failure<UserData>("Failed to load account details.");
+
             updateThemeInternal(data.theme);
             const name = data.email.charAt(0).toUpperCase() + data.email.split("@")[0].slice(1);
 
@@ -141,11 +150,13 @@ export const UserProvider = ({ children }: any) => {
                 hasActiveConsent: data.hasActiveConsent,
             };
 
+            if (!isCurrentSession())
+                return Result.failure<UserData>("Failed to load account details.");
             setUserData(userData);
 
             return Result.success<UserData>(userData);
         } else {
-            if (!silent) toast.httpError(response);
+            if (!silent && isCurrentSession()) toast.httpError(response);
 
             return Result.failure<UserData>("Failed to load account details.");
         }
@@ -171,7 +182,7 @@ export const UserProvider = ({ children }: any) => {
 
     useEffect(() => {
         if (session.session.authenticated) {
-            getUserData();
+            getUserData({ silent: true });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [session.session.authenticated]);

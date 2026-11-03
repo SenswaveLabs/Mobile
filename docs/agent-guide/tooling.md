@@ -10,7 +10,7 @@ pnpm typecheck                # TypeScript check
 pnpm lint                     # Oxlint and Oxfmt checks
 pnpm fix                      # Oxlint and Oxfmt fixes
 pnpm hooks:install            # enable local pre-commit formatting
-pnpm test:poc                 # native auth validation, submissions, route boundaries and reset behavior
+pnpm test:poc                 # auth, consent gate, submissions, route boundaries and reset behavior
 pnpm test:data-sources        # broker details, settings and subscription actions
 pnpm test:homes               # home selection, joining, creation, settings, maps and recovery
 pnpm test:dashboard           # home dashboard filtering, recovery and device-tile controls

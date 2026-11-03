@@ -9,6 +9,7 @@ import { isAuthSurface } from "@/components/auth/authTypes";
 const usesInlineFeedback = (pathname: string) =>
     isAuthSurface(pathname) ||
     [
+        "/consents",
         "/home/list",
         "/home/join",
         "/home/add",
