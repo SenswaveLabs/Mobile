@@ -67,14 +67,65 @@ const normalizeId = (value?: string | string[]) => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     !!value && typeof value === "object" && !Array.isArray(value);
 
+const isOperationConfiguration = (value: unknown, type: OperationType) => {
+    if (value == null) return true;
+    if (!isRecord(value)) return false;
+
+    const isScalar = (item: unknown) =>
+        typeof item === "string" ||
+        typeof item === "boolean" ||
+        (typeof item === "number" && Number.isFinite(item));
+    if (
+        (value.isJson !== undefined && typeof value.isJson !== "boolean") ||
+        (value.saveOnUserAction !== undefined && typeof value.saveOnUserAction !== "boolean") ||
+        (value.jsonNames !== undefined &&
+            (!Array.isArray(value.jsonNames) ||
+                !value.jsonNames.every((name) => typeof name === "string")))
+    )
+        return false;
+
+    if (type === "Number" || type === "Integer") {
+        if (
+            (value.min !== undefined &&
+                (typeof value.min !== "number" || !Number.isFinite(value.min))) ||
+            (value.max !== undefined &&
+                (typeof value.max !== "number" || !Number.isFinite(value.max)))
+        )
+            return false;
+    }
+    if (type === "Number" && value.decimalSeparator !== undefined) {
+        if (typeof value.decimalSeparator !== "string") return false;
+    }
+    if (type === "Boolean") {
+        if (
+            (value.trueValue !== undefined && !isScalar(value.trueValue)) ||
+            (value.falseValue !== undefined && !isScalar(value.falseValue))
+        )
+            return false;
+    }
+    if (
+        type === "Options" &&
+        value.options !== undefined &&
+        (!Array.isArray(value.options) ||
+            !value.options.every(
+                (option) =>
+                    isRecord(option) && typeof option.name === "string" && isScalar(option.value),
+            ))
+    )
+        return false;
+
+    return true;
+};
+
 const isOperationDto = (value: unknown, operationId: string): value is OperationDto => {
     if (!isRecord(value)) return false;
+    const type = value.type as OperationType;
     return (
         value.id === operationId &&
         typeof value.name === "string" &&
         typeof value.topic === "string" &&
-        operationTypes.includes(value.type as OperationType) &&
-        (value.configuration == null || isRecord(value.configuration))
+        operationTypes.includes(type) &&
+        isOperationConfiguration(value.configuration, type)
     );
 };
 
@@ -735,7 +786,7 @@ const Details: FC = () => {
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                     </ScrollView>
-                    <AlertDialogFooter className="flex-col">
+                    <AlertDialogFooter className="flex-col sm:flex-col">
                         <AlertDialogCancel asChild>
                             <Button
                                 name="Cancel"

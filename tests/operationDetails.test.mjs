@@ -217,6 +217,88 @@ test("malformed and mismatched operation reads stay out of the form", async () =
     assert.ok(rejectedJson.button("Retry"));
 });
 
+test("malformed nested configuration stays local, retries, and never mounts the form", async () => {
+    const malformed = {
+        ...operation(),
+        type: "Text",
+        configuration: { isJson: true, jsonNames: { value: "status" } },
+    };
+    const repairedConfiguration = { isJson: false, saveOnUserAction: false };
+    const repaired = {
+        ...operation(),
+        type: "Text",
+        configuration: repairedConfiguration,
+    };
+    let reads = 0;
+    const mounted = mountDetails({
+        getOperation: async () => success(++reads === 1 ? malformed : repaired),
+    });
+    await mounted.ready();
+
+    assert.equal(mounted.form(), undefined);
+    assert.match(mounted.route.text(), /Failed to load operation details/);
+    assert.ok(mounted.button("Retry"));
+    await mounted.retry();
+    assert.equal(reads, 2);
+    assert.strictEqual(mounted.form().props.initConfiguration, repairedConfiguration);
+});
+
+test("malformed consumed configuration shapes are rejected before mounting", async () => {
+    const malformed = [
+        ["isJson", "Text", { isJson: "true" }],
+        ["saveOnUserAction", "Text", { saveOnUserAction: {} }],
+        ["jsonNames object", "Text", { isJson: true, jsonNames: { value: "status" } }],
+        ["jsonNames entry", "Text", { isJson: true, jsonNames: ["status", 0] }],
+        ["numeric minimum", "Number", { min: "0" }],
+        ["numeric maximum", "Integer", { max: null }],
+        ["decimal separator", "Number", { decimalSeparator: { value: "," } }],
+        ["Boolean true value", "Boolean", { trueValue: [] }],
+        ["Boolean false value", "Boolean", { falseValue: null }],
+        ["null Options entry", "Options", { options: [null] }],
+        ["Options name", "Options", { options: [{ name: {}, value: false }] }],
+        ["Options scalar value", "Options", { options: [{ name: "On", value: {} }] }],
+    ];
+
+    for (const [label, type, configuration] of malformed) {
+        const mounted = mountDetails({
+            operation: { ...operation(), type, configuration },
+        });
+        await mounted.ready();
+
+        assert.equal(mounted.form(), undefined, label);
+        assert.ok(mounted.button("Retry"), `${label} should offer a local read retry`);
+    }
+});
+
+test("valid typed configurations and omitted defaults pass through unchanged", async () => {
+    const fixtures = [
+        ["Boolean", { isJson: false, saveOnUserAction: false, trueValue: false, falseValue: "0" }],
+        ["Number", { isJson: false, min: 0, max: 10, decimalSeparator: "," }],
+        [
+            "Options",
+            {
+                isJson: false,
+                options: [
+                    { name: "False", value: false },
+                    { name: "Number zero", value: 0 },
+                    { name: "Text zero", value: "0" },
+                ],
+            },
+        ],
+        ["Text", { isJson: true, jsonNames: ["state", "value"] }],
+        ["Text", {}],
+    ];
+
+    for (const [type, configuration] of fixtures) {
+        const mounted = mountDetails({
+            operation: { ...operation(), type, configuration },
+        });
+        await mounted.ready();
+
+        assert.strictEqual(mounted.form().props.initConfiguration, configuration);
+    }
+});
+
 test("operation detail normalizes routed IDs and keeps an old operation-only link read-only", async () => {
     const linked = mountDetails({
         params: { operationId: ["operation-a", "ignored"], deviceId: ["device-a", "ignored"] },

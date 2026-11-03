@@ -102,3 +102,75 @@ API contract.
 
 No native runtime check was run by this implementation task; root owns the
 remaining native QA and independent review. No other known concerns.
+
+## Review fix round 1/5
+
+### Changes
+
+- The operation read boundary now validates only configuration shapes the
+  existing read-only form consumes: optional common booleans and string-array
+  JSON names; finite numeric minimum/maximum and string decimal separator;
+  Boolean string/number/boolean values; and Options records with string names
+  and finite scalar values. Omitted values remain omitted, and the route passes
+  the original configuration object without coercion or creation-time range,
+  length, uniqueness or path restrictions.
+- Malformed nested responses stay in the route's existing read-error/Retry
+  state and never mount `OperationForm`. Valid false, zero and text-zero values
+  pass through unchanged. The real `OperationFormInternal` seam is exercised
+  with Boolean, numeric, JSON-path, Options and omitted-default fixtures.
+- The confirmation footer now uses `flex-col sm:flex-col` to retain stacked
+  full-width actions at wide breakpoints. Root owns the actual >=640 dp native
+  layout verification.
+
+Files changed this round:
+
+- `src/app/(app)/device/operation/details.tsx`
+- `tests/operationDetails.test.mjs`
+- `tests/operationForm.test.mjs`
+- this report
+
+### TDD and verification
+
+RED command:
+
+```sh
+pnpm exec node --test tests/operationDetails.test.mjs tests/operationForm.test.mjs
+```
+
+The nested malformed-configuration tests failed as expected because the route
+mounted the mocked form. The exact summary was `ℹ tests 31`, `ℹ pass 29`,
+`ℹ fail 2`; the valid typed-value and existing form tests passed.
+
+GREEN command:
+
+```sh
+pnpm exec node --test tests/operationDetails.test.mjs tests/operationForm.test.mjs
+```
+
+The exact summary was `ℹ tests 31`, `ℹ pass 31`, `ℹ fail 0`.
+
+Required final checks after the fix:
+
+| Command | Result |
+| --- | --- |
+| `pnpm test:device-details` | `ℹ tests 237`; `ℹ pass 237`; `ℹ fail 0` |
+| `pnpm typecheck` | Exit 0 (`tsc --noEmit`) |
+| `pnpm lint` | Exit 0; Oxlint passed and all 285 matched files passed formatting |
+| `pnpm test:poc` | `ℹ tests 64`; `ℹ pass 64`; `ℹ fail 0` |
+| `git diff --check` | Clean |
+
+`pnpm test:poc` still prints the previously identified baseline
+`MODULE_TYPELESS_PACKAGE_JSON` warning for `src/utils/authValidation.ts`; it is
+not part of this fix. Initial formatter check was performed with
+`pnpm exec oxfmt 'src/app/(app)/device/operation/details.tsx'
+tests/operationDetails.test.mjs tests/operationForm.test.mjs` and completed
+successfully.
+
+### Iterations and deferred review items
+
+- The first combined source patch did not apply because its footer hunk did not
+  match the current source context; it changed no files. I applied the validator
+  and footer correction in separate hunks.
+- Typecheck, focused tests, lint and final suites passed after the changes.
+- Review M1 (the unrelated 480 dp recovery cap) is deferred to Task 6 per the
+  SDD minor-item rule; this round does not change that cap.

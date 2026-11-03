@@ -168,6 +168,63 @@ test("read-only operation details never submit or mutate configuration", async (
     assert.equal(form.field("Name").props.value, "Existing");
 });
 
+test("read-only operation configuration keeps omitted defaults and exact typed values", () => {
+    const booleanConfiguration = {
+        isJson: false,
+        saveOnUserAction: false,
+        trueValue: false,
+        falseValue: "0",
+    };
+    const booleanForm = mountForm({
+        edit: true,
+        initType: "Boolean",
+        initConfiguration: booleanConfiguration,
+    });
+    const booleanFields = booleanForm.child("BooleanOperationForm").props;
+    assert.equal(booleanFields.trueValue, false);
+    assert.equal(booleanFields.trueType, "boolean");
+    assert.equal(booleanFields.falseValue, "0");
+    assert.equal(booleanFields.falseType, "text");
+
+    const numberConfiguration = { isJson: false, min: 0, max: 10, decimalSeparator: "," };
+    const numberForm = mountForm({
+        edit: true,
+        initType: "Number",
+        initConfiguration: numberConfiguration,
+    });
+    const numericFields = numberForm.child("NumericOperationForm").props;
+    assert.equal(numericFields.minValue, 0);
+    assert.equal(numericFields.maxValue, 10);
+    assert.equal(numericFields.separator, ",");
+
+    const jsonConfiguration = { isJson: true, jsonNames: ["state", "value"] };
+    const jsonForm = mountForm({
+        edit: true,
+        initType: "Text",
+        initConfiguration: jsonConfiguration,
+    });
+    assert.deepEqual(jsonForm.child("JsonPathSelector").props.jsonNames, ["state", "value"]);
+
+    const optionConfiguration = {
+        isJson: false,
+        options: [
+            { name: "False", value: false },
+            { name: "Number zero", value: 0 },
+            { name: "Text zero", value: "0" },
+        ],
+    };
+    const optionForm = mountForm({
+        edit: true,
+        initType: "Options",
+        initConfiguration: optionConfiguration,
+    });
+    optionForm.flushEffects();
+    assert.doesNotThrow(() => optionForm.render());
+
+    const defaults = mountForm({ edit: true, initType: "Text", initConfiguration: {} });
+    assert.equal(defaults.child("JsonPathSelector"), undefined);
+});
+
 test("operation details children stay inside the keyboard scroll after configuration", () => {
     const details = mountForm({ edit: true, children: { type: "DeleteSection" } });
     const scroll = details.output();
