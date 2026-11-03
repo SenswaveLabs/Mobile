@@ -762,7 +762,7 @@ const Details: FC = () => {
                 else openDeleteConfirmation();
             }}
             asChild>
-            <View style={styles.screen}>
+            <View collapsable={false} style={styles.screen}>
                 <NativeModal
                     visible={isConfirming}
                     transparent

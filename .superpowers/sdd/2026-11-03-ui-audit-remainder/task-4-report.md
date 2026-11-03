@@ -174,3 +174,61 @@ successfully.
 - Typecheck, focused tests, lint and final suites passed after the changes.
 - Review M1 (the unrelated 480 dp recovery cap) is deferred to Task 6 per the
   SDD minor-item rule; this round does not change that cap.
+
+## Native container fix round 2/5
+
+### Candidate and native evidence
+
+The candidate is based on `e66c1447d9a56c595d24dbedb9be63e052503e6c` and changes
+only the existing root View in `src/app/(app)/device/operation/details.tsx` to
+`<View collapsable={false} style={styles.screen}>`. The candidate source SHA-256
+recorded by the controller is
+`b7f98e3b13efe5e973c8047dd1b04aac8e9dab0a3e3ca1932829273cf6ce4b94`. No
+additional source, test, shared primitive, delay, portal or lifecycle change was
+made. No prop-mirroring unit test was added.
+
+The controller ran the disposable fixture on `emulator-5554`, Android user 11,
+Light theme, 448 x 997 dp viewport at font scale 1.0. The candidate evidence is
+recorded in `/tmp/senswave-ui-audit-qa/native-container-candidate-metadata.json`:
+
+- PID 26134: Cancel and Android Back kept the temperature DELETE counter at 3.
+  The rejected DELETE advanced 3 to 4 and showed the detach warning with local
+  Retry. Retry advanced 4 to 5 once. The process remained alive during these
+  selected transitions. Captures: `79-native-container-cancel-back-candidate.xml`,
+  `80-native-container-conflict-candidate.png`, and
+  `81-native-container-retry-candidate.png`.
+- After Metro and the fake API expired during idle, the controller restarted
+  them without changing the candidate. Fresh PID 32115 exercised accepted
+  deletion of the unused operation from the canonical Widgets list with the
+  fixture's 8-second delay. It sent exactly one DELETE, one matching
+  `qa-device` display GET, and advanced the widget catalog GET count from 1 to
+  2. The same PID remained alive and returned to the Widgets list with three
+  groups and no unused operation. The filtered PID log
+  `native-container-candidate-32115.txt` had zero fatal/null-child matches.
+  Captures: `83-unused-delete-dialog-candidate.png`,
+  `84-unused-delete-pending-candidate.png`, and
+  `85-unused-delete-return-candidate.png`.
+
+The baseline still includes the original PID 2631 `ScreenContentWrapper contains
+null child at index 2` fatal and two later unchanged-code 409 passes on PID 22377.
+The selected candidate transitions passed, but the intermittent baseline and
+limited observations do not prove the initial crash's cause or establish
+statistical absence of recurrence. The first cohort also was not observed
+continuously after the services expired during idle.
+
+### Verification after native gate release
+
+| Command | Result |
+| --- | --- |
+| `pnpm exec node --test tests/operationDetails.test.mjs tests/operationForm.test.mjs` | `ℹ tests 31`; `ℹ pass 31`; `ℹ fail 0` |
+| `pnpm typecheck` | Exit 0 (`tsc --noEmit`) |
+| `pnpm lint` | Exit 0; Oxlint passed and all 285 matched files passed formatting |
+| `pnpm test:poc` | `ℹ tests 64`; `ℹ pass 64`; `ℹ fail 0` |
+| `git diff --check` | Clean |
+
+PoC output retains the known baseline `MODULE_TYPELESS_PACKAGE_JSON` warning for
+`src/utils/authValidation.ts`. No wider `pnpm test:device-details` rerun was
+requested for this one-prop round; the focused operation suites and required
+typecheck, lint, PoC and diff checks above were run fresh after native evidence
+arrived. Root performed the native screenshots/XML and PID inspection; this
+implementation task did not operate the emulator or services.
