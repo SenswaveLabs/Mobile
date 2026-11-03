@@ -280,8 +280,6 @@ const SelectHomeDataSource: FC = () => {
         fallbackNavigationError.focusId === focusId.current
             ? fallbackNavigationError
             : undefined;
-    const fallbackFocusId = focusId.current;
-
     const navigateFromFallback = (
         path: string,
         capturedHomeId: string,
@@ -334,7 +332,7 @@ const SelectHomeDataSource: FC = () => {
                     type="brand-outline"
                     loading={false}
                     onPress={() =>
-                        navigateFromFallback(issue.path, homeId, home?.id, fallbackFocusId)
+                        navigateFromFallback(issue.path, homeId, home?.id, focusId.current)
                     }
                 />
             </View>

@@ -229,6 +229,37 @@ test("home-owner Add action shares route identity and stays disabled after accep
     );
 });
 
+test("fallback Return uses committed focus and ignores its retained callback while blurred", async () => {
+    for (const { current, path } of [
+        { current: home("home-a", { isOwner: false }), path: "/home/details" },
+        { current: null, path: "/home/list" },
+    ]) {
+        const route = mountSelection({ current });
+        const returnButton = route
+            .buttons()
+            .find((button) => /home/i.test(button.props.name ?? ""));
+        assert.ok(returnButton);
+        assert.equal(route.list(), undefined);
+
+        const firstBlur = route.focus();
+        await returnButton.props.onPress();
+        assert.deepEqual(route.navigation, [["replace", path]]);
+
+        firstBlur?.();
+        await returnButton.props.onPress();
+        assert.deepEqual(route.navigation, [["replace", path]]);
+
+        route.focus();
+        await returnButton.props.onPress();
+        assert.deepEqual(route.navigation, [
+            ["replace", path],
+            ["replace", path],
+        ]);
+        assert.deepEqual(route.linkCalls, []);
+        assert.deepEqual(route.refreshCalls, []);
+    }
+});
+
 test("double taps share a lock and retained row callbacks recheck ownership", async () => {
     const request = deferred();
     const route = mountSelection({ put: () => request.promise });
@@ -251,6 +282,7 @@ test("double taps share a lock and retained row callbacks recheck ownership", as
 test("a changed home blocks stale return and offers return to current home", async () => {
     const request = deferred();
     const route = mountSelection({ put: () => request.promise });
+    route.focus();
     const pending = route.list().props.onListItemSelected("source-11");
     route.homes.current = home("home-b");
     route.component.render();
@@ -279,6 +311,7 @@ test("changed-home return failure stays local and retries navigation without ref
             }
         },
     });
+    route.focus();
     const pending = route.list().props.onListItemSelected("source-11");
     route.homes.current = home("home-b");
     route.component.render();
@@ -319,6 +352,7 @@ test("no history returns to Home details and a thrown return retries without ano
             };
         })(),
     });
+    route.focus();
     await route.list().props.onListItemSelected("source-11");
     await settle(route.component);
     assert.deepEqual(route.navigation, [["replace", "/home/details"]]);
