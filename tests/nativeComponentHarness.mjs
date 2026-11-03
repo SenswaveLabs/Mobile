@@ -7,6 +7,50 @@ import ts from "typescript";
 
 const require = createRequire(import.meta.url);
 
+export function makeFocusLifecycle(React) {
+    let focused = false;
+    const registrations = new Map();
+    return {
+        useFocusEffect(callback) {
+            React.useEffect(() => {
+                let active = false;
+                let cleanup;
+                const registration = {
+                    start() {
+                        if (!focused || active) return;
+                        active = true;
+                        cleanup = callback();
+                    },
+                    stop() {
+                        if (!active) return;
+                        active = false;
+                        const previous = cleanup;
+                        cleanup = undefined;
+                        previous?.();
+                    },
+                };
+                registrations.set(callback, registration);
+                registration.start();
+                return () => {
+                    registration.stop();
+                    if (registrations.get(callback) === registration)
+                        registrations.delete(callback);
+                };
+            }, [callback]);
+        },
+        focus() {
+            if (focused) return;
+            focused = true;
+            for (const registration of registrations.values()) registration.start();
+        },
+        blur() {
+            if (!focused) return;
+            focused = false;
+            for (const registration of registrations.values()) registration.stop();
+        },
+    };
+}
+
 // Execute real component handlers in Node; native hosts and external providers
 // are replaced because Node cannot mount React Native. This is not a render test.
 export function mountNativeComponent(

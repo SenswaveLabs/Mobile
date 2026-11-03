@@ -1,55 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mountNativeComponent } from "./nativeComponentHarness.mjs";
+import { makeFocusLifecycle, mountNativeComponent } from "./nativeComponentHarness.mjs";
 
 const operation = (id, type = "Boolean") => ({ id, name: `Name ${id}`, type });
 const success = (items) => ({ isSuccess: true, response: { json: async () => ({ items }) } });
 const failure = (statusCode = 500) => ({ isSuccess: false, statusCode });
 const tick = () => new Promise((resolve) => setImmediate(resolve));
-
-function makeFocusLifecycle(React) {
-    let focused = false;
-    const registrations = new Map();
-    return {
-        useFocusEffect(callback) {
-            React.useEffect(() => {
-                let active = false;
-                let cleanup;
-                const registration = {
-                    start() {
-                        if (!focused || active) return;
-                        active = true;
-                        cleanup = callback();
-                    },
-                    stop() {
-                        if (!active) return;
-                        active = false;
-                        const previous = cleanup;
-                        cleanup = undefined;
-                        previous?.();
-                    },
-                };
-                registrations.set(callback, registration);
-                registration.start();
-                return () => {
-                    registration.stop();
-                    if (registrations.get(callback) === registration)
-                        registrations.delete(callback);
-                };
-            }, [callback]);
-        },
-        focus() {
-            if (focused) return;
-            focused = true;
-            for (const registration of registrations.values()) registration.start();
-        },
-        blur() {
-            if (!focused) return;
-            focused = false;
-            for (const registration of registrations.values()) registration.stop();
-        },
-    };
-}
 
 function mountSelector({
     props = {},
