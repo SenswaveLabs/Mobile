@@ -48,6 +48,7 @@ interface OperationFormProps {
     edit?: boolean;
     pending?: boolean;
     disabled?: boolean;
+    children?: ReactNode;
     feedback?: ReactNode;
     returnAction?: ReactNode;
 }
@@ -66,6 +67,7 @@ export const OperationFormInternal = React.forwardRef<OperationFormHandle, Opera
             edit = false,
             pending = false,
             disabled = false,
+            children,
             feedback,
             returnAction,
         },
@@ -424,6 +426,7 @@ export const OperationFormInternal = React.forwardRef<OperationFormHandle, Opera
                         </View>
                     )}
                 </FormSection>
+                {children}
                 {!edit && (
                     <View style={styles.actions}>
                         {feedback}

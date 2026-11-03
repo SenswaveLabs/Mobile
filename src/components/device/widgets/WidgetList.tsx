@@ -259,6 +259,7 @@ const WidgetList: FC<WidgetListProps> = ({
                     <View style={styles.operation}>
                         <OperationTile
                             id={section.operation.id}
+                            deviceId={deviceId}
                             name={section.operation.name}
                             type={section.operation.type}
                             variant="list"

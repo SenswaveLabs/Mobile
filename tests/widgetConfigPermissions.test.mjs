@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mountNativeComponent } from "./nativeComponentHarness.mjs";
+import { makeFocusLifecycle, mountNativeComponent } from "./nativeComponentHarness.mjs";
 
 // These assertions cover route permission and handler adapters only. Native screens are verified on Android.
 function mountOperationAdd({ canManage, deviceId = ["device-a", "ignored"] }) {
@@ -142,4 +142,97 @@ test("widget details and standalone management list deny Display before mounting
             false,
         );
     }
+});
+
+test("Display can view operation details without seeing deletion controls", async () => {
+    let focusLifecycle;
+    const reads = [];
+    const route = mountNativeComponent("src/app/(app)/device/operation/details.tsx", {
+        modules: (React) => {
+            focusLifecycle = makeFocusLifecycle(React);
+            return {
+                "expo-router": {
+                    useFocusEffect: (callback) => focusLifecycle.useFocusEffect(callback),
+                    useLocalSearchParams: () => ({
+                        operationId: "operation-a",
+                        deviceId: "device-a",
+                    }),
+                    useRouter: () => ({ canGoBack: () => true, back() {}, replace() {} }),
+                },
+                "react-native": {
+                    StyleSheet: { create: (styles) => styles },
+                    View: "View",
+                    ScrollView: "ScrollView",
+                    Modal: "Modal",
+                },
+                "@rn-primitives/portal": { PortalHost: "PortalHost" },
+                "@/components/common/Button": "Button",
+                "@/components/common/ContentSection": "ContentSection",
+                "@/components/common/Loading": "Loading",
+                "@/components/common/Text": "Text",
+                "@/components/device/operation/OperationForm": "OperationForm",
+                "@/components/ui/alert": { Alert: "Alert", AlertDescription: "AlertDescription" },
+                "@/components/ui/alert-dialog": {
+                    AlertDialog: "AlertDialog",
+                    AlertDialogAction: "AlertDialogAction",
+                    AlertDialogCancel: "AlertDialogCancel",
+                    AlertDialogContent: "AlertDialogContent",
+                    AlertDialogDescription: "AlertDialogDescription",
+                    AlertDialogFooter: "AlertDialogFooter",
+                    AlertDialogHeader: "AlertDialogHeader",
+                    AlertDialogTitle: "AlertDialogTitle",
+                },
+                "@/contexts/custom/DeviceListProvider": {
+                    useDeviceList: () => ({
+                        devices: [{ id: "device-a" }],
+                        loading: false,
+                        error: null,
+                        refresh: async () => true,
+                        refreshDevice: async () => {},
+                    }),
+                },
+                "@/contexts/domain/HomeProvider": {
+                    useHomes: () => ({
+                        loading: false,
+                        current: { id: "home-a", isOwner: false, canManage: false },
+                    }),
+                },
+                "@/contexts/HttpClientProvider": {
+                    useHttpClient: () => ({
+                        get: async (path) => {
+                            reads.push(path);
+                            return {
+                                isSuccess: true,
+                                response: {
+                                    json: async () => ({
+                                        id: "operation-a",
+                                        name: "Living room",
+                                        topic: "home/light",
+                                        type: "Boolean",
+                                        configuration: {},
+                                    }),
+                                },
+                            };
+                        },
+                        delete: async () => assert.fail("Display cannot delete operations"),
+                    }),
+                },
+            };
+        },
+    });
+    route.flushEffects();
+    focusLifecycle.focus();
+    await new Promise((resolve) => setImmediate(resolve));
+    route.render();
+
+    assert.ok(route.elements().some((node) => node.type === "OperationForm"));
+    assert.equal(
+        route
+            .elements()
+            .some(
+                (node) => node.type === "ContentSection" && node.props.title === "Delete operation",
+            ),
+        false,
+    );
+    assert.deepEqual(reads, ["v1/devices/operations/operation-a"]);
 });

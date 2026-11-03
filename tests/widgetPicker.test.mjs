@@ -56,6 +56,23 @@ function mountTile(props, { requests = [], navigation = [] } = {}) {
     };
 }
 
+function mountOperationTile({ id = "operation-a", deviceId = "device-a" } = {}) {
+    const navigation = [];
+    const tile = mountNativeComponent("src/components/device/operation/OperationTile.tsx", {
+        props: { id, deviceId, name: "Living room", type: "Boolean", variant: "list" },
+        modules: {
+            "expo-router": { useRouter: () => ({ push: (value) => navigation.push(value) }) },
+            "@/contexts/ThemeProvider": {
+                useTheme: () => ({ current: { colors: { primary: "#c90" } } }),
+            },
+            "@/components/common/Text": "Text",
+            "@/components/common/ListRow": "ListRow",
+            "@/styles/shadowStyles": { shadowStyles: { default: {} } },
+        },
+    });
+    return { tile, navigation };
+}
+
 function mountWidgetList({
     deviceId = "device-a",
     providerDeviceId = "device-b",
@@ -224,6 +241,7 @@ test("picker reads the captured device and disables operation navigation", async
     const row = list.sectionList().props.renderItem({ item: section.data[0], index: 0, section });
 
     assert.equal(operation.props.disablePress, true);
+    assert.equal(operation.props.deviceId, "device-a");
     assert.equal(row.props.deviceId, "device-a");
     assert.equal(row.props.selected, true);
     assert.equal(typeof row.props.overrideOnClick, "function");
@@ -232,6 +250,21 @@ test("picker reads the captured device and disables operation navigation", async
         {
             pathname: "device/widget/add",
             params: { operationId: "operation-a", deviceId: "device-a" },
+        },
+    ]);
+});
+
+test("operation tile forwards its bound device to read-only details", () => {
+    const mounted = mountOperationTile({ id: "operation-101", deviceId: "device-a" });
+    mounted.tile
+        .elements()
+        .find((node) => node.type === "ListRow")
+        .props.onPress();
+
+    assert.deepEqual(JSON.parse(JSON.stringify(mounted.navigation)), [
+        {
+            pathname: "device/operation/details",
+            params: { operationId: "operation-101", deviceId: "device-a" },
         },
     ]);
 });

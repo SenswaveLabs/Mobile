@@ -353,6 +353,8 @@ test("redesigned forms and home selection suppress legacy overlays without dismi
         "/device/dashboard/details",
         "/device/dashboard/placeWidget",
         "/device/operation/add",
+        "/device/operation/details",
+        "/device/operation/list",
         "/automation/list",
         "/automation/add",
         "/automation/details",
@@ -388,9 +390,13 @@ test("entering an inline flow hides the existing toast and other screens retain 
     provider.navigate("/profile");
     provider.feedback().success("Saved");
     assert.equal(provider.shown.at(-1).message, "Saved");
+    const shownCount = provider.shown.length;
     provider.navigate("/device/operation/details");
-    provider.feedback().error("Dashboard details error");
-    assert.equal(provider.shown.at(-1).message, "Dashboard details error");
+    provider.feedback().error("Operation details error");
+    assert.equal(provider.shown.length, shownCount);
+    provider.navigate("/device/operation/list");
+    provider.feedback().error("Legacy operation list error");
+    assert.equal(provider.shown.length, shownCount);
 });
 
 test("an HTTP error arriving after navigation cannot bring back the old overlay", async () => {

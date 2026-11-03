@@ -9,6 +9,7 @@ import ListRow from "@/components/common/ListRow";
 
 interface OperationTileProps {
     id: string;
+    deviceId?: string;
     name: string;
     type: OperationType;
     disablePress?: boolean;
@@ -18,6 +19,7 @@ interface OperationTileProps {
 
 const OperationTile: FC<OperationTileProps> = ({
     id,
+    deviceId,
     name,
     type,
     disablePress = false,
@@ -52,6 +54,7 @@ const OperationTile: FC<OperationTileProps> = ({
             pathname: "device/operation/details",
             params: {
                 operationId: id,
+                ...(deviceId ? { deviceId } : {}),
             },
         });
     };

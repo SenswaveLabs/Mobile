@@ -168,6 +168,22 @@ test("read-only operation details never submit or mutate configuration", async (
     assert.equal(form.field("Name").props.value, "Existing");
 });
 
+test("operation details children stay inside the keyboard scroll after configuration", () => {
+    const details = mountForm({ edit: true, children: { type: "DeleteSection" } });
+    const scroll = details.output();
+    assert.equal(scroll.type, "KeyboardAwareScrollView");
+    assert.ok(scroll.props.children.some((child) => child.type === "DeleteSection"));
+
+    const create = mountForm();
+    assert.equal(create.output().type, "KeyboardAwareScrollView");
+    assert.ok(create.output().props.children.some((child) => child && child.type === "View"));
+    assert.ok(
+        create
+            .elements()
+            .some((node) => node.type === "Button" && node.props.name === "Create operation"),
+    );
+});
+
 test("JSON path preserves order, rejects invalid drafts and caps segments at five", () => {
     let names = [];
     let valid = true;

@@ -31,7 +31,7 @@ src/
       home/                 #   list, add, details, join, share; room/{add,details}
       device/               #   add, details, device.tsx
         dashboard/          #     add, details, list, placeWidget
-        operation/          #     add, details, list
+        operation/          #     add, details; list is a compatibility alias
         widget/             #     add, details, list
       automation/           #   add, details, list; conditions/; results/
       dataSource/           #   add, details, list; brokers/
@@ -84,6 +84,12 @@ editor between Button configuration and live Color widgets; `WidgetCommandSnackb
 owns dashboard-local command feedback. Preserve the shared read-only operation details
 caller and exact operation payload types when changing nested fields.
 Dashboard command feedback must not feed measurement state back into grid geometry.
+
+Operation details own a validated read-only operation view and local deletion
+context. Deletion requires both current-home device membership and exact
+membership in that device's complete operation catalog. `/device/operation/list`
+replaces itself with `/device/widget/list`, preserving a valid routed device ID;
+there is no second operation-list component.
 
 Automation state is held in the token-bound `AutomationProvider` session; it performs no implicit detail read. Parent routes own create/detail requests and metadata form state. Child forms own device/operation selection and typed drafts, while child routes validate session/home identity, recheck mutation permission, await saved-child PUT acceptance and append once. New-automation child additions append locally; saved automation additions remain owner-only. Keep API reads and writes on `useHttpClient()`.
 
