@@ -51,6 +51,8 @@ function Details() {
     const [deleteRetryTarget, setDeleteRetryTarget] = useState<DeleteTarget | null>(null);
     const [hasChanges, setHasChanges] = useState(false);
     const devices = useDeviceList();
+    const currentHomeDevicesRef = useRef(devices.devices);
+    currentHomeDevicesRef.current = devices.devices;
     const hasChangesRef = useRef(hasChanges);
     hasChangesRef.current = hasChanges;
     const canManageRef = useRef(canManage);
@@ -68,7 +70,7 @@ function Details() {
     const confirmationRef = useRef(deleteConfirmation);
     confirmationRef.current = deleteConfirmation;
 
-    const hasTarget = (target: DeleteTarget) => {
+    const matchesLoadedTarget = (target: DeleteTarget) => {
         const current = deviceRef.current;
         return (
             routeDeviceIdRef.current === target.deviceId &&
@@ -78,6 +80,14 @@ function Details() {
             current?.id === target.deviceId
         );
     };
+    const isCurrentHomeMember = (target: DeleteTarget) =>
+        matchesLoadedTarget(target) &&
+        currentHomeDevicesRef.current.some((current) => current.id === target.deviceId);
+    const hasTarget = (target: DeleteTarget) =>
+        isCurrentHomeMember(target) ||
+        (acceptedDelete.current?.deviceId === target.deviceId &&
+            acceptedDelete.current.homeId === target.homeId &&
+            matchesLoadedTarget(target));
     const sameFocus = (generation: number) =>
         active.current && focusGeneration.current === generation;
     const openDeleteConfirmation = () => {
@@ -88,7 +98,7 @@ function Details() {
             !active.current ||
             pending.current ||
             hasChangesRef.current ||
-            !hasTarget({ deviceId, homeId }) ||
+            !isCurrentHomeMember({ deviceId, homeId }) ||
             (acceptedDelete.current?.deviceId === deviceId &&
                 acceptedDelete.current.homeId === homeId)
         )
@@ -99,7 +109,15 @@ function Details() {
     };
 
     const editClicked = async (values: any): Promise<boolean> => {
-        if (pending.current || !active.current || !canManageRef.current || !deviceId) return false;
+        const target = deviceId && homeId ? { deviceId, homeId } : undefined;
+        if (
+            pending.current ||
+            !active.current ||
+            !canManageRef.current ||
+            !target ||
+            !isCurrentHomeMember(target)
+        )
+            return false;
         pending.current = true;
         setMutationPending(true);
         try {
@@ -164,10 +182,28 @@ function Details() {
                 pending.current = false;
                 setMutationPending(false);
             }
+            resumeAfterFocusChanged(generation);
         }
     };
     const recoverAcceptedDeleteRef = useRef(recoverAcceptedDelete);
     recoverAcceptedDeleteRef.current = recoverAcceptedDelete;
+
+    const resumeAfterFocusChanged = (attemptedGeneration: number) => {
+        const target = acceptedDelete.current;
+        const generation = focusGeneration.current;
+        if (
+            generation === attemptedGeneration ||
+            !target ||
+            !sameFocus(generation) ||
+            pending.current ||
+            recoveryPending.current ||
+            returnedAfterDelete.current ||
+            !canManageRef.current ||
+            !hasTarget(target)
+        )
+            return;
+        void recoverAcceptedDeleteRef.current(target, generation);
+    };
 
     const deleteDevice = async (target: DeleteTarget, generation: number) => {
         if (
@@ -175,7 +211,9 @@ function Details() {
             !sameFocus(generation) ||
             !canManageRef.current ||
             hasChangesRef.current ||
-            !hasTarget(target)
+            !isCurrentHomeMember(target) ||
+            (acceptedDelete.current?.deviceId === target.deviceId &&
+                acceptedDelete.current.homeId === target.homeId)
         )
             return;
         pending.current = true;
@@ -197,6 +235,7 @@ function Details() {
         } finally {
             pending.current = false;
             setMutationPending(false);
+            resumeAfterFocusChanged(generation);
         }
     };
 
@@ -208,7 +247,7 @@ function Details() {
             !sameFocus(focusGeneration.current) ||
             !canManageRef.current ||
             hasChangesRef.current ||
-            !hasTarget(target)
+            !isCurrentHomeMember(target)
         )
             return;
         setDeleteConfirmation(null);
@@ -224,7 +263,7 @@ function Details() {
             !deleteRetryTarget ||
             !canManageRef.current ||
             hasChangesRef.current ||
-            !hasTarget(deleteRetryTarget)
+            !isCurrentHomeMember(deleteRetryTarget)
         )
             return;
         return deleteDevice(deleteRetryTarget, focusGeneration.current);
@@ -307,6 +346,14 @@ function Details() {
 
     const deleteAcceptedForCurrentDevice =
         acceptedDelete.current?.deviceId === deviceId && acceptedDelete.current?.homeId === homeId;
+    const currentHomeMembership =
+        !!device &&
+        device.id === deviceId &&
+        loadedDeviceId === deviceId &&
+        loadedHomeId === homeId &&
+        devices.devices.some((current) => current.id === deviceId);
+    const acceptedDeleteMatchesCurrentDevice =
+        acceptedDelete.current?.deviceId === deviceId && acceptedDelete.current?.homeId === homeId;
 
     if (home.loading) return <Loading />;
     if (!canManage) {
@@ -346,7 +393,7 @@ function Details() {
         );
     }
     if (loading) return <Loading />;
-    if (!device || loadedDeviceId !== requestedDeviceId) {
+    if (!device || loadedDeviceId !== requestedDeviceId || loadedHomeId !== homeId) {
         if (failedDeviceId !== requestedDeviceId) return <Loading />;
         return (
             <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 16 }}>
@@ -362,6 +409,42 @@ function Details() {
                     type="auth"
                     loading={false}
                     onPress={() => setLoadAttempt((attempt) => attempt + 1)}
+                />
+            </View>
+        );
+    }
+    if (!currentHomeMembership && !acceptedDeleteMatchesCurrentDevice) {
+        if (devices.loading) return <Loading />;
+        const catalogFailed = !!devices.error;
+        return (
+            <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 16 }}>
+                <Alert
+                    icon={CircleAlert}
+                    variant="destructive"
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite">
+                    <AlertDescription>
+                        {catalogFailed
+                            ? "Couldn't verify that this device belongs to the current home."
+                            : "This device isn't available in the current home."}
+                    </AlertDescription>
+                </Alert>
+                <Button
+                    name={catalogFailed ? "Retry" : "Return to home"}
+                    type={catalogFailed ? "brand-outline" : "auth"}
+                    loading={catalogFailed && devices.loading}
+                    disabled={!active.current || pending.current || devices.loading}
+                    onPress={() => {
+                        if (
+                            !active.current ||
+                            pending.current ||
+                            routeDeviceIdRef.current !== deviceId ||
+                            homeIdRef.current !== homeId
+                        )
+                            return;
+                        if (catalogFailed) void devices.refresh();
+                        else router.replace("/");
+                    }}
                 />
             </View>
         );

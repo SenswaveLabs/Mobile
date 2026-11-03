@@ -7,6 +7,50 @@ const success = (items) => ({ isSuccess: true, response: { json: async () => ({ 
 const failure = (statusCode = 500) => ({ isSuccess: false, statusCode });
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
+function makeFocusLifecycle(React) {
+    let focused = false;
+    const registrations = new Map();
+    return {
+        useFocusEffect(callback) {
+            React.useEffect(() => {
+                let active = false;
+                let cleanup;
+                const registration = {
+                    start() {
+                        if (!focused || active) return;
+                        active = true;
+                        cleanup = callback();
+                    },
+                    stop() {
+                        if (!active) return;
+                        active = false;
+                        const previous = cleanup;
+                        cleanup = undefined;
+                        previous?.();
+                    },
+                };
+                registrations.set(callback, registration);
+                registration.start();
+                return () => {
+                    registration.stop();
+                    if (registrations.get(callback) === registration)
+                        registrations.delete(callback);
+                };
+            }, [callback]);
+        },
+        focus() {
+            if (focused) return;
+            focused = true;
+            for (const registration of registrations.values()) registration.start();
+        },
+        blur() {
+            if (!focused) return;
+            focused = false;
+            for (const registration of registrations.values()) registration.stop();
+        },
+    };
+}
+
 function mountSelector({
     props = {},
     responses = [],
@@ -15,8 +59,7 @@ function mountSelector({
     const reads = [];
     const pushes = [];
     const selected = [];
-    let focusCallback;
-    let blur;
+    let focusLifecycle;
     let responseIndex = 0;
     const router = {
         push: (route) => pushes.push(route),
@@ -30,71 +73,68 @@ function mountSelector({
                 onSelected: (value) => selected.push(value),
                 ...props,
             },
-            modules: {
-                "../common/ImageButton": "ImageButton",
-                "../common/Dropdown": "Dropdown",
-                "../common/ButtonWithTextAndImage": "ButtonWithTextAndImage",
-                "../common/BottomSheetSelect": "BottomSheetSelect",
-                "../common/SectionHeaderAction": "SectionHeaderAction",
-                "../common/Loading": "Loading",
-                "../common/Button": "Button",
-                "@/components/common/ImageButton": "ImageButton",
-                "@/components/common/Dropdown": "Dropdown",
-                "@/components/common/ButtonWithTextAndImage": "ButtonWithTextAndImage",
-                "@/components/common/BottomSheetSelect": "BottomSheetSelect",
-                "@/components/common/SectionHeaderAction": "SectionHeaderAction",
-                "@/components/common/Loading": "Loading",
-                "@/components/common/Button": "Button",
-                "@/contexts/HttpClientProvider": {
-                    useHttpClient: () => ({
-                        get: async (path) => {
-                            reads.push(path);
-                            const result = responses[responseIndex++];
-                            if (result === undefined) return success([]);
-                            if (result instanceof Error) throw result;
-                            return typeof result === "function" ? result(path) : result;
-                        },
-                    }),
-                },
-                "@/contexts/domain/HomeProvider": { useHomes: () => ({ current: home }) },
-                "@/contexts/custom/DeviceListProvider": {},
-                "@/contexts/ToastProvider": { useToast: () => ({ error() {} }) },
-                "expo-router": {
-                    useRouter: () => router,
-                    useFocusEffect: (callback) => {
-                        focusCallback = callback;
+            modules: (React) => {
+                focusLifecycle = makeFocusLifecycle(React);
+                return {
+                    "../common/ImageButton": "ImageButton",
+                    "../common/Dropdown": "Dropdown",
+                    "../common/ButtonWithTextAndImage": "ButtonWithTextAndImage",
+                    "../common/BottomSheetSelect": "BottomSheetSelect",
+                    "../common/SectionHeaderAction": "SectionHeaderAction",
+                    "../common/Loading": "Loading",
+                    "../common/Button": "Button",
+                    "@/components/common/ImageButton": "ImageButton",
+                    "@/components/common/Dropdown": "Dropdown",
+                    "@/components/common/ButtonWithTextAndImage": "ButtonWithTextAndImage",
+                    "@/components/common/BottomSheetSelect": "BottomSheetSelect",
+                    "@/components/common/SectionHeaderAction": "SectionHeaderAction",
+                    "@/components/common/Loading": "Loading",
+                    "@/components/common/Button": "Button",
+                    "@/contexts/HttpClientProvider": {
+                        useHttpClient: () => ({
+                            get: async (path) => {
+                                reads.push(path);
+                                const result = responses[responseIndex++];
+                                if (result === undefined) return success([]);
+                                if (result instanceof Error) throw result;
+                                return typeof result === "function" ? result(path) : result;
+                            },
+                        }),
                     },
-                },
-                "react-native": {
-                    View: "View",
-                    Text: "Text",
-                    StyleSheet: { create: (styles) => styles },
-                    Platform: { select: (values) => values.default },
-                },
-                "react-native-reanimated": {
-                    default: { View: "Animated.View" },
-                    useSharedValue: (value) => ({ value }),
-                    useAnimatedStyle: (style) => style(),
-                    withTiming: (value) => value,
-                },
-                "lucide-react-native": { Plus: "Plus" },
+                    "@/contexts/domain/HomeProvider": { useHomes: () => ({ current: home }) },
+                    "@/contexts/custom/DeviceListProvider": {},
+                    "@/contexts/ToastProvider": { useToast: () => ({ error() {} }) },
+                    "expo-router": {
+                        useRouter: () => router,
+                        useFocusEffect: (callback) => focusLifecycle.useFocusEffect(callback),
+                    },
+                    "react-native": {
+                        View: "View",
+                        Text: "Text",
+                        StyleSheet: { create: (styles) => styles },
+                        Platform: { select: (values) => values.default },
+                    },
+                    "react-native-reanimated": {
+                        default: { View: "Animated.View" },
+                        useSharedValue: (value) => ({ value }),
+                        useAnimatedStyle: (style) => style(),
+                        withTiming: (value) => value,
+                    },
+                    "lucide-react-native": { Plus: "Plus" },
+                };
             },
         },
     );
     component.flushEffects();
-
-    const focus = () => {
-        blur?.();
-        blur = focusCallback?.();
-    };
-    focus();
+    focusLifecycle.focus();
 
     return {
         component,
         reads,
         pushes,
         selected,
-        focus,
+        focus: () => focusLifecycle.focus(),
+        blur: () => focusLifecycle.blur(),
         router,
         home,
         render: (nextProps) => component.render(nextProps),
@@ -200,7 +240,8 @@ test("failed, thrown and malformed reads show local retry without clearing the s
         assert.ok(retry);
         retry.props.onPress();
         mounted.component.render();
-        mounted.focus();
+        assert.equal(mounted.reads.length, 1, "An uncommitted Retry render starts no request.");
+        mounted.component.flushEffects();
         await tick();
         mounted.component.render();
         assert.equal(mounted.reads.length, 2);
@@ -234,6 +275,7 @@ test("failed focus refresh keeps same-device choices and local recovery", async 
         ),
     );
 
+    mounted.blur();
     mounted.focus();
     await tick();
     mounted.component.render();
@@ -258,6 +300,7 @@ test("Add operation uses the exact device and returning to the field reloads its
         { pathname: "device/operation/add", params: { deviceId: "device exact/1" } },
     ]);
 
+    mounted.blur();
     mounted.focus();
     await tick();
     mounted.component.render();
@@ -288,8 +331,10 @@ test("stale catalog responses and option callbacks cannot change device or filte
         onSelected: (value) => mounted.selected.push(value),
     };
     mounted.render({ ...baseProps, filterTypes: ["Number"] });
+    assert.equal(mounted.reads.length, 1, "An uncommitted filter render starts no request.");
+    mounted.component.flushEffects();
+    assert.equal(mounted.reads.length, 2, "Committed filter callback starts a fresh request.");
     staleBoolean?.onPress();
-    mounted.focus();
     await tick();
     mounted.component.render();
     assert.ok(
@@ -302,8 +347,10 @@ test("stale catalog responses and option callbacks cannot change device or filte
         (option) => option.label === "Number - Name number-current",
     );
     mounted.render({ ...baseProps, deviceId: "device-2" });
+    assert.equal(mounted.reads.length, 2, "An uncommitted device render starts no request.");
+    mounted.component.flushEffects();
+    assert.equal(mounted.reads.length, 3, "Committed device callback starts its own request.");
     staleNumber.onPress();
-    mounted.focus();
     finishOld(success([operation("boolean-stale", "Boolean")]));
     await tick();
     mounted.component.render();

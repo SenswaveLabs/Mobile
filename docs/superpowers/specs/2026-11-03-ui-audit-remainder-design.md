@@ -336,8 +336,13 @@ that merely mirror style declarations. Required cases include:
   zero/one/many operations including item 101, local retry, unavailable stored
   references, explicit disabled guards, required-operation errors/disclosure,
   stale device/type responses, unchanged partial writes/readings/reset/previews.
-  Device delete tests cover cancellation, permission/context change, failure,
-  pending duplicates and accepted-once recovery.
+  Device management must prove routed-device membership in the selected home's
+  complete current `useDeviceList().devices` before exposure, confirmation or
+  DELETE; live membership and role are rechecked at send time. Same-home read
+  errors retain a form whose membership was already proven. Delete tests cover
+  cancellation, permission/home/device/catalog changes, failure, pending
+  duplicates, blur/refocus before DELETE acceptance and during accepted refresh,
+  and accepted-once recovery after catalog removal.
 - Operation read failure/malformed data/Retry, no blank form, Display read-only
   access, owner/manager Delete only with matching membership, missing old-link
   context, conflict response, confirmation cancellation/stale capture, duplicate
@@ -374,6 +379,12 @@ to non-disposable household data. Remove temporary fixture routes and restore
 emulator settings. Native captures establish layout/touch behavior; handler
 checks establish request logic. Report TalkBack, real MQTT and physical hardware
 only if actually exercised. Preserve previous audit evidence and its limits.
+
+Task 3 lifecycle tests may extend `nativeComponentHarness` so `modules` accepts
+either its existing object form or a factory invoked once with the harness React
+object. The focus mocks register through its committed `useEffect` cleanup/setup;
+rendering a new callback alone does not focus it. This is test infrastructure
+only and does not add a product abstraction.
 
 ## Approved decisions
 

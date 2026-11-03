@@ -13,7 +13,7 @@ export function mountNativeComponent(
     file,
     {
         props = {},
-        modules = {},
+        modules: moduleOverrides = {},
         exportName = "default",
         timers = { setTimeout, clearTimeout },
     } = {},
@@ -130,6 +130,8 @@ export function mountNativeComponent(
             }
         },
     };
+    const modules =
+        typeof moduleOverrides === "function" ? moduleOverrides(react) : moduleOverrides;
     const native = {
         ...Object.fromEntries(
             [

@@ -2,6 +2,50 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mountNativeComponent } from "./nativeComponentHarness.mjs";
 
+function makeFocusLifecycle(React) {
+    let focused = false;
+    const registrations = new Map();
+    return {
+        useFocusEffect(callback) {
+            React.useEffect(() => {
+                let active = false;
+                let cleanup;
+                const registration = {
+                    start() {
+                        if (!focused || active) return;
+                        active = true;
+                        cleanup = callback();
+                    },
+                    stop() {
+                        if (!active) return;
+                        active = false;
+                        const previous = cleanup;
+                        cleanup = undefined;
+                        previous?.();
+                    },
+                };
+                registrations.set(callback, registration);
+                registration.start();
+                return () => {
+                    registration.stop();
+                    if (registrations.get(callback) === registration)
+                        registrations.delete(callback);
+                };
+            }, [callback]);
+        },
+        focus() {
+            if (focused) return;
+            focused = true;
+            for (const registration of registrations.values()) registration.start();
+        },
+        blur() {
+            if (!focused) return;
+            focused = false;
+            for (const registration of registrations.values()) registration.stop();
+        },
+    };
+}
+
 function mountForm(onSubmit, props = {}) {
     const ref = { current: null };
     const formProps = {
@@ -72,6 +116,9 @@ function mountDeviceDetails(overrides = {}) {
         patch: async () => ({ isSuccess: true }),
         delete: async () => ({ isSuccess: true }),
         refresh: async () => true,
+        devices: [device],
+        devicesLoading: false,
+        devicesError: null,
         router: {
             canGoBack: () => true,
             back() {},
@@ -81,55 +128,56 @@ function mountDeviceDetails(overrides = {}) {
         toasts: [],
         ...overrides,
     };
-    let focusCallback;
-    let blur;
+    let focusLifecycle;
     const route = mountNativeComponent("src/app/(app)/device/details.tsx", {
-        modules: {
-            "@/components/common/ConfirmDialog": "ConfirmDialog",
-            "@/components/common/ContentSection": "ContentSection",
-            "@/components/common/ListRow": "ListRow",
-            "@/components/common/Loading": "Loading",
-            "@/components/common/Button": "Button",
-            "@/components/device/DeviceForm": "DeviceForm",
-            "@/contexts/custom/DeviceListProvider": {
-                useDeviceList: () => ({ refresh: (...args) => state.refresh(...args) }),
-            },
-            "@/contexts/domain/HomeProvider": { useHomes: () => state.homes },
-            "@/contexts/HttpClientProvider": {
-                useHttpClient: () => ({
-                    get: (...args) => state.get(...args),
-                    patch: (...args) => state.patch(...args),
-                    delete: (...args) => state.delete(...args),
-                }),
-            },
-            "@/contexts/ToastProvider": {
-                useToast: () => ({
-                    success: (message) => state.toasts.push(["success", message]),
-                    error: (message) => state.toasts.push(["error", message]),
-                    httpError: (response) => state.toasts.push(["http", response]),
-                }),
-            },
-            "expo-router": {
-                useFocusEffect: (callback) => {
-                    focusCallback = callback;
+        modules: (React) => {
+            focusLifecycle = makeFocusLifecycle(React);
+            return {
+                "@/components/common/ConfirmDialog": "ConfirmDialog",
+                "@/components/common/ContentSection": "ContentSection",
+                "@/components/common/ListRow": "ListRow",
+                "@/components/common/Loading": "Loading",
+                "@/components/common/Button": "Button",
+                "@/components/device/DeviceForm": "DeviceForm",
+                "@/contexts/custom/DeviceListProvider": {
+                    useDeviceList: () => ({
+                        devices: state.devices,
+                        loading: state.devicesLoading,
+                        error: state.devicesError,
+                        refresh: (...args) => state.refresh(...args),
+                    }),
                 },
-                useLocalSearchParams: () => state.params,
-                useRouter: () => state.router,
-            },
-            "react-native": { View: "View" },
+                "@/contexts/domain/HomeProvider": { useHomes: () => state.homes },
+                "@/contexts/HttpClientProvider": {
+                    useHttpClient: () => ({
+                        get: (...args) => state.get(...args),
+                        patch: (...args) => state.patch(...args),
+                        delete: (...args) => state.delete(...args),
+                    }),
+                },
+                "@/contexts/ToastProvider": {
+                    useToast: () => ({
+                        success: (message) => state.toasts.push(["success", message]),
+                        error: (message) => state.toasts.push(["error", message]),
+                        httpError: (response) => state.toasts.push(["http", response]),
+                    }),
+                },
+                "expo-router": {
+                    useFocusEffect: (callback) => focusLifecycle.useFocusEffect(callback),
+                    useLocalSearchParams: () => state.params,
+                    useRouter: () => state.router,
+                },
+                "react-native": { View: "View" },
+            };
         },
     });
     route.flushEffects();
-    const focus = () => {
-        blur?.();
-        blur = focusCallback?.();
-    };
-    focus();
+    focusLifecycle.focus();
     return {
         route,
         state,
-        focus,
-        blur: () => blur?.(),
+        focus: () => focusLifecycle.focus(),
+        blur: () => focusLifecycle.blur(),
         ready: async () => {
             await new Promise((resolve) => setImmediate(resolve));
             route.render();
@@ -779,57 +827,74 @@ test("failed device creation reaches the form as an error without a legacy toast
 
 test("device details load failure shows retry and recovers on the same device route", async () => {
     let attempts = 0;
+    let focusLifecycle;
     const route = mountNativeComponent("src/app/(app)/device/details.tsx", {
-        modules: {
-            "@/components/common/ConfirmDialog": "ConfirmDialog",
-            "@/components/common/ContentSection": "ContentSection",
-            "@/components/common/ListRow": "ListRow",
-            "@/components/common/Loading": "Loading",
-            "@/components/common/Button": "Button",
-            "@/components/device/DeviceForm": "DeviceForm",
-            "@/contexts/custom/DeviceListProvider": {
-                useDeviceList: () => ({ refresh: async () => true }),
-            },
-            "@/contexts/domain/HomeProvider": {
-                useHomes: () => ({
-                    loading: false,
-                    current: { id: "home-1", isOwner: true, canManage: false },
-                }),
-            },
-            "@/contexts/HttpClientProvider": {
-                useHttpClient: () => ({
-                    get: async () => {
-                        attempts++;
-                        if (attempts === 1) throw new Error("offline");
-                        return {
-                            isSuccess: true,
-                            response: {
-                                json: async () => ({
-                                    id: "device-1",
-                                    name: "Lamp",
-                                    icon: "bulb-outline",
-                                    roomId: null,
-                                    tile: { type: "Default" },
-                                    presence: null,
-                                }),
+        modules: (React) => {
+            focusLifecycle = makeFocusLifecycle(React);
+            return {
+                "@/components/common/ConfirmDialog": "ConfirmDialog",
+                "@/components/common/ContentSection": "ContentSection",
+                "@/components/common/ListRow": "ListRow",
+                "@/components/common/Loading": "Loading",
+                "@/components/common/Button": "Button",
+                "@/components/device/DeviceForm": "DeviceForm",
+                "@/contexts/custom/DeviceListProvider": {
+                    useDeviceList: () => ({
+                        devices: [
+                            {
+                                id: "device-1",
+                                name: "Lamp",
+                                icon: "bulb-outline",
+                                tile: { type: "Default" },
                             },
-                        };
-                    },
-                }),
-            },
-            "@/contexts/ToastProvider": {
-                useToast: () => ({ success() {}, error() {}, httpError() {} }),
-            },
-            "expo-router": {
-                useFocusEffect: (callback) => callback(),
-                useLocalSearchParams: () => ({ deviceId: "device-1" }),
-                useRouter: () => ({ back() {}, push() {} }),
-            },
-            "react-native": { View: "View" },
+                        ],
+                        loading: false,
+                        error: null,
+                        refresh: async () => true,
+                    }),
+                },
+                "@/contexts/domain/HomeProvider": {
+                    useHomes: () => ({
+                        loading: false,
+                        current: { id: "home-1", isOwner: true, canManage: false },
+                    }),
+                },
+                "@/contexts/HttpClientProvider": {
+                    useHttpClient: () => ({
+                        get: async () => {
+                            attempts++;
+                            if (attempts === 1) throw new Error("offline");
+                            return {
+                                isSuccess: true,
+                                response: {
+                                    json: async () => ({
+                                        id: "device-1",
+                                        name: "Lamp",
+                                        icon: "bulb-outline",
+                                        roomId: null,
+                                        tile: { type: "Default" },
+                                        presence: null,
+                                    }),
+                                },
+                            };
+                        },
+                    }),
+                },
+                "@/contexts/ToastProvider": {
+                    useToast: () => ({ success() {}, error() {}, httpError() {} }),
+                },
+                "expo-router": {
+                    useFocusEffect: (callback) => focusLifecycle.useFocusEffect(callback),
+                    useLocalSearchParams: () => ({ deviceId: "device-1" }),
+                    useRouter: () => ({ back() {}, push() {} }),
+                },
+                "react-native": { View: "View" },
+            };
         },
     });
 
     route.flushEffects();
+    focusLifecycle.focus();
     await new Promise((resolve) => setImmediate(resolve));
     route.render();
     assert.equal(
@@ -857,6 +922,7 @@ test("device delete Cancel and stale confirmation callbacks do not send a reques
         (mounted) =>
             (mounted.state.homes.current = { ...mounted.state.homes.current, isOwner: false }),
         (mounted) => (mounted.state.params = { deviceId: "device-2" }),
+        (mounted) => (mounted.state.devices = []),
         (mounted) => mounted.blur(),
     ]) {
         let deletes = 0;
@@ -886,6 +952,42 @@ test("device delete Cancel and stale confirmation callbacks do not send a reques
     mounted.route.render();
     assert.equal(mounted.dialog().props.visible, false);
     assert.equal(deletes, 0);
+});
+
+test("device details require current-home catalog membership before management", async () => {
+    const currentHomeDevice = {
+        id: "device-2",
+        name: "Other home device",
+        icon: "bulb-outline",
+        tile: { type: "Default" },
+    };
+    const mounted = mountDeviceDetails({
+        homes: { loading: false, current: { id: "home-2", isOwner: true, canManage: false } },
+        devices: [currentHomeDevice],
+    });
+    await mounted.ready();
+
+    assert.equal(mounted.form(), undefined);
+    assert.equal(mounted.deleteButton(), undefined);
+    assert.match(mounted.route.text(), /isn't available in the current home/i);
+});
+
+test("device details wait for membership proof and retain form through same-home list errors", async () => {
+    const mounted = mountDeviceDetails({ devices: [], devicesLoading: true });
+    await mounted.ready();
+    assert.equal(mounted.form(), undefined);
+    assert.equal(mounted.deleteButton(), undefined);
+
+    mounted.state.devices = [mounted.state.device];
+    mounted.state.devicesLoading = false;
+    mounted.route.render();
+    const loadedForm = mounted.form();
+    assert.ok(loadedForm);
+
+    mounted.state.devicesError = "Couldn't load devices.";
+    mounted.route.render();
+    assert.ok(mounted.form(), "Same-home refresh failure keeps the mounted device form visible.");
+    assert.equal(mounted.form().props.initName, loadedForm.props.initName);
 });
 
 test("pending device delete locks form and duplicate confirmation", async () => {
@@ -1039,6 +1141,72 @@ test("accepted device deletion after blur returns on refocus without repeating D
     mounted.focus();
     await new Promise((resolve) => setImmediate(resolve));
     mounted.route.render();
+    assert.equal(deletes, 1);
+    assert.equal(refreshes, 1);
+    assert.equal(backs, 1);
+});
+
+test("accepted device deletion resumes when route refocuses before DELETE acceptance", async () => {
+    let finishDelete;
+    let deletes = 0;
+    let refreshes = 0;
+    let backs = 0;
+    const mounted = mountDeviceDetails({
+        delete: () => {
+            deletes++;
+            return new Promise((resolve) => (finishDelete = resolve));
+        },
+        refresh: async () => (refreshes++, true),
+        router: { canGoBack: () => true, back: () => backs++, replace() {}, push() {} },
+    });
+    await mounted.ready();
+    mounted.deleteButton().props.onPress();
+    mounted.route.render();
+    const pendingDelete = mounted.dialog().props.onConfirm();
+
+    mounted.blur();
+    mounted.focus();
+    finishDelete({ isSuccess: true });
+    await pendingDelete;
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(deletes, 1);
+    assert.equal(refreshes, 1);
+    assert.equal(backs, 1);
+});
+
+test("accepted device deletion resumes after refresh settles in a newer focus generation", async () => {
+    let finishRefresh;
+    let deletes = 0;
+    let refreshes = 0;
+    let backs = 0;
+    const mounted = mountDeviceDetails({
+        delete: async () => (deletes++, { isSuccess: true }),
+        refresh: () => {
+            refreshes++;
+            return new Promise((resolve) => (finishRefresh = resolve));
+        },
+        router: { canGoBack: () => true, back: () => backs++, replace() {}, push() {} },
+    });
+    await mounted.ready();
+    mounted.deleteButton().props.onPress();
+    mounted.route.render();
+    const pendingDelete = mounted.dialog().props.onConfirm();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(refreshes, 1);
+
+    mounted.blur();
+    mounted.focus();
+    mounted.state.devices = [];
+    mounted.route.render();
+    assert.ok(
+        mounted.form(),
+        "Accepted target stays available for return recovery after catalog refresh.",
+    );
+    finishRefresh(true);
+    await pendingDelete;
+    await new Promise((resolve) => setImmediate(resolve));
+
     assert.equal(deletes, 1);
     assert.equal(refreshes, 1);
     assert.equal(backs, 1);

@@ -98,7 +98,12 @@ test("Device details updates the saved icon baseline before list refresh, preser
             "@/components/common/ConfirmDialog": "ConfirmDialog",
             "@/components/common/FAB": "FAB",
             "@/contexts/custom/DeviceListProvider": {
-                useDeviceList: () => ({ refresh: async () => false }),
+                useDeviceList: () => ({
+                    devices: [{ id: "device" }],
+                    loading: false,
+                    error: null,
+                    refresh: async () => false,
+                }),
             },
             "@/contexts/domain/HomeProvider": {
                 useHomes: () => ({ loading: false, current: { id: "home-1", isOwner: true } }),
