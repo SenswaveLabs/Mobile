@@ -22,11 +22,16 @@ interface RefreshRoomsOptions {
     silent?: boolean;
 }
 
+export interface RefreshCurrentHomeOptions {
+    homeId?: string;
+    background?: boolean;
+}
+
 interface HomesContextProps {
     loading: boolean;
     current: Home | undefined;
     setCurrent: (homeId: string) => Promise<boolean>;
-    refreshCurrent: () => Promise<void>;
+    refreshCurrent: (options?: RefreshCurrentHomeOptions) => Promise<boolean>;
     refreshRooms: (options?: RefreshRoomsOptions) => Promise<boolean>;
     initializeCurrentHome: (options?: InitializeHomeOptions) => Promise<boolean>;
     updateHomeDataSourceState: (dataSourceId: string, state: string) => Promise<void>;
@@ -49,6 +54,7 @@ const HomesContext = createContext<HomesContextProps>({
     },
     refreshCurrent: async () => {
         console.error("[HomesContext] Not initialized.");
+        return false;
     },
     updateHomeDataSourceState: async () => {
         console.error("[HomesContext] Not initialized.");
@@ -62,6 +68,8 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const httpClient = useHttpClient();
     const [loading, setLoading] = useState<boolean>(true);
     const [currentHome, setCurrentHome] = useState<Home | undefined>(undefined);
+    const currentHomeRef = useRef(currentHome);
+    currentHomeRef.current = currentHome;
     const roomsRequest = useRef(0);
 
     const setCurrent = async (homeId: string) => {
@@ -70,6 +78,7 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
         if (response.isSuccess) {
             const data = await response.response!.json();
             const home = data as Home;
+            currentHomeRef.current = home;
             setCurrentHome(home);
             console.info("[HomesProvider] Current home loaded.");
             return true;
@@ -101,9 +110,11 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
                 return false;
             }
             if (requestId !== roomsRequest.current) return false;
-            setCurrentHome((previous) =>
-                previous?.id === homeId ? { ...previous, rooms } : previous,
-            );
+            const current = currentHomeRef.current;
+            if (current?.id !== homeId) return false;
+            const updated = { ...current, rooms };
+            currentHomeRef.current = updated;
+            setCurrentHome(updated);
             return true;
         } catch {
             if (!silent && requestId === roomsRequest.current)
@@ -117,8 +128,10 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
         removedHomeId,
     }: InitializeHomeOptions = {}) => {
         setLoading(true);
-        if (removedHomeId)
-            setCurrentHome((previous) => (previous?.id === removedHomeId ? undefined : previous));
+        if (removedHomeId && currentHomeRef.current?.id === removedHomeId) {
+            currentHomeRef.current = undefined;
+            setCurrentHome(undefined);
+        }
         try {
             let path = "";
             const currentLocation = await getCurrentLocation();
@@ -133,9 +146,11 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
             if (response.statusCode === 404) {
                 if (!silent) toast.info("Create your first home!");
                 console.info("[HomesProvider] Homes not found.");
-                setCurrentHome((previous) =>
-                    removedHomeId && previous?.id !== removedHomeId ? previous : undefined,
-                );
+                const current = currentHomeRef.current;
+                if (!removedHomeId || !current || current.id === removedHomeId) {
+                    currentHomeRef.current = undefined;
+                    setCurrentHome(undefined);
+                }
                 return false;
             } else if (!response.isSuccess || !response.response) {
                 if (!silent) toast.httpError(response);
@@ -153,9 +168,11 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
             const home = (await homeResponse.response.json()) as Home;
             if (!home?.id) throw new Error("Invalid home response");
             if (home.id === removedHomeId) throw new Error("Removed home returned as current");
-            setCurrentHome((previous) =>
-                removedHomeId && previous && previous.id !== removedHomeId ? previous : home,
-            );
+            const current = currentHomeRef.current;
+            if (!removedHomeId || !current || current.id === removedHomeId) {
+                currentHomeRef.current = home;
+                setCurrentHome(home);
+            }
             console.info("[HomesProvider] Current home loaded.");
             return true;
         } catch {
@@ -167,32 +184,44 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
         }
     };
 
-    const refreshCurrent = async () => {
-        setLoading(true);
-
-        const response2 = await httpClient.get(`v1/homes/${currentHome?.id}`);
-
-        if (response2.isSuccess) {
-            const data = await response2.response!.json();
-            const home = data as Home;
+    const refreshCurrent = async ({
+        homeId: requestedHomeId,
+        background = false,
+    }: RefreshCurrentHomeOptions = {}) => {
+        if (!background) setLoading(true);
+        const homeId = requestedHomeId ?? currentHomeRef.current?.id;
+        try {
+            if (!homeId || currentHomeRef.current?.id !== homeId) return false;
+            const response = await httpClient.get(`v1/homes/${homeId}`);
+            if (!response.isSuccess || !response.response) return false;
+            const home = (await response.response.json()) as Home;
+            if (!home || typeof home !== "object" || Array.isArray(home) || home.id !== homeId)
+                return false;
+            if (currentHomeRef.current?.id !== homeId) return false;
+            currentHomeRef.current = home;
             setCurrentHome(home);
             console.info("[HomesProvider] Current home loaded.");
-            setLoading(false);
-        } else {
+            return true;
+        } catch {
             console.error("[HomesProvider] Failed to set current home.");
-            setLoading(false);
+            return false;
+        } finally {
+            if (!background) setLoading(false);
         }
     };
 
     const updateHomeDataSourceState = async (dataSourceId: string, state: string) => {
-        if (currentHome?.dataSource?.id === dataSourceId) {
-            setCurrentHome((prev) => ({
-                ...prev!,
+        const current = currentHomeRef.current;
+        if (current?.dataSource?.id === dataSourceId) {
+            const updated = {
+                ...current,
                 dataSource: {
-                    ...prev!.dataSource!,
+                    ...current.dataSource,
                     state: state,
                 },
-            }));
+            };
+            currentHomeRef.current = updated;
+            setCurrentHome(updated);
             console.info(
                 "[HomesProvider] Home data source state updated. DataSource:" +
                     dataSourceId +
@@ -202,7 +231,7 @@ export const HomeProvider: FC<{ children: ReactNode }> = ({ children }) => {
         } else {
             console.info(
                 "[HomesProvider] Data source ID does not match current home's data source. No update performed. Current: " +
-                    currentHome?.dataSource?.id +
+                    current?.dataSource?.id +
                     ", Given: " +
                     dataSourceId,
             );

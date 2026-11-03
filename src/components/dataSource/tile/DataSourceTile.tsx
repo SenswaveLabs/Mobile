@@ -1,5 +1,5 @@
 import React, { FC } from "react";
-import { StyleProp, TouchableOpacity, View, ViewStyle } from "react-native";
+import { ActivityIndicator, StyleProp, TouchableOpacity, View, ViewStyle } from "react-native";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { shadowStyles } from "@/styles/shadowStyles";
 import { useRouter } from "expo-router";
@@ -15,6 +15,8 @@ export interface DataSourceTileProps {
     onClickDisabled?: boolean;
     variant?: "preview" | "list";
     separator?: boolean;
+    selected?: boolean;
+    loading?: boolean;
     style?: StyleProp<ViewStyle>;
 }
 
@@ -26,6 +28,8 @@ const DataSourceTile: FC<DataSourceTileProps> = ({
     onClickDisabled = false,
     variant = "preview",
     separator = false,
+    selected = false,
+    loading = false,
     style = null,
 }: DataSourceTileProps) => {
     const theme = useTheme();
@@ -53,13 +57,34 @@ const DataSourceTile: FC<DataSourceTileProps> = ({
                     separator={separator}
                     description={`Server: ${server || "?"}`}
                     trailing={
-                        <View style={{ maxWidth: 120 }}>
+                        <View
+                            style={{
+                                maxWidth: 120,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 6,
+                            }}>
+                            {loading && (
+                                <ActivityIndicator
+                                    accessible={false}
+                                    size="small"
+                                    color={theme.current.colors.authMuted}
+                                />
+                            )}
                             <DataSourceStateGet id={id} />
                         </View>
                     }
                     onPress={dataSourceClicked}
                     disabled={onClickDisabled}
-                />
+                    selected={selected}
+                    loading={loading}
+                    accessibilityLabel={loading ? `Linking ${name}` : undefined}>
+                    {loading && (
+                        <Text size="small" color="onBackground">
+                            Linking {name}…
+                        </Text>
+                    )}
+                </ListRow>
             </View>
         );
     }

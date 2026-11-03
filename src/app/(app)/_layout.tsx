@@ -102,7 +102,9 @@ function InternalLayout() {
             <Stack.Screen
                 name="home/dataSource/select"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Data" titleSuffix="Sources" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Data" titleSuffix="Sources" variant="brand" />
+                    ),
                 }}
             />
 
@@ -222,7 +224,9 @@ function InternalLayout() {
             <Stack.Screen
                 name="dataSource/list"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Data" titleSuffix="Sources" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Data" titleSuffix="Sources" variant="brand" />
+                    ),
                 }}
             />
 

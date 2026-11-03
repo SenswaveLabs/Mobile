@@ -153,6 +153,14 @@ selection, including one selected during recovery. A failed initializer sends th
 active details screen to the picker; it must not repeat the destructive request.
 Ordinary initialization and refresh callers keep their existing behavior.
 
+`HomeProvider.refreshCurrent(options?)` returns success/failure and always
+releases its global loading state, including thrown or malformed detail reads.
+No-argument callers retain the existing full loading behavior. Passing
+`{ homeId, background: true }` reads only that captured home, updates it only
+while it is still selected, and leaves global loading unchanged; stale, invalid
+or failed responses return `false`. This is a client context option with no API
+contract change.
+
 `DeviceListProvider` owns client-side device-list loading and error recovery. It
 requests the complete V1 collection with `size=2147483647` (the API's full-collection
 sentinel); omitting size returns only ten devices and gives incomplete room filters.
