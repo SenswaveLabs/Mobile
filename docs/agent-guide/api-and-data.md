@@ -120,9 +120,10 @@ interface HomeDataSource { id, name, state }  // state updated via SignalR
 **User**
 ```ts
 enum ThemeMode { Light = "light", Dark = "dark", Default = "default" }
-interface UserData { language, theme, email, name, image?, hasActiveConsent? }
+interface UserData { language: string; theme: ThemeMode; email: string; name: string; image?: string; hasActiveConsent: boolean }
 ```
 `name` = first char of email uppercased + rest before `@`. `Default` theme = follow system.
+UserProvider validates consumed account fields before applying account or theme state and returns read, JSON and shape failures through `Result`.
 
 **Result pattern**
 ```ts
@@ -153,6 +154,25 @@ selection, including one selected during recovery. A failed initializer sends th
 active details screen to the picker; it must not repeat the destructive request.
 Ordinary initialization and refresh callers keep their existing behavior.
 
+`HomeProvider.refreshCurrent(options?)` returns success/failure and always
+releases its global loading state, including thrown or malformed detail reads.
+No-argument callers retain the existing full loading behavior. Passing
+`{ homeId, background: true }` reads only that captured home, updates it only
+while it is still selected, and leaves global loading unchanged; stale, invalid
+or failed responses return `false`. This is a client context option with no API
+contract change. The captured-home guard is scoped to the authenticated app's
+`HomeProvider` lifetime: the app layout unmounts it on logout, while access-token
+rotation retains it for the same account. If the app later switches authenticated
+accounts without remounting the provider, add an account-generation guard.
+
+`DataSourceStateGet` reads `GET v1/datasources/brokers/{id}/clients`; the response
+uses string `connectionStatus` and `latestSessionId` fields. List tiles enable
+inline recovery: failed, malformed and thrown reads keep the status unavailable
+with Retry for that same GET. Focus and request generations bind results to the
+current broker row, and the authenticated app teardown invalidates late work.
+Other tile callers keep the default toast feedback. These client behaviors do
+not change the API contract.
+
 `DeviceListProvider` owns client-side device-list loading and error recovery. It
 requests the complete V1 collection with `size=2147483647` (the API's full-collection
 sentinel); omitting size returns only ten devices and gives incomplete room filters.
@@ -160,10 +180,19 @@ It derives room filtering from the current home's device collection, preserves a
 valid selected room during refresh and resets to All on home changes. Collections
 from another home are hidden immediately and late list responses are ignored.
 Failed reads retain cached current-home devices and expose an inline error;
-`404` represents an empty collection. `refresh()` schedules a reload and returns
-`true`; awaiting it does not wait for the request or report its result. Retained
-device-update callbacks consult the current-home ref before updating that collection.
-These are client context behaviors; backend API contracts are unchanged.
+`404` represents an empty collection. `refresh()` invokes the current home's
+full-collection loader and resolves only after the latest read settles. It returns
+`true` for a validated collection or `404` empty result, and `false` for transport,
+response, JSON, shape, stale-read, stale-home or missing-home outcomes. Failed reads
+preserve cached devices and expose the inline error; stale reads cannot change the
+current collection, error or loading state.
+`refreshDevice(deviceId)` returns `true` only when its read matches a device in
+the still-current home's cached collection; HTTP, parsing, identity or home/device
+binding failures return `false` and preserve the cache. Retained device-update
+callbacks consult the current home and device collection before accepting updates.
+Operation deletion uses this result to keep refresh Retry local after DELETE has
+been accepted. These are client context behaviors; backend API contracts are
+unchanged.
 
 `DeviceProvider` owns the selected device's dashboard collection and display
 resource. It reads `GET v1/devices/dashboards/display?deviceId={deviceId}` and
@@ -232,7 +261,7 @@ clients expect string arrays and reject the object catalogs.
 | `v1/auth/login/google` | POST | Google OAuth login (always forces `rememberMe`) |
 | `v1/auth/register` | POST | Register |
 | `v1/auth/refresh` | POST | Refresh access token |
-| `v1/auth/confirmEmail` | POST | Confirm email (userId + code) |
+| `v1/auth/confirmEmail` | POST | Confirm email (`userId` + opaque `code` query parameters) |
 | `v1/auth/resendConfirmationEmail` | POST | Resend confirmation |
 | `v1/auth/forgotPassword` | POST | Send reset email |
 | `v1/auth/resetPassword` | POST | Reset password (code) |
@@ -270,6 +299,21 @@ clients expect string arrays and reject the object catalogs.
 3. False → show Terms + Privacy → `POST v1/users/consents`.
 4. Any 403 → logout (consent expired/revoked).
 5. Legal docs served versioned from API (summary + full markdown).
+
+The confirmation link accepts one nonempty scalar `userId` and `code`. Treat the
+code as opaque text and serialize both values with `URL.searchParams`; do not
+decode, trim, or log the code or complete request URL. The HTTP timeout helper's
+rejection log must also avoid request URL interpolation.
+Native external links pass through `src/app/+native-intent.ts` before Expo Router's
+installed extraction, state parser and local-parameter hook. That boundary validates
+the original percent/UTF-8 query, rejects repeated consumed parameters, and adds
+only the extra encoding required by this installed decode sequence. Do not add
+decoding or extra encoding to the confirmation route or provider.
+
+The mobile legal reader consumes `version`, `summary`, and `content`. `version`
+and `content` must be nonblank strings; `summary` may be empty. Preserve their
+exact values. Keep any other response members optional at runtime unless the
+mobile reader consumes them.
 
 ## Real-time (SignalR)
 

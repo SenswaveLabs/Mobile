@@ -27,6 +27,11 @@ const response = (items) => ({
     statusCode: 200,
     response: { json: async () => ({ items }) },
 });
+const responseBody = (body) => ({
+    isSuccess: true,
+    statusCode: 200,
+    response: { json: async () => body },
+});
 const settle = async (component) => {
     await new Promise((resolve) => setImmediate(resolve));
     component.render();
@@ -76,15 +81,23 @@ test("view toggle retains one selected layout and marks keyboard focus", () => {
 });
 
 function mountDevices(get, homes = { current: home() }) {
+    const requests = [];
     const component = mountNativeComponent("src/contexts/custom/DeviceListProvider.tsx", {
         exportName: "DeviceListProvider",
         modules: {
             "../domain/HomeProvider": { useHomes: () => homes },
-            "../HttpClientProvider": { useHttpClient: () => ({ get }) },
+            "../HttpClientProvider": {
+                useHttpClient: () => ({
+                    get: (path) => {
+                        requests.push(path);
+                        return get(path);
+                    },
+                }),
+            },
         },
     });
     component.flushEffects();
-    return { component, homes, value: () => component.elements()[0].props.value };
+    return { component, homes, requests, value: () => component.elements()[0].props.value };
 }
 
 test("room filters include devices beyond the API's default first ten results", async () => {
@@ -121,26 +134,306 @@ test("device refresh preserves room selection and failed reads preserve data wit
     component.render();
     assert.equal(value().filteredDevices.length, 1);
     result = { isSuccess: false, statusCode: 503 };
-    await value().refresh();
+    assert.equal(await value().refresh(), false);
     component.render();
-    component.flushEffects();
-    await settle(component);
     assert.equal(value().filter, "room-1");
     assert.equal(value().devices.length, 2);
     assert.ok(value().error);
     assert.equal(value().loading, false);
     result = response([device()]);
-    await value().refresh();
+    assert.equal(await value().refresh(), true);
     component.render();
-    component.flushEffects();
-    await settle(component);
     assert.equal(value().error, null);
     assert.equal(value().filter, "room-1");
     assert.equal(value().devices.length, 1);
+    result = responseBody({});
+    assert.equal(await value().refresh(), false);
+    component.render();
+    assert.ok(value().error);
+    assert.equal(value().devices.length, 1);
+    assert.equal(value().loading, false);
+    result = {
+        isSuccess: true,
+        statusCode: 200,
+        response: { json: async () => Promise.reject(new Error("invalid JSON")) },
+    };
+    assert.equal(await value().refresh(), false);
+    component.render();
+    assert.ok(value().error);
+    assert.equal(value().devices.length, 1);
+    assert.equal(value().loading, false);
+    result = { isSuccess: false, statusCode: 404 };
+    assert.equal(await value().refresh(), true);
+    component.render();
+    assert.equal(value().error, null);
+    assert.equal(value().devices.length, 0);
     homes.current = { ...homes.current, rooms: [] };
     component.render();
     assert.equal(value().filter, "all");
     assert.equal(value().filteredDevices.length, value().devices.length);
+});
+
+test("device list refresh waits for HTTP and JSON before reporting its result", async () => {
+    const pendingHttp = deferred();
+    const pendingJson = deferred();
+    let reads = 0;
+    const mounted = mountDevices(() => {
+        if (++reads === 1) return response([device()]);
+        return pendingHttp.promise;
+    });
+    await settle(mounted.component);
+
+    const refreshing = mounted.value().refresh();
+    let settled = false;
+    void refreshing.then(() => (settled = true));
+    assert.equal(mounted.requests.length, 2);
+    assert.match(mounted.requests[1], /size=2147483647&homeId=home-1/);
+    await Promise.resolve();
+    assert.equal(settled, false);
+
+    pendingHttp.resolve({
+        isSuccess: true,
+        statusCode: 200,
+        response: { json: () => pendingJson.promise },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(settled, false);
+    pendingJson.resolve({ items: [device("fresh-device")] });
+
+    assert.equal(await refreshing, true);
+    mounted.component.render();
+    assert.deepEqual(
+        mounted.value().devices.map((item) => item.id),
+        ["fresh-device"],
+    );
+});
+
+test("older device collection refresh cannot replace a newer read", async () => {
+    const olderRead = deferred();
+    const newerRead = deferred();
+    let reads = 0;
+    const mounted = mountDevices(() => {
+        reads++;
+        if (reads === 1) return response([device("initial-device")]);
+        if (reads === 2) return olderRead.promise;
+        if (reads === 3) return newerRead.promise;
+        assert.fail(`Unexpected device list read: ${reads}`);
+    });
+    await settle(mounted.component);
+
+    const older = mounted.value().refresh();
+    const newer = mounted.value().refresh();
+    newerRead.resolve(response([device("newer-device")]));
+    assert.equal(await newer, true);
+    mounted.component.render();
+    assert.deepEqual(
+        mounted.value().devices.map((item) => item.id),
+        ["newer-device"],
+    );
+
+    olderRead.resolve({ isSuccess: false, statusCode: 503 });
+    assert.equal(await older, false);
+    mounted.component.render();
+    assert.deepEqual(
+        mounted.value().devices.map((item) => item.id),
+        ["newer-device"],
+    );
+    assert.equal(mounted.value().error, null);
+    assert.equal(mounted.value().loading, false);
+});
+
+test("pending device collection refresh cannot overwrite a newly selected home", async () => {
+    const oldHomeRead = deferred();
+    const homes = { current: home("home-1") };
+    let homeOneReads = 0;
+    const mounted = mountDevices((path) => {
+        if (path.includes("homeId=home-1"))
+            return ++homeOneReads === 1 ? response([device("home-1-device")]) : oldHomeRead.promise;
+        if (path.includes("homeId=home-2")) return response([device("home-2-device")]);
+        assert.fail(`Unexpected device list request: ${path}`);
+    }, homes);
+    await settle(mounted.component);
+
+    const oldRefresh = mounted.value().refresh();
+    homes.current = home("home-2");
+    mounted.component.render();
+    mounted.component.flushEffects();
+    await settle(mounted.component);
+    assert.deepEqual(
+        mounted.value().devices.map((item) => item.id),
+        ["home-2-device"],
+    );
+
+    oldHomeRead.resolve({ isSuccess: false, statusCode: 503 });
+    assert.equal(await oldRefresh, false);
+    await settle(mounted.component);
+    assert.deepEqual(
+        mounted.value().devices.map((item) => item.id),
+        ["home-2-device"],
+    );
+    assert.equal(mounted.value().error, null);
+    assert.equal(mounted.value().loading, false);
+});
+
+test("per-device refresh reports only matching current-home reads and preserves cache on failure", async () => {
+    let result = responseBody(device("device-1", true));
+    let transportError = false;
+    const mounted = mountDevices(async (path) =>
+        path.startsWith("v1/devices/display?")
+            ? response([device()])
+            : transportError
+              ? Promise.reject(new Error("offline"))
+              : result,
+    );
+    await settle(mounted.component);
+
+    const beforeMissingRead = mounted.requests.length;
+    assert.equal(await mounted.value().refreshDevice("missing-device"), false);
+    assert.equal(mounted.requests.length, beforeMissingRead);
+
+    assert.equal(await mounted.value().refreshDevice("device-1"), true);
+    mounted.component.render();
+    assert.equal(mounted.value().devices[0].tile.value, true);
+
+    result = { isSuccess: false, statusCode: 503, response: null };
+    assert.equal(await mounted.value().refreshDevice("device-1"), false);
+    mounted.component.render();
+    assert.equal(mounted.value().devices[0].tile.value, true);
+
+    result = {
+        isSuccess: true,
+        statusCode: 200,
+        response: { json: async () => Promise.reject(new Error("invalid JSON")) },
+    };
+    assert.equal(await mounted.value().refreshDevice("device-1"), false);
+    mounted.component.render();
+    assert.equal(mounted.value().devices[0].tile.value, true);
+
+    transportError = true;
+    assert.equal(await mounted.value().refreshDevice("device-1"), false);
+    mounted.component.render();
+    assert.equal(mounted.value().devices[0].tile.value, true);
+    transportError = false;
+
+    result = responseBody(device("other-device", false));
+    assert.equal(await mounted.value().refreshDevice("device-1"), false);
+    mounted.component.render();
+    assert.equal(mounted.value().devices[0].tile.value, true);
+});
+
+test("device reads reject malformed consumed shapes and preserve valid historical values", async () => {
+    let refreshed = responseBody(device());
+    let collection = response([device()]);
+    const mounted = mountDevices(async (path) =>
+        path.startsWith("v1/devices/display?") ? collection : refreshed,
+    );
+    await settle(mounted.component);
+    const cached = mounted.value().devices[0];
+    const malformed = [
+        { id: "device-1", name: "Lamp", icon: "opaque-device-key" },
+        { ...device(), tile: null },
+        { ...device(), tile: { type: "Display", configuration: { readings: {} } } },
+        {
+            ...device(),
+            tile: {
+                type: "Display",
+                configuration: { readings: [{ operationId: 17, label: "Humidity", unit: "%" }] },
+            },
+        },
+        { ...device(), presence: [] },
+        { ...device(), presence: { type: "BooleanOperation", value: "false" } },
+    ];
+
+    for (const body of malformed) {
+        refreshed = responseBody(body);
+        assert.equal(await mounted.value().refreshDevice("device-1"), false);
+        mounted.component.render();
+        assert.strictEqual(mounted.value().devices[0], cached);
+    }
+
+    collection = response([
+        { ...device("device-2"), tile: { type: "Display", configuration: { readings: {} } } },
+    ]);
+    assert.equal(await mounted.value().refresh(), false);
+    mounted.component.render();
+    assert.strictEqual(mounted.value().devices[0], cached);
+    assert.ok(mounted.value().error);
+
+    const historical = {
+        ...device(),
+        icon: "legacy/device-icon:key",
+        roomId: null,
+        tile: {
+            type: "Display",
+            operationId: "legacy/operation:key",
+            displayableOperationId: "legacy/display:key",
+            value: null,
+            configuration: {
+                unit: null,
+                label: null,
+                step: null,
+                readings: [
+                    { operationId: "outside-catalog:key", label: "Humidity", unit: "%", value: 0 },
+                ],
+            },
+        },
+        presence: null,
+    };
+    refreshed = responseBody(historical);
+    assert.equal(await mounted.value().refreshDevice("device-1"), true);
+    mounted.component.render();
+    assert.deepEqual(mounted.value().devices[0], historical);
+});
+
+test("late per-device refresh returns false after the current home changes", async () => {
+    const pending = deferred();
+    const mounted = mountDevices((path) => {
+        if (path.startsWith("v1/devices/display?") && path.includes("homeId=home-1"))
+            return response([device("device-1")]);
+        if (path.startsWith("v1/devices/display?") && path.includes("homeId=home-2"))
+            return response([device("device-2")]);
+        if (path === "v1/devices/device-1/display") return pending.promise;
+        assert.fail(`Unexpected DeviceList request: ${path}`);
+    });
+    await settle(mounted.component);
+
+    const refreshing = mounted.value().refreshDevice("device-1");
+    mounted.homes.current = home("home-2");
+    mounted.component.render();
+    mounted.component.flushEffects();
+    await settle(mounted.component);
+    pending.resolve(responseBody(device("device-1", true)));
+
+    assert.equal(await refreshing, false);
+    await settle(mounted.component);
+    assert.deepEqual(
+        mounted.value().devices.map((item) => item.id),
+        ["device-2"],
+    );
+    assert.equal(mounted.value().devices[0].tile.value, false);
+});
+
+test("per-device refresh returns false when the device leaves the current collection in flight", async () => {
+    const pending = deferred();
+    let listedDevices = [device("device-1")];
+    const mounted = mountDevices((path) => {
+        if (path.startsWith("v1/devices/display?")) return response(listedDevices);
+        if (path === "v1/devices/device-1/display") return pending.promise;
+        assert.fail(`Unexpected DeviceList request: ${path}`);
+    });
+    await settle(mounted.component);
+
+    const refreshing = mounted.value().refreshDevice("device-1");
+    listedDevices = [];
+    await mounted.value().refresh();
+    mounted.component.render();
+    mounted.component.flushEffects();
+    await settle(mounted.component);
+    pending.resolve(responseBody(device("device-1", true)));
+
+    assert.equal(await refreshing, false);
+    await settle(mounted.component);
+    assert.deepEqual(mounted.value().devices, []);
 });
 
 test("late device reads cannot replace the current home's devices", async () => {
@@ -178,6 +471,7 @@ test("device reads distinguish unavailable, malformed, empty and missing-home st
     });
     await settle(missing.component);
     assert.equal(missing.value().loading, false);
+    assert.equal(await missing.value().refresh(), false);
 });
 
 test("compact device tiles preserve navigation, permissions, exact icons and separate controls", () => {

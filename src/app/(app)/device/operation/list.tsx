@@ -1,26 +1,27 @@
-import FAB, { FABAction } from "@/components/common/FAB";
-import OperationList from "@/components/device/operation/OperationList";
-import { useRouter } from "expo-router";
-import React from "react";
-import { View } from "react-native";
+import Loading from "@/components/common/Loading";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { FC, useEffect } from "react";
 
-function List() {
+const List: FC = () => {
     const router = useRouter();
-    const addClicked = async () => {
-        console.info("[AddOperation] Add Operation Clicked.");
-        router.push({ pathname: "device/operation/add" });
-    };
+    const { deviceId: deviceParam } = useLocalSearchParams<{ deviceId?: string | string[] }>();
+    const requestedDeviceId = Array.isArray(deviceParam) ? deviceParam[0] : deviceParam;
+    const deviceId =
+        typeof requestedDeviceId === "string" && requestedDeviceId.trim()
+            ? requestedDeviceId
+            : undefined;
 
-    const fabActions: FABAction[] = [
-        { icon: "add-outline", label: "Add Operation", onPress: addClicked },
-    ];
+    useEffect(() => {
+        router.replace(
+            deviceId
+                ? { pathname: "/device/widget/list", params: { deviceId } }
+                : { pathname: "/device/widget/list" },
+        );
+        // The route only needs to replace itself when its bound device changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [deviceId]);
 
-    return (
-        <View style={{ flex: 1 }}>
-            <OperationList />
-            <FAB actions={fabActions} />
-        </View>
-    );
-}
+    return <Loading />;
+};
 
 export default List;

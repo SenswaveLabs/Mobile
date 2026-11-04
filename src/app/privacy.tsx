@@ -1,39 +1,18 @@
-import ImageButton from "@/components/common/ImageButton";
-import { useRouter } from "expo-router";
+import DefaultHeader from "@/components/headers/DefaultHeader";
+import PrivacyPolicy from "@/components/user/PrivacyPolicy";
+import { FC } from "react";
 import { View } from "react-native";
 
-import Text from "@/components/common/Text";
-import PrivacyPolicy from "@/components/user/PrivacyPolicy";
-
-const Privacy = () => {
-    const router = useRouter();
-
-    const backClicked = () => {
-        router.back();
-    };
-
-    return (
-        <View style={{ flex: 1 }}>
-            <View style={{ flex: 1 }}>
-                <View
-                    style={{
-                        width: "100%",
-                        paddingTop: 30,
-                        paddingBottom: 25,
-                        flexDirection: "row",
-                    }}>
-                    <ImageButton onPress={backClicked} style={{ marginLeft: 15 }} />
-                    <Text
-                        size={"large"}
-                        style={{ marginTop: 10, marginLeft: 15 }}
-                        color={"complementary"}>
-                        Privacy Policy
-                    </Text>
-                </View>
-                <PrivacyPolicy />
-            </View>
-        </View>
-    );
-};
+const Privacy: FC = () => (
+    <View style={{ flex: 1 }}>
+        <DefaultHeader
+            titlePrefix="Privacy"
+            titleSuffix="Policy"
+            variant="brand"
+            backFallback="/start"
+        />
+        <PrivacyPolicy />
+    </View>
+);
 
 export default Privacy;

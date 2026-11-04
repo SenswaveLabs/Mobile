@@ -280,7 +280,14 @@ test("Profile can silence a delayed identity retry without changing the default 
                 }),
             },
             "../SessionProvider": {
-                useSession: () => ({ session: { authenticated: false }, logout: () => {} }),
+                useSession: () => ({
+                    session: {
+                        authenticated: true,
+                        accessToken: "access-1",
+                        refreshToken: "refresh-1",
+                    },
+                    logout: () => {},
+                }),
             },
         },
     });
@@ -295,9 +302,13 @@ test("Profile can silence a delayed identity retry without changing the default 
         },
     });
 
+    pendingRequests[0](failedResponse());
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(feedback.shown, []);
+
     const retry = user.getUserData({ silent: true });
     feedback.navigate("/");
-    pendingRequests[0](failedResponse());
+    pendingRequests[1](failedResponse());
     const retryResult = await retry;
     await new Promise((resolve) => setImmediate(resolve));
 
@@ -306,7 +317,7 @@ test("Profile can silence a delayed identity retry without changing the default 
     assert.equal(retryResult.errorMessage, "Failed to load account details.");
 
     const defaultRead = user.getUserData();
-    pendingRequests[1](failedResponse());
+    pendingRequests[2](failedResponse());
     const defaultResult = await defaultRead;
     await new Promise((resolve) => setImmediate(resolve));
 
@@ -328,27 +339,40 @@ test("redesigned forms and home selection suppress legacy overlays without dismi
         "/forgotPassword",
         "/server",
         "/resetPassword",
+        "/consents",
+        "/confirmEmail",
+        "/maintenance",
+        "/privacy",
+        "/terms",
         "/home/list",
         "/home/join",
         "/home/add",
         "/home/details",
+        "/home/dataSource/select",
         "/home/room/add",
         "/home/room/details",
         "/device/add",
+        "/device/details",
         "/device/device",
         "/device/dashboard/add",
         "/device/dashboard/details",
         "/device/dashboard/placeWidget",
         "/device/operation/add",
+        "/device/operation/details",
+        "/device/operation/list",
         "/automation/list",
         "/automation/add",
         "/automation/details",
         "/automation/conditions/add",
         "/automation/results/add",
         "/dataSource/add",
+        "/dataSource/list",
         "/dataSource/brokers/startBrokerClient",
         "/dataSource/brokers/addSubscription",
         "/user/profile",
+        "/user/privacy",
+        "/user/terms",
+        "/user/info",
     ]) {
         provider.navigate(route);
         lateCallback.error("Legacy error");
@@ -374,12 +398,16 @@ test("entering an inline flow hides the existing toast and other screens retain 
     provider.navigate("/profile");
     provider.feedback().success("Saved");
     assert.equal(provider.shown.at(-1).message, "Saved");
+    const shownCount = provider.shown.length;
     provider.navigate("/device/operation/details");
-    provider.feedback().error("Dashboard details error");
-    assert.equal(provider.shown.at(-1).message, "Dashboard details error");
+    provider.feedback().error("Operation details error");
+    assert.equal(provider.shown.length, shownCount);
+    provider.navigate("/device/operation/list");
+    provider.feedback().error("Legacy operation list error");
+    assert.equal(provider.shown.length, shownCount);
 });
 
-test("an HTTP error arriving after navigation cannot bring back the old overlay", async () => {
+test("an HTTP error arriving after navigation to maintenance cannot restore the overlay", async () => {
     const provider = mountFeedback();
     let finish;
     const pending = provider.feedback().httpError({
@@ -391,7 +419,7 @@ test("an HTTP error arriving after navigation cannot bring back the old overlay"
                 }),
         },
     });
-    provider.navigate("/login");
+    provider.navigate("/maintenance");
     finish('{"errors":[]}');
     await pending;
     assert.deepEqual(provider.shown, []);

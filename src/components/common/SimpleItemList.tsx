@@ -29,6 +29,7 @@ const SimlpleItemList: FC<SimlpleItemListProps> = ({ items, style, ...viewProps 
                             <Text
                                 size="medium"
                                 color="onBackground"
+                                numberOfLines={0}
                                 style={{ maxWidth: "55%", textAlign: "right" }}>
                                 {item.value}
                             </Text>

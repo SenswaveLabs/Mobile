@@ -42,7 +42,7 @@ export const executeTimeout = async (
             };
         } catch (error) {
             clearTimeout(timeoutId!);
-            console.error(`[HttpClient] Failed to invoke request ${error}`);
+            console.error("[HttpClient] Failed to invoke request.");
             return {
                 isSuccess: false,
                 statusCode: error instanceof Error && error.name === "AbortError" ? 408 : 500,

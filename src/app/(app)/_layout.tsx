@@ -45,21 +45,27 @@ function InternalLayout() {
             <Stack.Screen
                 name="user/privacy"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Privacy" titleSuffix="Policy" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Privacy" titleSuffix="Policy" variant="brand" />
+                    ),
                 }}
             />
 
             <Stack.Screen
                 name="user/terms"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Terms" titleSuffix="" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Terms" titleSuffix="" variant="brand" />
+                    ),
                 }}
             />
 
             <Stack.Screen
                 name="user/info"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="App" titleSuffix="Info" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="App" titleSuffix="Info" variant="brand" />
+                    ),
                 }}
             />
 
@@ -102,7 +108,9 @@ function InternalLayout() {
             <Stack.Screen
                 name="home/dataSource/select"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Data" titleSuffix="Sources" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Data" titleSuffix="Sources" variant="brand" />
+                    ),
                 }}
             />
 
@@ -173,7 +181,13 @@ function InternalLayout() {
                 name="device/operation/details"
                 options={{
                     headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Operation" titleSuffix="Details" />,
+                    header: () => (
+                        <DefaultHeader
+                            titlePrefix="Operation"
+                            titleSuffix="Details"
+                            variant="brand"
+                        />
+                    ),
                 }}
             />
 
@@ -185,13 +199,7 @@ function InternalLayout() {
                 }}
             />
 
-            <Stack.Screen
-                name="device/operation/list"
-                options={{
-                    headerShown: true,
-                    header: () => <DefaultHeader titlePrefix="Operations" />,
-                }}
-            />
+            <Stack.Screen name="device/operation/list" options={{ headerShown: false }} />
 
             <Stack.Screen
                 name="device/dashboard/details"
@@ -222,7 +230,9 @@ function InternalLayout() {
             <Stack.Screen
                 name="dataSource/list"
                 options={{
-                    header: () => <DefaultHeader titlePrefix="Data" titleSuffix="Sources" />,
+                    header: () => (
+                        <DefaultHeader titlePrefix="Data" titleSuffix="Sources" variant="brand" />
+                    ),
                 }}
             />
 

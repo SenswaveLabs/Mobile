@@ -26,6 +26,36 @@ Automation details regressions cover the native modal/host binding, cancellation
   A delayed identity-retry test composes the real `UserProvider` and `ToastProvider`,
   requiring Profile's silent getter not to toast or dismiss the destination keyboard
   after navigation, while the default getter retains its legacy toast.
+  Consent checks in `tests/consents.test.mjs` run the real route and `UserProvider`
+  with deferred HTTP plus the real `ToastProvider`. They cover account read retry,
+  active consent, failed/thrown POST, synchronous double-press locking, accepted
+  POST recovery without duplicate writes, refocus, navigation-only Continue,
+  cancellation/logout, legal Back, stale-session data/theme/toast guards and shared
+  header fallback behavior. Retained actions are invoked after legal navigation,
+  malformed consent booleans and consumed email/language/theme fields are rejected,
+  and transport/JSON failures resolve through `Result` without an unhandled silent
+  initialization rejection. Rejected theme persistence remains handled after valid
+  account data and the synchronous visible theme update; a deferred reset on the real
+  `ThemeProvider` cannot overwrite a newer session theme. These checks establish
+  handler behavior, not native layout, keyboard, safe-area or TalkBack behavior.
+  Email confirmation checks use the real `SessionProvider` and `executeTimeout`
+  with rejected fetches, verifying exact `URL.searchParams` values and that neither
+  request log exposes raw or encoded code. Route checks cover missing/repeated
+  parameters, request locking, retry, accepted-once success, stale identity and
+  blur/refocus. Native confirmation tests pass external URIs through the installed
+  Router extractor, state query parser and `useLocalSearchParams`, then call the
+  real session provider. They cover literal percent sequences, encoded separators,
+  alternate confirmation URI forms, malformed/duplicate recovery without a POST
+  and unchanged non-confirmation routes. Retained Retry tests verify route/server
+  and focus changes prevent obsolete requests, while provider recreation at the same
+  identity preserves queued work through its captured method without auto-repeat.
+  Legal checks cover exact consumed server fields, malformed/request
+  recovery, kind/server binding, local Retry, shared wrappers, public history Back
+  and the `/start` fallback through the real `DefaultHeader`. Maintenance and info
+  checks cover completion-gated session routing, lock/Retry/pull-refresh behavior,
+  inline failures, unchanged destinations and wrapping values. These handler tests
+  do not verify native layout, keyboard, safe areas, hardware Back or screen-reader
+  behavior.
   The focused profile, feedback and sheet
   checks are `pnpm exec node --test tests/profile.test.mjs tests/feedback.test.mjs tests/bottomSheetSelect.test.mjs`.
   Dialog action checks execute the real label styling against both theme palettes,
@@ -58,7 +88,7 @@ Automation details regressions cover the native modal/host binding, cancellation
 - Main home dashboard, room filtering, device-tile controls and dashboard slider: run `pnpm test:dashboard`
   (`node --test tests/homeDashboard.test.mjs tests/deviceTileActions.test.mjs`). It executes the real provider and
   component handlers, covering selected-room retention, failed/malformed reads,
-  cached data and late responses across homes, complete collections beyond the API's
+  cached data and late responses across homes, malformed consumed tile/configuration/readings/presence shapes retaining the prior cache, valid historical opaque keys and nullable optional fields, complete collections beyond the API's
   default ten results and filtering devices from later results, retained live callbacks, manager/owner
   actions, command locks and failures, inactive previews, exact readouts,
   retained feedback after failed refresh and recovery after a successful same-value
@@ -81,16 +111,33 @@ Automation details regressions cover the native modal/host binding, cancellation
   owner navigation targets, and home/role transitions. They also assert accessible
   notices, wrapping subtitle styles and preserved header targets; they do not prove
   native fitting or TalkBack behavior.
-- Device creation and tile settings: run `pnpm test:device-details`. Create checks cover home/name/icon/room payloads, shared keyboard/button submission locks, inline POST failure without a legacy toast, accepted creation through refresh failure, late completion after blur, refocus recovery, empty-history navigation fallback and duplicate-POST prevention. Tile checks cover multiple Display readings, Boolean read-only selection, duplicate-reference validation, metadata stripping and reset baselines, plus Slider/Options
+- Device creation and tile settings: run `pnpm test:device-details`. Create checks cover home/name/icon/room payloads, shared keyboard/button submission locks, inline POST failure without a legacy toast, accepted creation through refresh failure, late completion after blur, refocus recovery, empty-history navigation fallback and duplicate-POST prevention. Tile checks cover native Tile/Presence selectors, per-device full-catalog operation reads, zero/one/many choices, exact type filters and IDs, explicit None, historical unavailable IDs, local malformed/throw/404 recovery, stale identity/filter callbacks, Add return refresh, disabled mutation guards, required-field errors and independent clearing. Device details also cover malformed consumed response Retry before mounting DeviceForm, preserved valid optional/null fields and opaque keys, Cancel, double confirmation, lost route/home/device/access binding, failure Retry, accepted-once refresh/navigation recovery and refocus without repeating DELETE. Both areas retain multiple Display readings, Boolean read-only selection, duplicate-reference validation, metadata stripping and reset baselines, plus Slider/Options
   operation filtering, retained step/unit drafts and partial edit payloads, plus
   the tile selector's fixed busy icon slot, current-choice guard, changed-choice
   submission, cancellation and focus callbacks. The handler adapter cannot prove
   native slider targets, sheet focus or rendering during a React async action.
+- The accepted device-delete regression in `tests/deviceDetails.test.mjs` checks
+  that Manage disables after acceptance and retained callbacks reject accepted
+  deletes and changed route/home bindings.
+- Device-list collection refresh is covered by `pnpm test:dashboard`
+  (`tests/homeDashboard.test.mjs`). It checks that `refresh()` waits through HTTP
+  and JSON, returns true for valid and 404 reads and false for failed, malformed,
+  stale or missing-home reads, preserves cached rows on failure and prevents older
+  or previous-home requests from changing current data, error or loading state.
+  Matching-ID display reads and collection entries with malformed consumed tile,
+  configuration, readings or presence fields cannot replace the cache; valid nulls
+  and historical opaque icon/operation keys pass through unchanged.
+- Accepted device deletion composes the real `DeviceListProvider` and
+  `DeviceDetails` route in `pnpm test:device-details` (`tests/deviceDetails.test.mjs`).
+  A deferred collection 503 keeps the route local with cached membership, disabled
+  management and form, and accepted Retry. A repeated tap shares one successful
+  follow-up read, removes the deleted device, returns once and never repeats DELETE.
+- Operation details and the legacy list alias are in `pnpm test:device-details` (`tests/operationDetails.test.mjs`). Real route handlers cover validated matching reads and Retry, array/missing IDs, Display view-only access, owner/manager gates, current-home device and full operation catalog membership, catalog recovery, stale confirmations, Cancel/Android Back, conflict and thrown DELETE recovery, real DeviceListProvider HTTP 503 and malformed matching-ID reads followed by accepted-read Retry without repeating DELETE, accepted-once device refresh/navigation, early refocus before DELETE acceptance and while refresh is pending, and replacement with device-ID forwarding. `tests/homeDashboard.test.mjs` checks `refreshDevice` success only for matching current-home members and false/cache preservation on failed, malformed or stale reads. `operationForm.test.mjs` keeps the footer in its keyboard scroll without changing create actions; `widgetPicker.test.mjs` checks bound-device forwarding; `widgetConfigPermissions.test.mjs` protects Display read-only access; `feedback.test.mjs` suppresses both operation routes' legacy toasts. These handler checks do not establish native layout, keyboard reachability, touch ordering or TalkBack behavior.
 - Dashboard creation is also in `pnpm test:device-details` (`tests/dashboardCreate.test.mjs`). It executes the real form and route handlers for trimmed name and exact grid bounds, preserved global icon keys and payload, shared Go/touch duplicate locking, editable-but-guarded pending fields, draft recovery after POST rejection/throw, accepted-once matching-device refresh/navigation, blur/refocus behavior, navigation-only recovery and missing/array route IDs. A Device route regression checks first-option fallback for empty/stale current IDs and preserves valid non-first selection. These handler checks do not establish native layout, keyboard behavior or screen-reader behavior.
 - Dashboard details are also in `pnpm test:device-details` (`tests/dashboardDetails.test.mjs`). Real form/route handlers cover route-ID requests despite a different provider selection, malformed/failed reads and Retry, missing/array IDs, trimmed Name boundaries, exact partial Name/Icon PATCHes, historical keys and invalid grid configuration, pending locks and saved baselines, confirmation cancellation/Back, delete failure, accepted-once return recovery and stale route/device work. The contextual brand sheet is restricted to the 16 historical dashboard keys, while a name-only save preserves an unchanged historical key. Radio's contextual sheet uses its 15 historical keys. These checks do not establish native layout, keyboard behavior, dialog focus restoration or TalkBack behavior.
 - Dashboard flow state and widget interactions are also in `pnpm test:device-details`: `deviceDashboard.test.mjs` covers dashboard provider/route identity and stale response handling; `dashboardGrid.test.mjs` and `dashboardGridActions.test.mjs` cover geometry, gesture snapping/clamping/collision rejection, an immediately visible grid, direct free-cell navigation, dashboard-bound unlink handlers and snackbar ownership; `widgetPlacement.test.mjs` and `widgetPicker.test.mjs` cover routed area validation, selection-only rows, exclusion of placed widgets, gesture responder wiring, the latest valid draft, request identity and recovery; `widgetActions.test.mjs` covers exact command payloads, locking, control acceptance and guarded failure/retry; `widgetConfigPermissions.test.mjs` covers configuration gates; `widgetFormValidation.test.mjs` covers Slider creation validity after step changes. These `nativeComponentHarness` suites are adapter/handler logic only, never rendered-view QA.
-- Data-source creation, details and broker/subscription actions: run `pnpm test:data-sources`.
-  It executes the real create form/route, settings form, details route, overview panel, broker-client start form/route and Add subscription form handlers.
+- Data-source list/assignment, status recovery, creation, details and broker/subscription actions: run `pnpm test:data-sources`.
+  It executes the account list, owner-bound home assignment, HomeProvider refresh and broker status reader handlers, create form/route, settings form, details route, overview panel, broker-client start form/route and Add subscription form handlers. List checks cover the full query and one focus read, 404 versus error/malformed/throw recovery, cached rows, ID keys, selected-row feedback and stale focus/session reads. Status checks cover 503, thrown and malformed responses, a Retry that repeats the client status GET, row-action propagation, default toast compatibility and stale focus/ID/unmount results. Assignment checks cover required and optional/null Home response fields, malformed cache retention, routed/current home identity, owner-only Add/PUT, Manage/Display and already-assigned denial, pending duplicate locks, ownership loss, exact accepted PUT, background refresh recovery without repeat, changed-home return and navigation recovery, missing history, thrown navigation, and default no-argument refresh callers. `homeForm` also checks Home details forwards its routed home ID; dashboard checks retain the HomeStateWidget entry point. These handler checks do not establish native layout, touch ordering or screen-reader behavior.
   Create checks cover exact payload fields and MQTT/TLS values, required field
   errors after submit, malformed ports, shared keyboard/button pending locks,
   failed-save draft retention, stale error clearing, accepted-create duplicate
@@ -150,6 +197,12 @@ For user-facing changes, exercise the affected flow in a native development buil
 or emulator when available. Check navigation/Back, keyboard/scrolling, safe areas,
 light/dark mode, text scaling and applicable loading, empty, success and error
 states. Check screen-reader labels, focus order and usable touch targets.
+For email confirmation, test opaque links with `+`, `%`, `&` and Unicode values,
+missing/duplicate parameters, request failure/Retry and Sign in. For legal pages,
+check public history Back and `/start` fallback, private Stack Back, long server
+markdown and local Retry. For maintenance, confirm refresh waits for initialization
+and respects current authenticated/loading/maintenance state. For App information,
+check full value wrapping and legal navigation in the shared scroll.
 For Profile, open Theme and verify Light/Dark/System persistence, read-only English,
 Data sources and App information navigation, wrapping for long identity text at
 normal and 200% scale, the avatar initial at 200% scale, and fully visible scalable

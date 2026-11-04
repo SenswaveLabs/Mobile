@@ -744,6 +744,7 @@ const DetailsPage: FC = () => {
                                                 onPress={() =>
                                                     router.push({
                                                         pathname: "home/dataSource/select",
+                                                        params: { homeId: home.id },
                                                     })
                                                 }
                                             />

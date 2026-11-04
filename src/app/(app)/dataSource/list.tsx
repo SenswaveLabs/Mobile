@@ -1,25 +1,33 @@
 import React from "react";
-import { View } from "react-native";
-import FAB, { FABAction } from "@/components/common/FAB";
+import { Plus } from "lucide-react-native";
+import ContentSection from "@/components/common/ContentSection";
 import DataSourceList from "@/components/dataSource/DataSourceList";
+import SectionHeaderAction from "@/components/common/SectionHeaderAction";
+import { useTheme } from "@/contexts/ThemeProvider";
 import { useRouter } from "expo-router";
 
 function DataSources() {
     const router = useRouter();
-    const addClicked = () => {
-        console.info("[Data Sources] Add clicked");
-        router.navigate("dataSource/add");
-    };
-
-    const fabActions: FABAction[] = [
-        { icon: "add-outline", label: "Add Data Source", onPress: addClicked },
-    ];
+    const { colors } = useTheme().current;
+    const addClicked = () => router.navigate("dataSource/add");
 
     return (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-            <DataSourceList />
-            <FAB actions={fabActions} />
-        </View>
+        <DataSourceList
+            header={
+                <ContentSection
+                    title="Data sources"
+                    helper="Manage your broker connections."
+                    headerAction={
+                        <SectionHeaderAction
+                            label="Add data source"
+                            accessibilityLabel="Add data source"
+                            icon={<Plus size={18} color={colors.authForeground} />}
+                            onPress={addClicked}
+                        />
+                    }
+                />
+            }
+        />
     );
 }
 

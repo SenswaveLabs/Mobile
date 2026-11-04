@@ -1,36 +1,13 @@
-import ImageButton from "@/components/common/ImageButton";
+import DefaultHeader from "@/components/headers/DefaultHeader";
 import TermsAndConditions from "@/components/user/TermsAndConditions";
-import { useRouter } from "expo-router";
+import { FC } from "react";
 import { View } from "react-native";
-import Text from "@/components/common/Text";
 
-const Terms = () => {
-    const router = useRouter();
-
-    const backClicked = () => {
-        router.back();
-    };
-
-    return (
-        <View style={{ flex: 1 }}>
-            <View
-                style={{
-                    width: "100%",
-                    paddingTop: 30,
-                    paddingBottom: 25,
-                    flexDirection: "row",
-                }}>
-                <ImageButton onPress={backClicked} style={{ marginLeft: 15 }} />
-                <Text
-                    size={"large"}
-                    style={{ marginTop: 10, marginLeft: 15 }}
-                    color={"complementary"}>
-                    Terms and Conditions
-                </Text>
-            </View>
-            <TermsAndConditions />
-        </View>
-    );
-};
+const Terms: FC = () => (
+    <View style={{ flex: 1 }}>
+        <DefaultHeader titlePrefix="Terms" variant="brand" backFallback="/start" />
+        <TermsAndConditions />
+    </View>
+);
 
 export default Terms;

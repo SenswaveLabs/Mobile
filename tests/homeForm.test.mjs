@@ -242,7 +242,7 @@ function mountRoute(
                     refreshRooms: refreshRooms || (async () => true),
                     initializeCurrentHome: initialize || (async () => true),
                     setCurrent: setCurrent || (async () => true),
-                    refreshCurrent: async () => {},
+                    refreshCurrent: async () => true,
                 }),
             },
             "@/contexts/HttpClientProvider": {
@@ -406,6 +406,20 @@ test("owner and member details expose only their applicable destructive action",
     assert.ok(!member.elements().some((node) => /delete home/i.test(node.props?.name)));
     assert.equal(owner.form().props.readOnly, false);
     assert.equal(member.form().props.readOnly, true);
+});
+
+test("Home details passes current home ID to source selection", () => {
+    const route = mountRoute("src/app/(app)/home/details.tsx", {
+        current: { ...home, isOwner: true },
+    });
+    const assign = route
+        .elements()
+        .find((node) => node.type === "Button" && node.props.name === "Assign data source");
+    assert.ok(assign);
+    assign.props.onPress();
+    assert.deepEqual(JSON.parse(JSON.stringify(route.navigation)), [
+        { pathname: "home/dataSource/select", params: { homeId: "home-1" } },
+    ]);
 });
 
 test("home details puts rooms before owner settings and gates room management by permission", () => {

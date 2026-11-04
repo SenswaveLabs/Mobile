@@ -9,18 +9,27 @@ import { isAuthSurface } from "@/components/auth/authTypes";
 const usesInlineFeedback = (pathname: string) =>
     isAuthSurface(pathname) ||
     [
+        "/consents",
+        "/confirmEmail",
+        "/maintenance",
+        "/privacy",
+        "/terms",
         "/home/list",
         "/home/join",
         "/home/add",
         "/home/details",
+        "/home/dataSource/select",
         "/home/room/add",
         "/home/room/details",
         "/device/add",
+        "/device/details",
         "/device/device",
         "/device/dashboard/add",
         "/device/dashboard/details",
         "/device/dashboard/placeWidget",
         "/device/operation/add",
+        "/device/operation/details",
+        "/device/operation/list",
         "/automation/list",
         "/automation/add",
         "/automation/details",
@@ -30,9 +39,13 @@ const usesInlineFeedback = (pathname: string) =>
         "/device/widget/details",
         "/device/widget/list",
         "/dataSource/add",
+        "/dataSource/list",
         "/dataSource/brokers/startBrokerClient",
         "/dataSource/brokers/addSubscription",
         "/user/profile",
+        "/user/privacy",
+        "/user/terms",
+        "/user/info",
     ].includes(pathname);
 
 interface ToastContextType {

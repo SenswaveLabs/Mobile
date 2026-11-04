@@ -21,12 +21,23 @@ const LegalContext = createContext<LegalContextProps>({
     getPrivacy: async () => Result.failure<LegalDocument>("Not implemented"),
 });
 
+const isLegalDocument = (value: unknown): value is LegalDocument => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+
+    const document = value as Partial<LegalDocument>;
+    return (
+        typeof document.version === "string" &&
+        document.version.trim().length > 0 &&
+        typeof document.summary === "string" &&
+        typeof document.content === "string" &&
+        document.content.trim().length > 0
+    );
+};
+
 export const LegalProvider: FC<PropsWithChildren> = ({ children }) => {
     const configuration = useConfiguration();
 
-    const getTerms = async (): Promise<Result<LegalDocument>> => {
-        const url = configuration.getApiUrl("v1/legal/terms");
-
+    const getDocument = async (path: string, name: string): Promise<Result<LegalDocument>> => {
         const options: RequestInit = {
             method: "GET",
             headers: {
@@ -35,50 +46,35 @@ export const LegalProvider: FC<PropsWithChildren> = ({ children }) => {
             },
         };
 
-        const result = await executeTimeout(url, options);
+        try {
+            const result = await executeTimeout(configuration.getApiUrl(path), options);
+            if (!result.isSuccess) {
+                if (result.statusCode === 500) {
+                    console.error(`[LegalProvider] Server unavailable while fetching ${name}.`);
+                } else {
+                    console.error(`[LegalProvider] Failed to fetch ${name}.`);
+                }
+                return Result.failure<LegalDocument>("Service unavailable");
+            }
 
-        if (result.isSuccess) {
-            console.info("[LegalProvider] Successfully fetched Terms and Conditions.");
-            const data: LegalDocument = await result.response?.json();
-            return Result.success<LegalDocument>(data);
-        }
+            const data: unknown = await result.response?.json();
+            if (!isLegalDocument(data)) {
+                console.error(`[LegalProvider] Invalid ${name} response.`);
+                return Result.failure<LegalDocument>("Service unavailable");
+            }
 
-        if (result.statusCode === 500) {
-            console.error("[LegalProvider] Server unavailable while fetching Terms.");
+            console.info(`[LegalProvider] Successfully fetched ${name}.`);
+            return Result.success<LegalDocument>(data as LegalDocument);
+        } catch {
+            console.error(`[LegalProvider] Failed to fetch ${name}.`);
             return Result.failure<LegalDocument>("Service unavailable");
         }
-
-        console.error("[LegalProvider] Failed to fetch Terms and Conditions.");
-        return Result.failure<LegalDocument>("Service unavailable");
     };
 
-    const getPrivacy = async (): Promise<Result<LegalDocument>> => {
-        const url = configuration.getApiUrl("v1/legal/privacy");
-
-        const options: RequestInit = {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-                accept: "application/json",
-            },
-        };
-
-        const result = await executeTimeout(url, options);
-
-        if (result.isSuccess) {
-            console.info("[LegalProvider] Successfully fetched Privacy Policy.");
-            const data: LegalDocument = await result.response?.json();
-            return Result.success<LegalDocument>(data);
-        }
-
-        if (result.statusCode === 500) {
-            console.error("[LegalProvider] Server unavailable while fetching Privacy Policy.");
-            return Result.failure<LegalDocument>("Service unavailable");
-        }
-
-        console.error("[LegalProvider] Failed to fetch Privacy Policy.");
-        return Result.failure<LegalDocument>("Service unavailable");
-    };
+    const getTerms = (): Promise<Result<LegalDocument>> =>
+        getDocument("v1/legal/terms", "Terms and Conditions");
+    const getPrivacy = (): Promise<Result<LegalDocument>> =>
+        getDocument("v1/legal/privacy", "Privacy Policy");
 
     console.info("[LegalProvider] Initialized.");
 

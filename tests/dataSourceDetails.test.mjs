@@ -72,7 +72,7 @@ function mountClient(httpClient, push = () => {}) {
         modules: {
             "@/contexts/HttpClientProvider": { useHttpClient: () => httpClient },
             "@/contexts/domain/HomeProvider": {
-                useHomes: () => ({ refreshCurrent: async () => {} }),
+                useHomes: () => ({ refreshCurrent: async () => true }),
             },
             "@/contexts/ToastProvider": {
                 useToast: () => ({ error() {}, info() {}, success() {} }),

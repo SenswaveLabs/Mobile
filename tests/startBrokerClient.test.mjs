@@ -27,7 +27,7 @@ function mountStartForm({
     deleteItemAsync = async () => {},
     post = async () => ({ isSuccess: true }),
     currentSource = brokerId,
-    refreshCurrent = async () => {},
+    refreshCurrent = async () => true,
     canGoBack = true,
     back = () => {},
     replace = () => {},

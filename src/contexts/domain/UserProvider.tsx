@@ -1,6 +1,6 @@
 import React from "react";
 import { Result, SimpleResult } from "@/utils/result";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useHttpClient } from "../HttpClientProvider";
 import { useToast } from "../ToastProvider";
 import { useTheme } from "../ThemeProvider";
@@ -17,11 +17,24 @@ interface GetUserDataOptions {
 }
 
 type UserResponse = {
-    Id: string;
     email: string;
     theme: ThemeMode;
     language: string;
     hasActiveConsent: boolean;
+};
+
+const isUserResponse = (value: unknown): value is UserResponse => {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+    const data = value as Record<string, unknown>;
+    return (
+        typeof data.email === "string" &&
+        data.email.length > 0 &&
+        typeof data.language === "string" &&
+        (data.theme === ThemeMode.Light ||
+            data.theme === ThemeMode.Dark ||
+            data.theme === ThemeMode.Default) &&
+        typeof data.hasActiveConsent === "boolean"
+    );
 };
 
 interface UserData {
@@ -30,7 +43,7 @@ interface UserData {
     email: string;
     name: string;
     image?: string;
-    hasActiveConsent?: boolean;
+    hasActiveConsent: boolean;
 }
 
 interface UserProperties {
@@ -43,7 +56,13 @@ interface UserProperties {
 }
 
 const UserContext = createContext<UserProperties>({
-    data: { language: "en", theme: ThemeMode.Default, email: "", name: "" },
+    data: {
+        language: "en",
+        theme: ThemeMode.Default,
+        email: "",
+        name: "",
+        hasActiveConsent: false,
+    },
     updateTheme: async () => SimpleResult.failure("Not implemented."),
     updateLanguage: async () => SimpleResult.failure("Not implemented."),
     makeConsents: async () => SimpleResult.failure("Not implemented."),
@@ -58,6 +77,8 @@ export const UserProvider = ({ children }: any) => {
     const toast = useToast();
     const theme = useTheme();
     const session = useSession();
+    const sessionRef = useRef(session.session);
+    sessionRef.current = session.session;
 
     const [userData, setUserData] = useState<UserData>({
         language: "en",
@@ -67,9 +88,10 @@ export const UserProvider = ({ children }: any) => {
         hasActiveConsent: false,
     });
 
-    const updateThemeInternal = async (internalTheme: ThemeMode) => {
+    const updateThemeInternal = async (internalTheme: ThemeMode, isCurrent?: () => boolean) => {
         if (internalTheme === ThemeMode.Default) {
-            await theme.resetTheme();
+            if (isCurrent) await theme.resetTheme(isCurrent);
+            else await theme.resetTheme();
         } else if (internalTheme === ThemeMode.Light) {
             await theme.lightTheme();
         } else {
@@ -118,35 +140,50 @@ export const UserProvider = ({ children }: any) => {
             console.debug("[User provider] Consents made.");
             return SimpleResult.success();
         } else {
-            toast.httpError(result);
             return SimpleResult.failure("Failed to make consents.");
         }
     };
 
     const getUserData = async ({ silent = false }: GetUserDataOptions = {}) => {
-        const response = await httpClient.get("v1/users");
+        const requestAuthenticated = sessionRef.current.authenticated;
+        const requestAccessToken = sessionRef.current.accessToken;
+        const isCurrentSession = () =>
+            sessionRef.current.authenticated === requestAuthenticated &&
+            sessionRef.current.accessToken === requestAccessToken;
+        try {
+            const response = await httpClient.get("v1/users");
+            if (!response.isSuccess) {
+                if (!silent && isCurrentSession()) toast.httpError(response);
+                return Result.failure<UserData>("Failed to load account details.");
+            }
+            if (!response.response)
+                return Result.failure<UserData>("Failed to load account details.");
 
-        if (response.isSuccess) {
             console.debug("[User Provider] User data loaded.");
+            const parsedData: unknown = await response.response.json();
+            if (!isUserResponse(parsedData) || !isCurrentSession())
+                return Result.failure<UserData>("Failed to load account details.");
 
-            const data: UserResponse = await response.response?.json();
-            updateThemeInternal(data.theme);
+            const data = parsedData;
+            void updateThemeInternal(data.theme, isCurrentSession).catch((error) =>
+                console.error("[User Provider] Failed to apply account theme.", error),
+            );
             const name = data.email.charAt(0).toUpperCase() + data.email.split("@")[0].slice(1);
 
             const userData: UserData = {
                 theme: data.theme,
                 language: data.language,
                 email: data.email,
-                name: name,
+                name,
                 hasActiveConsent: data.hasActiveConsent,
             };
 
+            if (!isCurrentSession())
+                return Result.failure<UserData>("Failed to load account details.");
             setUserData(userData);
 
             return Result.success<UserData>(userData);
-        } else {
-            if (!silent) toast.httpError(response);
-
+        } catch {
             return Result.failure<UserData>("Failed to load account details.");
         }
     };
@@ -171,7 +208,7 @@ export const UserProvider = ({ children }: any) => {
 
     useEffect(() => {
         if (session.session.authenticated) {
-            getUserData();
+            getUserData({ silent: true });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [session.session.authenticated]);

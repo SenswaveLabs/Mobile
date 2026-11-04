@@ -115,7 +115,7 @@ interface ThemeProperties {
     updateTheme: (theme: Theme) => void;
     lightTheme: () => Promise<void>;
     darkTheme: () => Promise<void>;
-    resetTheme: () => Promise<void>;
+    resetTheme: (isCurrent?: () => boolean) => Promise<void>;
 }
 
 const ThemeContext = createContext<ThemeProperties>({
@@ -154,9 +154,10 @@ export const ThemeProvider: FC<PropsWithChildren> = ({ children }) => {
         console.debug("[Theme Provider] Dark mode enabled.");
     };
 
-    const resetTheme = async () => {
+    const resetTheme = async (isCurrent: () => boolean = () => true) => {
         await SecureStore.deleteItemAsync(ThemeName);
         console.debug("[Theme Provider] Theme reset.");
+        if (!isCurrent()) return;
 
         if (colorScheme === "dark") {
             setTheme({ type: "dark", colors: DarkMode });
