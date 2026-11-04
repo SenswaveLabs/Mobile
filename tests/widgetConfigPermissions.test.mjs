@@ -188,7 +188,7 @@ test("Display can view operation details without seeing deletion controls", asyn
                         loading: false,
                         error: null,
                         refresh: async () => true,
-                        refreshDevice: async () => {},
+                        refreshDevice: async () => true,
                     }),
                 },
                 "@/contexts/domain/HomeProvider": {

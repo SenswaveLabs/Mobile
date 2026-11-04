@@ -53,7 +53,7 @@ interface DevicesContextProps {
     filter: string;
 
     refresh(): Promise<boolean>;
-    refreshDevice(deviceId: string): Promise<void>;
+    refreshDevice(deviceId: string): Promise<boolean>;
     setFilter(roomId: string): void;
     updateDeviceOperation(device: Device): void;
 }
@@ -71,6 +71,7 @@ const DeviceListContext = createContext<DevicesContextProps>({
     },
     refreshDevice: async () => {
         console.warn("refreshDevice not implemented.");
+        return false;
     },
     setFilter: () => {
         console.warn("setFilter not implemented.");
@@ -91,6 +92,8 @@ const DeviceListProvider: FC<PropsWithChildren> = ({ children }) => {
     const [collection, setCollection] = useState<{ homeId?: string; items: Device[] }>({
         items: [],
     });
+    const collectionRef = useRef(collection);
+    collectionRef.current = collection;
     const devices = collection.homeId === homes.current?.id ? collection.items : [];
     const activeFilter =
         filter === "all" || homes.current?.rooms.some((room) => room.id === filter)
@@ -114,8 +117,9 @@ const DeviceListProvider: FC<PropsWithChildren> = ({ children }) => {
     };
 
     const updateDeviceOperation = (device: Device) => {
+        const homeId = currentHomeId.current;
         setCollection((previous) =>
-            previous.homeId === currentHomeId.current
+            homeId === currentHomeId.current && previous.homeId === homeId
                 ? {
                       ...previous,
                       items: previous.items.map((item) => (item.id === device.id ? device : item)),
@@ -124,16 +128,47 @@ const DeviceListProvider: FC<PropsWithChildren> = ({ children }) => {
         );
     };
 
-    const refreshDevice = async (deviceId: string) => {
+    const refreshDevice = async (deviceId: string): Promise<boolean> => {
         const homeId = currentHomeId.current;
-        const result = await httpClient.get(`v1/devices/${deviceId}/display`);
+        const initialCollection = collectionRef.current;
+        if (
+            !homeId ||
+            initialCollection.homeId !== homeId ||
+            !initialCollection.items.some((device) => device.id === deviceId)
+        )
+            return false;
 
-        if (result.isSuccess) {
-            const updated = (await result.response!.json()) as Device;
-            if (homeId === currentHomeId.current) updateDeviceOperation(updated);
+        try {
+            const result = await httpClient.get(`v1/devices/${deviceId}/display`);
+            if (!result.isSuccess || !result.response) {
+                console.error(`[DeviceListProvider] Failed to refresh device: ${deviceId}`, result);
+                return false;
+            }
+
+            const updated: unknown = await result.response.json();
+            if (
+                !updated ||
+                typeof updated !== "object" ||
+                Array.isArray(updated) ||
+                !("id" in updated) ||
+                updated.id !== deviceId
+            )
+                return false;
+
+            const currentCollection = collectionRef.current;
+            if (
+                homeId !== currentHomeId.current ||
+                currentCollection.homeId !== homeId ||
+                !currentCollection.items.some((device) => device.id === deviceId)
+            )
+                return false;
+
+            updateDeviceOperation(updated as Device);
             console.info(`[DeviceListProvider] Refreshed device: ${deviceId}`);
-        } else {
-            console.error(`[DeviceListProvider] Failed to refresh device: ${deviceId}`, result);
+            return true;
+        } catch (error) {
+            console.error(`[DeviceListProvider] Failed to refresh device: ${deviceId}`, error);
+            return false;
         }
     };
 

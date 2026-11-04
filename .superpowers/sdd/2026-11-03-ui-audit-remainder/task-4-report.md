@@ -232,3 +232,69 @@ requested for this one-prop round; the focused operation suites and required
 typecheck, lint, PoC and diff checks above were run fresh after native evidence
 arrived. Root performed the native screenshots/XML and PID inspection; this
 implementation task did not operate the emulator or services.
+
+## Task 4 fix round 3/5 — per-device refresh result and accepted read Retry
+
+### Confirmed behavior and implementation
+
+The native failure reported in `native-final-notes.md` was an accepted
+`unusedText` DELETE followed by a matching device-display GET that returned
+HTTP 503. `DeviceListProvider.refreshDevice` resolved `void` for this normal
+failure, so the route treated the read as complete and returned to Widgets. The
+route now consumes an explicit boolean from the provider. A matching successful
+read returns `true` only while the same home and device remain in the provider's
+current cached collection; unsuccessful, missing, thrown, malformed, mismatched
+and stale reads return `false` without replacing cached data. The shared state
+updater also captures the invocation home and rejects queued writes after a
+home change. `LiveUpdateProvider` continues to ignore this result.
+
+After accepted DELETE, a false read or defensive exception keeps the accepted
+panel open with “Operation deleted. Couldn't refresh this device. Try again.”
+and Retry. The refresh latch is set only after `true`; repeated Retry callbacks
+share the synchronous recovery lock and never repeat DELETE. After a successful
+read, a navigation failure keeps “Return to operations” and subsequent Retry
+only repeats navigation. The existing route-reset effect used to clear local
+feedback when the deleted operation disappeared from the catalog; it now keeps
+the error only while the accepted target still matches the route, and still
+clears it after route/home/role changes.
+
+### TDD evidence
+
+RED commands before production changes:
+
+| Command | Result |
+| --- | --- |
+| `pnpm exec node --test tests/operationDetails.test.mjs tests/operationForm.test.mjs` | `ℹ tests 32`; `ℹ pass 31`; `ℹ fail 1`. The real-provider 503 regression navigated back once (`1 !== 0`) instead of retaining accepted Retry. |
+| `pnpm exec node --test tests/homeDashboard.test.mjs` | `ℹ tests 32`; `ℹ pass 30`; `ℹ fail 2`. Both new provider result checks received `undefined` where `false` was required. |
+
+One test harness setup iteration initially returned a single-device response
+for the provider's initial collection request. It was corrected to return the
+collection DTO there and the single-device DTO only for the per-device read.
+The first GREEN operation run also exposed the route reset effect clearing the
+new read error after catalog membership changed; the accepted-target guard
+above fixes that cause. Initial typecheck caught `updated.id` on narrowed
+`object`; the response check now narrows the `id` property before comparison.
+
+### Final verification
+
+| Command | Result |
+| --- | --- |
+| `pnpm exec node --test tests/operationDetails.test.mjs tests/operationForm.test.mjs` | `ℹ tests 32`; `ℹ pass 32`; `ℹ fail 0` |
+| `pnpm exec node --test tests/homeDashboard.test.mjs` | `ℹ tests 33`; `ℹ pass 33`; `ℹ fail 0` |
+| `pnpm test:device-details` | `ℹ tests 239`; `ℹ pass 239`; `ℹ fail 0` |
+| `pnpm test:dashboard` | `ℹ tests 49`; `ℹ pass 49`; `ℹ fail 0` |
+| `pnpm typecheck` | Exit 0 (`tsc --noEmit`) |
+| `pnpm lint` | Exit 0; Oxlint passed and all 290 matched files passed formatting |
+| `pnpm test:poc` | `ℹ tests 100`; `ℹ pass 100`; `ℹ fail 0` |
+| `git diff --check` | Clean |
+| `rg -n 'OperationList|device/operation/list' src` | Route registration remains in `src/app/(app)/_layout.tsx`; other `OperationList` matches are DTO/type usages. |
+
+The formatter first reported the three edited TypeScript/test files; running
+`pnpm exec oxfmt 'src/app/(app)/device/operation/details.tsx'
+tests/homeDashboard.test.mjs tests/operationDetails.test.mjs` resolved it.
+The final lint run passed. The first typecheck run reported the response-id
+narrowing issue above; the final typecheck passed. Root owns the post-commit
+native replay of HTTP 503 → local Retry → successful matching read and
+navigation. No native pass for this repair is claimed here; the previously
+observed failure is recorded in `native-final-notes.md` and the preceding Task
+4 native sections.

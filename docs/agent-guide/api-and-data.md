@@ -180,9 +180,14 @@ valid selected room during refresh and resets to All on home changes. Collection
 from another home are hidden immediately and late list responses are ignored.
 Failed reads retain cached current-home devices and expose an inline error;
 `404` represents an empty collection. `refresh()` schedules a reload and returns
-`true`; awaiting it does not wait for the request or report its result. Retained
-device-update callbacks consult the current-home ref before updating that collection.
-These are client context behaviors; backend API contracts are unchanged.
+`true`; awaiting it does not wait for the request or report its result.
+`refreshDevice(deviceId)` returns `true` only when its read matches a device in
+the still-current home's cached collection; HTTP, parsing, identity or home/device
+binding failures return `false` and preserve the cache. Retained device-update
+callbacks consult the current home and device collection before accepting updates.
+Operation deletion uses this result to keep refresh Retry local after DELETE has
+been accepted. These are client context behaviors; backend API contracts are
+unchanged.
 
 `DeviceProvider` owns the selected device's dashboard collection and display
 resource. It reads `GET v1/devices/dashboards/display?deviceId={deviceId}` and

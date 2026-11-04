@@ -201,6 +201,7 @@ const Details: FC = () => {
     const [deleteError, setDeleteError] = useState("");
     const [deleteRetryTarget, setDeleteRetryTarget] = useState<DeleteTarget | null>(null);
     const [returnError, setReturnError] = useState("");
+    const [recoveryLoading, setRecoveryLoading] = useState(false);
 
     operationReadRef.current = operationRead;
     catalogReadRef.current = catalogRead;
@@ -375,19 +376,30 @@ const Details: FC = () => {
         )
             return;
         recoveryPending.current = true;
+        setRecoveryLoading(true);
+        setReturnError("");
         try {
             if (!refreshedAfterDelete.current) {
-                refreshedAfterDelete.current = true;
+                let refreshed = false;
                 try {
-                    await devicesRef.current.refreshDevice(target.deviceId);
+                    refreshed = await devicesRef.current.refreshDevice(target.deviceId);
                 } catch {
                     // Deletion was accepted; refresh failure cannot reopen it.
                 }
+                if (!refreshed) {
+                    if (sameFocus(generation) && hasTarget(target, true))
+                        setReturnError(
+                            "Operation deleted. Couldn't refresh this device. Try again.",
+                        );
+                    return;
+                }
+                refreshedAfterDelete.current = true;
             }
             if (sameFocus(generation) && hasTarget(target, true))
                 await returnAfterDelete(target, generation);
         } finally {
             recoveryPending.current = false;
+            setRecoveryLoading(false);
             resumeAfterFocusChanged(generation);
         }
     };
@@ -495,7 +507,7 @@ const Details: FC = () => {
         if (pending.current || !active.current) return;
         const accepted = acceptedDelete.current;
         if (accepted && sameRoute(accepted) && hasTarget(accepted, true))
-            return void returnAfterDelete(accepted, focusGeneration.current);
+            return void recoverAcceptedDeleteRef.current(accepted, focusGeneration.current);
         if (deleteRetryTarget && hasTarget(deleteRetryTarget))
             void deleteOperation(deleteRetryTarget, focusGeneration.current);
     };
@@ -541,7 +553,8 @@ const Details: FC = () => {
         setDeleteConfirmation(null);
         setDeleteError("");
         setDeleteRetryTarget(null);
-        setReturnError("");
+        const accepted = acceptedDelete.current;
+        if (!accepted || !sameRoute(accepted)) setReturnError("");
     }, [
         operationId,
         deviceId,
@@ -593,7 +606,7 @@ const Details: FC = () => {
         acceptedTarget.homeId === homeId &&
         acceptedTarget.role === role &&
         hasTarget(acceptedTarget, true);
-    const returnLabel = "Return to operations";
+    const returnLabel = refreshedAfterDelete.current ? "Return to operations" : "Retry";
 
     const readRecovery = detail.error ? (
         <View style={styles.actionSlot}>
@@ -639,10 +652,12 @@ const Details: FC = () => {
                                 <Button
                                     name={returnLabel}
                                     type="brand-outline"
-                                    loading={returnPending.current}
-                                    disabled={returnPending.current || !active.current}
+                                    loading={recoveryLoading || returnPending.current}
+                                    disabled={
+                                        recoveryLoading || returnPending.current || !active.current
+                                    }
                                     onPress={() =>
-                                        void returnAfterDelete(
+                                        void recoverAcceptedDeleteRef.current(
                                             acceptedTarget!,
                                             focusGeneration.current,
                                         )

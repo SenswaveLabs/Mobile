@@ -24,6 +24,65 @@ const operationListItem = (id = "operation-a") => ({
 
 const success = (body) => ({ isSuccess: true, response: { json: async () => body } });
 
+const home = (id = "home-a") => ({
+    id,
+    name: "Current home",
+    isOwner: true,
+    canManage: false,
+    rooms: [],
+});
+
+const device = (id = "device-a", value = false) => ({
+    id,
+    name: "Device",
+    icon: "opaque-device-key",
+    roomId: "room-a",
+    tile: { type: "Default", value },
+    display: {},
+    createdAtUtc: "",
+    updatedAtUtc: "",
+});
+
+const responseBody = (body) => ({
+    isSuccess: true,
+    statusCode: 200,
+    response: { json: async () => body },
+});
+
+function mountDeviceListProvider(get, currentHome = home()) {
+    const homes = { current: currentHome };
+    const requests = [];
+    const component = mountNativeComponent("src/contexts/custom/DeviceListProvider.tsx", {
+        exportName: "DeviceListProvider",
+        modules: {
+            "../domain/HomeProvider": { useHomes: () => homes },
+            "../HttpClientProvider": {
+                useHttpClient: () => ({
+                    get: (path) => {
+                        requests.push(path);
+                        return get(path);
+                    },
+                }),
+            },
+        },
+    });
+    component.flushEffects();
+    return {
+        component,
+        homes,
+        requests,
+        value: () => component.elements()[0].props.value,
+    };
+}
+
+async function settleProvider(component) {
+    for (let attempt = 0; attempt < 8; attempt++) {
+        await new Promise((resolve) => setImmediate(resolve));
+        component.render();
+        component.flushEffects();
+    }
+}
+
 function mountDetails(overrides = {}) {
     const state = {
         params: { operationId: "operation-a", deviceId: "device-a" },
@@ -33,10 +92,11 @@ function mountDetails(overrides = {}) {
         devicesError: null,
         operations: [operationListItem()],
         operation: operation(),
+        getDeviceList: undefined,
         getOperation: async () => success(state.operation),
         delete: async () => ({ isSuccess: true }),
         refreshDevices: async () => true,
-        refreshDevice: async () => {},
+        refreshDevice: async () => true,
         router: {
             canGoBack: () => true,
             back() {},
@@ -98,7 +158,9 @@ function mountDetails(overrides = {}) {
                     AlertDialogHeader: "AlertDialogHeader",
                     AlertDialogTitle: "AlertDialogTitle",
                 },
-                "@/contexts/custom/DeviceListProvider": { useDeviceList: () => deviceList },
+                "@/contexts/custom/DeviceListProvider": {
+                    useDeviceList: () => state.getDeviceList?.() ?? deviceList,
+                },
                 "@/contexts/domain/HomeProvider": { useHomes: () => state.home },
                 "@/contexts/HttpClientProvider": {
                     useHttpClient: () => ({
@@ -494,8 +556,10 @@ test("accepted operation deletion retries return only and forwards the bound dev
     let deletes = 0;
     const mounted = mountDetails({
         delete: async () => (deletes++, { isSuccess: true }),
-        refreshDevice: async (deviceId) =>
-            mounted.requests.refreshDevice.push(`refreshed:${deviceId}`),
+        refreshDevice: async (deviceId) => {
+            mounted.requests.refreshDevice.push(`refreshed:${deviceId}`);
+            return true;
+        },
         router: {
             canGoBack: () => true,
             back: () => {
@@ -532,6 +596,74 @@ test("accepted operation deletion retries return only and forwards the bound dev
         pathname: "/device/widget/list",
         params: { deviceId: "device-a" },
     });
+});
+
+test("accepted delete retries a real failed DeviceList refresh without repeating DELETE", async () => {
+    const displayRefresh = deferred();
+    const homeValue = home();
+    const deviceGets = [];
+    const deviceProvider = mountDeviceListProvider(async (path) => {
+        if (path.startsWith("v1/devices/display?")) return responseBody({ items: [device()] });
+        if (path === "v1/devices/device-a/display") {
+            deviceGets.push(path);
+            return deviceGets.length === 1
+                ? { isSuccess: false, statusCode: 503, response: null }
+                : displayRefresh.promise;
+        }
+        assert.fail(`Unexpected DeviceList request: ${path}`);
+    }, homeValue);
+    await settleProvider(deviceProvider.component);
+    assert.deepEqual(
+        deviceProvider.value().devices.map((item) => item.id),
+        ["device-a"],
+    );
+
+    let backs = 0;
+    let deletes = 0;
+    const mounted = mountDetails({
+        home: { loading: false, current: homeValue },
+        getDeviceList: () => deviceProvider.value(),
+        delete: async () => (deletes++, { isSuccess: true }),
+        router: {
+            canGoBack: () => true,
+            back: () => backs++,
+            replace() {},
+        },
+    });
+    await mounted.ready();
+    mounted.button("Delete operation").props.onPress();
+    await mounted.settle();
+    await mounted.confirmDelete().props.onPress();
+    await mounted.settle();
+
+    assert.equal(deletes, 1);
+    assert.equal(deviceGets.length, 1);
+    assert.equal(backs, 0);
+    assert.match(
+        mounted.route.text(),
+        /Operation deleted\. Couldn't refresh this device\. Try again\./,
+    );
+    assert.ok(mounted.button("Retry"));
+    assert.equal(mounted.button("Delete operation"), undefined);
+
+    const retry = mounted.button("Retry");
+    retry.props.onPress();
+    retry.props.onPress();
+    assert.equal(deviceGets.length, 2);
+    assert.equal(deletes, 1);
+    displayRefresh.resolve(responseBody(device("device-a", true)));
+    for (let attempt = 0; attempt < 8; attempt++) {
+        await new Promise((resolve) => setImmediate(resolve));
+        deviceProvider.component.render();
+        deviceProvider.component.flushEffects();
+        mounted.route.render();
+        mounted.route.flushEffects();
+    }
+
+    assert.equal(deviceGets.length, 2);
+    assert.equal(deletes, 1);
+    assert.equal(backs, 1);
+    assert.equal(deviceProvider.value().devices[0].tile.value, true);
 });
 
 test("accepted deletion resumes after refocus before DELETE acceptance", async () => {
@@ -576,7 +708,7 @@ test("accepted deletion survives catalog removal and refocus before refresh sett
     assert.equal(mounted.button("Delete operation"), undefined);
     mounted.blur();
     mounted.focus();
-    refresh.resolve();
+    refresh.resolve(true);
     await deleting;
     await mounted.settle();
 
