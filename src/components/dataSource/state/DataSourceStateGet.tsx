@@ -1,13 +1,11 @@
 import React, { useCallback, useRef, useState } from "react";
 import { View, StyleSheet } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { CircleAlert } from "lucide-react-native";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useToast } from "@/contexts/ToastProvider";
 import Loading from "@/components/common/Loading";
 import Text from "@/components/common/Text";
 import Button from "@/components/common/Button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import DataSourceState from "./DataSourceState";
 
 type BrokerClientStateResponse = {
@@ -123,15 +121,16 @@ function BrokerClientStateGet({ id, inlineRecovery = false }: BrokerClientStateG
                 </>
             ) : inlineRecovery && visibleState.error ? (
                 <View style={styles.recovery}>
-                    <Alert
-                        variant="destructive"
-                        icon={CircleAlert}
+                    <Text
                         accessibilityRole="alert"
-                        accessibilityLiveRegion="polite">
-                        <AlertDescription>Couldn't load status. Try again.</AlertDescription>
-                    </Alert>
+                        accessibilityLiveRegion="polite"
+                        size="small"
+                        color="onBackground"
+                        numberOfLines={0}>
+                        Status unavailable
+                    </Text>
                     <Button
-                        name="Retry status"
+                        name="Retry"
                         accessibilityLabel="Retry data source status"
                         type="brand-outline"
                         loading={false}

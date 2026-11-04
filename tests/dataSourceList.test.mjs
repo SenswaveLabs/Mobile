@@ -23,6 +23,12 @@ const settle = async (component) => {
     await new Promise((resolve) => setImmediate(resolve));
     component.render();
 };
+const statusUnavailable = (component) =>
+    component
+        .elements()
+        .find(
+            (node) => node.type === "Text" && String(node.props.children) === "Status unavailable",
+        );
 
 function mountList({ get } = {}) {
     let focusEffect;
@@ -103,7 +109,6 @@ function mountStatusReader({ id = "source-11", inlineRecovery = true, get } = {}
                 "@/components/common/Text": "Text",
                 "@/components/common/Button": "Button",
                 "./DataSourceState": "DataSourceState",
-                "@/components/ui/alert": { Alert: "Alert", AlertDescription: "AlertDescription" },
             },
         },
     );
@@ -275,12 +280,13 @@ test("row status failures stay local and Retry rereads status without bubbling",
     const blur = status.start();
     await settle(status.component);
 
-    const alert = status.component.elements().find((node) => node.type === "Alert");
+    const error = statusUnavailable(status.component);
     const retry = status.component.elements().find((node) => node.type === "Button");
-    assert.ok(alert, status.component.text());
-    assert.equal(alert.props.accessibilityRole, "alert");
+    assert.ok(error, status.component.text());
+    assert.equal(error.props.accessibilityRole, "alert");
+    assert.equal(error.props.accessibilityLiveRegion, "polite");
     assert.ok(retry);
-    assert.equal(retry.props.name, "Retry status");
+    assert.equal(retry.props.name, "Retry");
     assert.equal(retry.props.accessibilityLabel, "Retry data source status");
 
     let propagationStopped = false;
@@ -299,10 +305,7 @@ test("row status failures stay local and Retry rereads status without bubbling",
     ]);
     assert.equal(propagationStopped, true);
     assert.equal(status.toastCalls.length, 0);
-    assert.equal(
-        status.component.elements().some((node) => node.type === "Alert"),
-        false,
-    );
+    assert.equal(statusUnavailable(status.component), undefined);
     const badge = status.component.elements().find((node) => node.type === "DataSourceState");
     assert.equal(badge.props.connectionStatus, "Connected");
     blur?.();
@@ -322,7 +325,7 @@ test("row status handles thrown and malformed responses with local recovery", as
         const status = mountStatusReader({ get });
         const blur = status.start();
         await settle(status.component);
-        assert.ok(status.component.elements().some((node) => node.type === "Alert"));
+        assert.ok(statusUnavailable(status.component), status.component.text());
         assert.ok(status.component.elements().some((node) => node.type === "Button"));
         assert.equal(status.toastCalls.length, 0);
         blur?.();
@@ -353,10 +356,7 @@ test("row status ignores completion after blur, source change, and authenticated
         "v1/datasources/brokers/source-12/clients",
     ]);
     assert.equal(status.toastCalls.length, 0);
-    assert.equal(
-        status.component.elements().some((node) => node.type === "Alert"),
-        false,
-    );
+    assert.equal(statusUnavailable(status.component), undefined);
     assert.equal(
         status.component.elements().find((node) => node.type === "DataSourceState")?.props
             .connectionStatus,
@@ -372,10 +372,7 @@ test("row status ignores completion after blur, source change, and authenticated
     unmountedRead.resolve({ isSuccess: false, statusCode: 503, response: null });
     await settle(unmounted.component);
     assert.deepEqual(unmounted.toastCalls, []);
-    assert.equal(
-        unmounted.component.elements().some((node) => node.type === "Alert"),
-        false,
-    );
+    assert.equal(statusUnavailable(unmounted.component), undefined);
 });
 
 test("other status reader callers keep legacy toast feedback by default", async () => {
