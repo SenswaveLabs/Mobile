@@ -408,10 +408,15 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
   applying the reset; no-argument resets and synchronous Light/Dark updates retain
   their existing behavior.
 - `/confirmEmail` uses one growing native scroll with local status, Retry and Sign
-  in recovery. Accept only one nonempty scalar `userId` and `code`; preserve the
-  opaque code through URL query encoding. Lock each server/user/code request while
-  pending and latch accepted success so refocus never repeats it. Ignore feedback
-  after identity changes or blur, and suppress legacy toasts.
+  in recovery. Native external links are normalized by the app's `+native-intent`
+  boundary for the installed Expo Router decode sequence; keep any extra encoding
+  there, not in the route or provider. Accept only one nonempty scalar `userId` and
+  `code`; preserve the opaque code through provider URL query encoding. Lock each
+  server/user/code request while pending and latch accepted success so refocus never
+  repeats it. Retained Retry callbacks recheck route identity/focus and capture the
+  current provider method before queueing; a recreated context object cannot cancel
+  same-link work. Ignore stale feedback after identity changes or blur, and suppress
+  legacy toasts.
 - Public `/privacy` and `/terms` use brand `DefaultHeader` with `/start` as the
   no-history fallback; history Back remains intact. Private legal routes let the
   authenticated Stack own the header. `LegalDocumentView` owns the single growing

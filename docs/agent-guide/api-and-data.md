@@ -294,6 +294,11 @@ The confirmation link accepts one nonempty scalar `userId` and `code`. Treat the
 code as opaque text and serialize both values with `URL.searchParams`; do not
 decode, trim, or log the code or complete request URL. The HTTP timeout helper's
 rejection log must also avoid request URL interpolation.
+Native external links pass through `src/app/+native-intent.ts` before Expo Router's
+installed extraction, state parser and local-parameter hook. That boundary validates
+the original percent/UTF-8 query, rejects repeated consumed parameters, and adds
+only the extra encoding required by this installed decode sequence. Do not add
+decoding or extra encoding to the confirmation route or provider.
 
 The mobile legal reader consumes `version`, `summary`, and `content`. `version`
 and `content` must be nonblank strings; `summary` may be empty. Preserve their

@@ -38,6 +38,7 @@ src/
       user/                 #   info, profile, privacy, terms
     _layout.tsx
     confirmEmail / resetPassword / consents / maintenance / privacy / terms
+    +native-intent.ts      # native external-link canonicalization for confirmation
   components/
     ui/                     # copied React Native Reusables primitives
     common/                 # shared UI (Button, Input, Text, ListRow, ContentSection, FormSection, ...)

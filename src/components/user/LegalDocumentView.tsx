@@ -18,6 +18,12 @@ type ReadState =
     | { identity: string; status: "Error" }
     | { identity: string; status: "Ready"; document: LegalDocument };
 type LegalReadResult = { isSuccess: boolean; data?: LegalDocument | null };
+type LoadDocument = (
+    requestIdentity: string,
+    requestKind: LegalDocumentViewProps["kind"],
+    focusEpoch: number,
+    identityGeneration: number,
+) => void;
 
 const LegalDocumentView: FC<LegalDocumentViewProps> = ({ kind }) => {
     const configuration = useConfiguration();
@@ -28,6 +34,8 @@ const LegalDocumentView: FC<LegalDocumentViewProps> = ({ kind }) => {
     const focusedRef = useRef(false);
     const focusEpochRef = useRef(0);
     const identityRef = useRef("");
+    const identityGenerationRef = useRef(0);
+    const loadRef = useRef<LoadDocument>(() => {});
     const [state, setState] = useState<ReadState>({ identity: "", status: "Loading" });
 
     legalRef.current = legal;
@@ -39,37 +47,41 @@ const LegalDocumentView: FC<LegalDocumentViewProps> = ({ kind }) => {
         // The local error state owns invalid configuration recovery.
     }
     const identity = JSON.stringify([kind, server]);
-    identityRef.current = identity;
+    if (identityRef.current !== identity) {
+        identityRef.current = identity;
+        identityGenerationRef.current++;
+    }
+    const identityGeneration = identityGenerationRef.current;
 
     const load = useCallback(
         (
             requestIdentity: string,
             requestKind: LegalDocumentViewProps["kind"],
             focusEpoch: number,
+            requestIdentityGeneration: number,
         ) => {
-            const current = () =>
+            const viewIsCurrent = () =>
                 focusedRef.current &&
                 focusEpochRef.current === focusEpoch &&
-                identityRef.current === requestIdentity;
+                identityRef.current === requestIdentity &&
+                identityGenerationRef.current === requestIdentityGeneration;
+            if (!viewIsCurrent()) return;
+
             if (!server) {
-                if (current()) setState({ identity: requestIdentity, status: "Error" });
+                setState({ identity: requestIdentity, status: "Error" });
                 return;
             }
 
-            const existingRequest = requestsRef.current.get(requestIdentity);
-            const request =
-                existingRequest ??
-                Promise.resolve()
+            const getDocument =
+                requestKind === "terms" ? legalRef.current.getTerms : legalRef.current.getPrivacy;
+            let request = requestsRef.current.get(requestIdentity);
+            if (!request) {
+                request = Promise.resolve()
                     .then(() => {
-                        const getDocument =
-                            requestKind === "terms"
-                                ? legalRef.current.getTerms
-                                : legalRef.current.getPrivacy;
+                        if (!viewIsCurrent()) return { isSuccess: false };
                         return getDocument();
                     })
                     .catch(() => ({ isSuccess: false }));
-
-            if (!existingRequest) {
                 requestsRef.current.set(requestIdentity, request);
                 void request.then(() => {
                     if (requestsRef.current.get(requestIdentity) === request) {
@@ -78,9 +90,9 @@ const LegalDocumentView: FC<LegalDocumentViewProps> = ({ kind }) => {
                 });
             }
 
-            if (current()) setState({ identity: requestIdentity, status: "Loading" });
+            setState({ identity: requestIdentity, status: "Loading" });
             void request.then((result) => {
-                if (!current()) return;
+                if (!viewIsCurrent()) return;
                 if (result.isSuccess && result.data) {
                     setState({ identity: requestIdentity, status: "Ready", document: result.data });
                 } else {
@@ -90,23 +102,24 @@ const LegalDocumentView: FC<LegalDocumentViewProps> = ({ kind }) => {
         },
         [server],
     );
+    loadRef.current = load;
 
     useFocusEffect(
         useCallback(() => {
             focusedRef.current = true;
             const focusEpoch = ++focusEpochRef.current;
-            load(identity, kind, focusEpoch);
+            loadRef.current(identity, kind, focusEpoch, identityGenerationRef.current);
             return () => {
                 focusedRef.current = false;
                 focusEpochRef.current++;
             };
-        }, [identity, kind, load]),
+        }, [identity, kind]),
     );
 
     const currentState: ReadState =
         state.identity === identity ? state : { identity, status: "Loading" };
     const title = kind === "terms" ? "Terms and Conditions" : "Privacy Policy";
-    const retry = () => load(identity, kind, focusEpochRef.current);
+    const retry = () => loadRef.current(identity, kind, focusEpochRef.current, identityGeneration);
 
     return (
         <ScrollView

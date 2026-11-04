@@ -335,6 +335,17 @@ test("legal view reloads on kind or server change, not provider object replaceme
     wrapper.renderView();
     wrapper.setBase("https://next.example/");
     wrapper.renderView();
+    wrapper.setLegal(() => ({
+        getPrivacy: async () => ({
+            isSuccess: true,
+            data: { ...document, content: "replacement provider content" },
+        }),
+        getTerms: () => {
+            calls.push("terms");
+            return termsRequest.promise;
+        },
+    }));
+    wrapper.renderView();
     await flush();
     assert.deepEqual(calls, ["privacy", "privacy"]);
     first.resolve({ isSuccess: true, data: { ...document, content: "stale" } });
@@ -356,6 +367,152 @@ test("legal view reloads on kind or server change, not provider object replaceme
             (node) => node.type === "Markdown" && node.props.children[0] === "current",
         ),
     );
+});
+
+test("legal view rejects retained Retry after the server identity changes", async () => {
+    let reads = 0;
+    const wrapper = mountPolicy("privacy", {
+        getLegal: () => ({
+            getPrivacy: async () => {
+                reads++;
+                return { isSuccess: false };
+            },
+            getTerms: async () => ({ isSuccess: false }),
+        }),
+    });
+    wrapper.renderView();
+    wrapper.focus();
+    await flush();
+    const previous = wrapper.renderView();
+    const retainedRetry = previous.elements.find(
+        (node) => node.type === "Button" && node.props.name === "Retry",
+    ).props.onPress;
+
+    wrapper.setBase("https://next.example/");
+    wrapper.renderView();
+    await flush();
+    assert.equal(reads, 2);
+
+    retainedRetry();
+    await flush();
+    assert.equal(reads, 2);
+});
+
+test("legal view cancels queued work when the server identity changes", async () => {
+    let reads = 0;
+    const wrapper = mountPolicy("privacy", {
+        getLegal: () => ({
+            getPrivacy: async () => {
+                reads++;
+                return { isSuccess: false };
+            },
+            getTerms: async () => ({ isSuccess: false }),
+        }),
+    });
+    wrapper.renderView();
+    wrapper.focus();
+    await flush();
+    const error = wrapper.renderView();
+    const retry = error.elements.find(
+        (node) => node.type === "Button" && node.props.name === "Retry",
+    ).props.onPress;
+    retry();
+
+    wrapper.setBase("https://next.example/");
+    wrapper.renderView();
+    await flush();
+
+    assert.equal(reads, 2);
+});
+
+test("legal view rejects retained Retry after blur", async () => {
+    let reads = 0;
+    const wrapper = mountPolicy("privacy", {
+        getLegal: () => ({
+            getPrivacy: async () => {
+                reads++;
+                return { isSuccess: false };
+            },
+            getTerms: async () => ({ isSuccess: false }),
+        }),
+    });
+    wrapper.renderView();
+    wrapper.focus();
+    await flush();
+    const error = wrapper.renderView();
+    const retainedRetry = error.elements.find(
+        (node) => node.type === "Button" && node.props.name === "Retry",
+    ).props.onPress;
+    wrapper.blur();
+
+    retainedRetry();
+    await flush();
+    assert.equal(reads, 1);
+});
+
+test("legal retained Retry uses current method when scalar identity is unchanged", async () => {
+    let replacementReads = 0;
+    const wrapper = mountPolicy("privacy", {
+        getLegal: () => ({
+            getPrivacy: async () => ({ isSuccess: false }),
+            getTerms: async () => ({ isSuccess: false }),
+        }),
+    });
+    wrapper.renderView();
+    wrapper.focus();
+    await flush();
+    const error = wrapper.renderView();
+    const retainedRetry = error.elements.find(
+        (node) => node.type === "Button" && node.props.name === "Retry",
+    ).props.onPress;
+
+    wrapper.setLegal(() => ({
+        getPrivacy: async () => {
+            replacementReads++;
+            return { isSuccess: false };
+        },
+        getTerms: async () => ({ isSuccess: false }),
+    }));
+    wrapper.renderView();
+
+    retainedRetry();
+    await flush();
+    assert.equal(replacementReads, 1);
+});
+
+test("legal view binds queued Retry to the captured method across provider recreation", async () => {
+    let originalReads = 0;
+    let replacementReads = 0;
+    const wrapper = mountPolicy("privacy", {
+        getLegal: () => ({
+            getPrivacy: async () => {
+                originalReads++;
+                return { isSuccess: false };
+            },
+            getTerms: async () => ({ isSuccess: false }),
+        }),
+    });
+    wrapper.renderView();
+    wrapper.focus();
+    await flush();
+    const error = wrapper.renderView();
+    const retry = error.elements.find(
+        (node) => node.type === "Button" && node.props.name === "Retry",
+    ).props.onPress;
+    retry();
+
+    wrapper.setLegal(() => ({
+        getPrivacy: async () => {
+            replacementReads++;
+            return { isSuccess: false };
+        },
+        getTerms: async () => ({ isSuccess: false }),
+    }));
+    wrapper.renderView();
+    await flush();
+
+    assert.equal(originalReads, 2);
+    assert.equal(replacementReads, 0);
 });
 
 test("all legal routes use the shared page and keep public fallback separate from Stack headers", () => {

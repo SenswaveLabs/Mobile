@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 import { makeFocusLifecycle, mountNativeComponent } from "./nativeComponentHarness.mjs";
+
+const require = createRequire(import.meta.url);
+const { extractExpoPathFromURL } = require("expo-router/build/fork/extractPathFromURL.js");
+const { parseQueryParams } = require("expo-router/build/fork/getStateFromPath-forks.js");
 
 const flush = async () => {
     await new Promise((resolve) => setImmediate(resolve));
@@ -15,6 +23,57 @@ function deferred() {
         reject = rej;
     });
     return { promise, resolve, reject };
+}
+
+let actualRouteParams;
+const actualHookModule = { exports: {} };
+runInNewContext(readFileSync(require.resolve("expo-router/build/hooks.js"), "utf8"), {
+    module: actualHookModule,
+    exports: actualHookModule.exports,
+    require(name) {
+        if (name === "react") return { use: () => actualRouteParams };
+        if (name === "./link/preview/PreviewRouteContext") return { usePreviewInfo: () => ({}) };
+        return {};
+    },
+    URLSearchParams,
+    console,
+    process,
+});
+
+const nativeIntentModule = { exports: {} };
+runInNewContext(
+    ts.transpileModule(readFileSync("src/app/+native-intent.ts", "utf8"), {
+        compilerOptions: { module: ts.ModuleKind.CommonJS },
+    }).outputText,
+    {
+        module: nativeIntentModule,
+        exports: nativeIntentModule.exports,
+        URL,
+        URLSearchParams,
+    },
+);
+const { redirectSystemPath } = nativeIntentModule.exports;
+
+function nativeRouteParams(path, initial) {
+    const redirected = redirectSystemPath({ path, initial });
+    const extracted = extractExpoPathFromURL([], redirected);
+    actualRouteParams = parseQueryParams(extracted, { name: "confirmEmail" }) ?? {};
+    return {
+        redirected,
+        params: Object.fromEntries(Object.entries(actualHookModule.exports.useLocalSearchParams())),
+    };
+}
+
+function confirmationPath(userId, code, family = "scheme") {
+    const query = new URLSearchParams([
+        ["userId", userId],
+        ["code", code],
+    ]).toString();
+    if (family === "triple") return `com.develite.senswave:///confirmEmail?${query}`;
+    if (family === "https") return `https://api-dev.senswave.net/confirmEmail?${query}`;
+    if (family === "trailing") return `https://api-dev.senswave.net/confirmEmail/?${query}`;
+    if (family === "rooted") return `/confirmEmail?${query}`;
+    return `com.develite.senswave://confirmEmail?${query}`;
 }
 
 function mountSessionProvider({ base = "https://api.example/", fetch: fetcher, apiUrl } = {}) {
@@ -60,7 +119,7 @@ function mountConfirmation({ params, confirmEmail = async () => ({ isSuccess: tr
     let base = "https://api.example/";
     let focus;
     const routes = [];
-    let currentConfirm = confirmEmail;
+    let currentSession = { confirmEmail };
     const router = {
         push: (path) => routes.push(["push", path]),
         replace: (path) => routes.push(["replace", path]),
@@ -79,7 +138,7 @@ function mountConfirmation({ params, confirmEmail = async () => ({ isSuccess: tr
                     useRouter: () => router,
                 },
                 "@/contexts/SessionProvider": {
-                    useSession: () => ({ confirmEmail: (...args) => currentConfirm(...args) }),
+                    useSession: () => currentSession,
                 },
                 "@/contexts/ConfigurationProvider": {
                     useConfiguration: () => ({ getBaseUrl: () => new URL(base) }),
@@ -109,7 +168,7 @@ function mountConfirmation({ params, confirmEmail = async () => ({ isSuccess: tr
             screen.flushEffects();
         },
         setConfirm: (next) => {
-            currentConfirm = next;
+            currentSession = { confirmEmail: next };
             screen.render();
             screen.flushEffects();
         },
@@ -145,6 +204,97 @@ test("confirmation sends exact opaque query values", async () => {
         },
     });
     assert.equal((await percentProvider.calls().confirmEmail("user", percentCode)).isSuccess, true);
+});
+
+test("native confirmation links preserve opaque values through the installed Router pipeline", async () => {
+    const userId = "user+id/=&✓%2B";
+    const codes = ["a+b/=&✓", "%2B", "%25", "qa+code%/= value", "+ %25 /=&✓"];
+
+    for (const initial of [true, false]) {
+        for (const code of codes) {
+            const path = confirmationPath(userId, code);
+            const { params } = nativeRouteParams(path, initial);
+            assert.deepEqual(params, { userId, code }, `initial=${initial}, code=${code}`);
+
+            const posted = [];
+            const provider = mountSessionProvider({
+                fetch: async (url, options) => {
+                    posted.push({ url, options });
+                    return { ok: true, status: 204 };
+                },
+            });
+            const route = mountConfirmation({
+                params,
+                confirmEmail: (requestedUser, requestedCode) =>
+                    provider.calls().confirmEmail(requestedUser, requestedCode),
+            });
+            route.focus();
+            await flush();
+
+            assert.equal(posted.length, 1);
+            assert.equal(posted[0].options.method, "POST");
+            assert.equal(new URL(posted[0].url).searchParams.get("userId"), userId);
+            assert.equal(new URL(posted[0].url).searchParams.get("code"), code);
+        }
+    }
+});
+
+test("native confirmation link families preserve values and unrelated paths", () => {
+    const userId = "user+id/=&✓%2B";
+    const code = "a+b/=&✓";
+    for (const initial of [true, false]) {
+        for (const family of ["triple", "https", "trailing", "rooted"]) {
+            const { params } = nativeRouteParams(confirmationPath(userId, code, family), initial);
+            assert.deepEqual(params, { userId, code }, `${family}, initial=${initial}`);
+        }
+
+        for (const path of [
+            "/resetPassword?code=%2B",
+            "/privacy",
+            "/terms",
+            "/",
+            "com.develite.senswave://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081",
+            "/unknown?value=a%2Bb",
+        ]) {
+            assert.equal(redirectSystemPath({ path, initial }), path);
+        }
+    }
+});
+
+test("invalid native confirmation links reach local recovery without a POST", async () => {
+    const paths = [
+        "com.develite.senswave://confirmEmail",
+        "com.develite.senswave://confirmEmail?userId=&code=code",
+        "com.develite.senswave://confirmEmail?userId=user&code=",
+        "com.develite.senswave://confirmEmail?userId=user&code=code&code=again",
+        "com.develite.senswave://confirmEmail?userId=user&userId=again&code=code",
+        "com.develite.senswave://confirmEmail?userId=user&code=%",
+        "com.develite.senswave://confirmEmail?userId=user&code=%ZZ",
+        "com.develite.senswave://confirmEmail?userId=user&code=%E0%A4",
+    ];
+
+    for (const initial of [true, false]) {
+        for (const path of paths) {
+            let result;
+            assert.doesNotThrow(() => {
+                result = nativeRouteParams(path, initial);
+            });
+            assert.equal(result.redirected, "/confirmEmail");
+            assert.deepEqual(result.params, {});
+
+            let confirmationCalls = 0;
+            const route = mountConfirmation({
+                params: result.params,
+                confirmEmail: async () => {
+                    confirmationCalls++;
+                    return { isSuccess: true };
+                },
+            });
+            route.focus();
+            await flush();
+            assert.equal(confirmationCalls, 0);
+        }
+    }
 });
 
 test("confirmation transport failures never log the opaque code or URL encoding", async () => {
@@ -272,6 +422,184 @@ test("confirmation retry locks duplicate presses and changed links ignore late r
     assert.equal(screen.button("Retry verification")?.props.name, "Retry verification");
     assert.equal(calls[2][0], "user-b");
     assert.equal(calls[2][1], "code-b");
+});
+
+test("confirmation rejects retained Retry after the route identity changes", async () => {
+    const calls = [];
+    const screen = mountConfirmation({
+        params: { userId: "user-a", code: "code-a" },
+        confirmEmail: async (...args) => {
+            calls.push(args);
+            return { isSuccess: false };
+        },
+    });
+
+    screen.focus();
+    await flush();
+    screen.render();
+    const retainedRetry = screen.button("Retry verification").props.onPress;
+
+    screen.setParams({ userId: "user-b", code: "code-b" });
+    await flush();
+    assert.deepEqual(calls, [
+        ["user-a", "code-a"],
+        ["user-b", "code-b"],
+    ]);
+
+    retainedRetry();
+    await flush();
+    assert.deepEqual(calls, [
+        ["user-a", "code-a"],
+        ["user-b", "code-b"],
+    ]);
+});
+
+test("confirmation rejects retained Retry after blur", async () => {
+    let attempts = 0;
+    const screen = mountConfirmation({
+        params: { userId: "user", code: "opaque" },
+        confirmEmail: async () => {
+            attempts++;
+            return { isSuccess: false };
+        },
+    });
+
+    screen.focus();
+    await flush();
+    screen.render();
+    const retainedRetry = screen.button("Retry verification").props.onPress;
+    screen.blur();
+
+    retainedRetry();
+    await flush();
+    assert.equal(attempts, 1);
+});
+
+test("confirmation cancels queued work before blur and leaves Retry after refocus", async () => {
+    let attempts = 0;
+    const screen = mountConfirmation({
+        params: { userId: "user", code: "opaque" },
+        confirmEmail: async () => {
+            attempts++;
+            return { isSuccess: false };
+        },
+    });
+
+    screen.focus();
+    screen.blur();
+    screen.focus();
+    await flush();
+    screen.render();
+
+    assert.equal(attempts, 0);
+    assert.ok(screen.button("Retry verification"));
+});
+
+test("confirmation retained Retry uses current method for the same scalar identity", async () => {
+    let replacementAttempts = 0;
+    const screen = mountConfirmation({
+        params: { userId: "user", code: "opaque" },
+        confirmEmail: async () => ({ isSuccess: false }),
+    });
+
+    screen.focus();
+    await flush();
+    screen.render();
+    const retainedRetry = screen.button("Retry verification").props.onPress;
+    screen.setConfirm(async () => {
+        replacementAttempts++;
+        return { isSuccess: false };
+    });
+
+    retainedRetry();
+    await flush();
+    assert.equal(replacementAttempts, 1);
+    screen.render();
+    assert.ok(screen.button("Sign in"));
+});
+
+test("confirmation binds a queued Retry to its captured method across provider recreation", async () => {
+    let originalAttempts = 0;
+    let replacementAttempts = 0;
+    const screen = mountConfirmation({
+        params: { userId: "user", code: "opaque" },
+        confirmEmail: async () => {
+            originalAttempts++;
+            return { isSuccess: false };
+        },
+    });
+
+    screen.focus();
+    await flush();
+    screen.render();
+    const retry = screen.button("Retry verification").props.onPress;
+    retry();
+    screen.setConfirm(async () => {
+        replacementAttempts++;
+        return { isSuccess: false };
+    });
+
+    await flush();
+    assert.equal(originalAttempts, 2);
+    assert.equal(replacementAttempts, 0);
+});
+
+test("confirmation cancels queued work when the scalar identity changes", async () => {
+    const calls = [];
+    const screen = mountConfirmation({
+        params: { userId: "user-a", code: "code-a" },
+        confirmEmail: async (...args) => {
+            calls.push(args);
+            return { isSuccess: false };
+        },
+    });
+
+    screen.focus();
+    await flush();
+    screen.render();
+    const retry = screen.button("Retry verification").props.onPress;
+    retry();
+    screen.setParams({ userId: "user-b", code: "code-b" });
+    await flush();
+
+    assert.deepEqual(calls, [
+        ["user-a", "code-a"],
+        ["user-b", "code-b"],
+    ]);
+});
+
+test("valid link survives provider recreation before its queued POST dispatches", async () => {
+    const posts = [];
+    const replacements = [];
+    const screen = mountConfirmation({
+        params: { userId: "user-a", code: "code-a" },
+        confirmEmail: async (userId, code) => {
+            posts.push([userId, code]);
+            return { isSuccess: true };
+        },
+    });
+
+    screen.focus();
+    await flush();
+    screen.render();
+    assert.ok(screen.button("Sign in"));
+
+    screen.setParams({ userId: "user-b", code: "code-b" });
+    screen.setConfirm(async (userId, code) => {
+        replacements.push([userId, code]);
+        return { isSuccess: false };
+    });
+    await flush();
+    screen.render();
+
+    assert.deepEqual(posts, [
+        ["user-a", "code-a"],
+        ["user-b", "code-b"],
+    ]);
+    assert.deepEqual(replacements, []);
+    assert.match(screen.text(), /Email verified/i);
+    assert.doesNotMatch(screen.text(), /Unable to verify email/i);
+    assert.equal(screen.button("Retry verification"), undefined);
 });
 
 test("confirmation retries returned failures and scopes success to server and user", async () => {

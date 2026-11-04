@@ -39,7 +39,14 @@ Automation details regressions cover the native modal/host binding, cancellation
   with rejected fetches, verifying exact `URL.searchParams` values and that neither
   request log exposes raw or encoded code. Route checks cover missing/repeated
   parameters, request locking, retry, accepted-once success, stale identity and
-  blur/refocus. Legal checks cover exact consumed server fields, malformed/request
+  blur/refocus. Native confirmation tests pass external URIs through the installed
+  Router extractor, state query parser and `useLocalSearchParams`, then call the
+  real session provider. They cover literal percent sequences, encoded separators,
+  alternate confirmation URI forms, malformed/duplicate recovery without a POST
+  and unchanged non-confirmation routes. Retained Retry tests verify route/server
+  and focus changes prevent obsolete requests, while provider recreation at the same
+  identity preserves queued work through its captured method without auto-repeat.
+  Legal checks cover exact consumed server fields, malformed/request
   recovery, kind/server binding, local Retry, shared wrappers, public history Back
   and the `/start` fallback through the real `DefaultHeader`. Maintenance and info
   checks cover completion-gated session routing, lock/Retry/pull-refresh behavior,

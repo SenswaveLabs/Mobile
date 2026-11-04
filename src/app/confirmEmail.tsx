@@ -29,8 +29,11 @@ const ConfirmEmail: FC = () => {
     const sessionRef = useRef(session);
     const routerRef = useRef(router);
     const identityRef = useRef("");
+    const identityGenerationRef = useRef(0);
     const focusedRef = useRef(false);
+    const focusEpochRef = useRef(0);
     const entriesRef = useRef(new Map<string, ConfirmationEntry>());
+    const verifyRef = useRef<() => void>(() => {});
     const [view, setView] = useState<ConfirmationViewState>({ identity: "", status: "Verifying" });
 
     sessionRef.current = session;
@@ -50,7 +53,11 @@ const ConfirmEmail: FC = () => {
         // Confirmation provider returns the local request failure for an unavailable configuration.
     }
     const identity = JSON.stringify([serverUrl, userId, code]);
-    identityRef.current = identity;
+    if (identityRef.current !== identity) {
+        identityRef.current = identity;
+        identityGenerationRef.current++;
+    }
+    const identityGeneration = identityGenerationRef.current;
 
     const updateView = (status: ConfirmationStatus, requestIdentity: string) => {
         if (focusedRef.current && identityRef.current === requestIdentity) {
@@ -59,6 +66,14 @@ const ConfirmEmail: FC = () => {
     };
 
     const verify = useCallback(() => {
+        const requestFocusEpoch = focusEpochRef.current;
+        const isCurrent = () =>
+            focusedRef.current &&
+            focusEpochRef.current === requestFocusEpoch &&
+            identityRef.current === identity &&
+            identityGenerationRef.current === identityGeneration;
+        if (!isCurrent()) return;
+
         if (!validParams || typeof userId !== "string" || typeof code !== "string") {
             updateView("Failed", identity);
             return;
@@ -71,13 +86,23 @@ const ConfirmEmail: FC = () => {
         }
         if (entry?.inFlight) return;
 
+        const confirmEmail = sessionRef.current.confirmEmail;
         entry ??= { accepted: false };
         entriesRef.current.set(identity, entry);
         updateView("Verifying", identity);
 
         const request = Promise.resolve()
-            .then(() => sessionRef.current.confirmEmail(userId, code))
+            .then(() => {
+                if (!isCurrent()) {
+                    if (focusedRef.current && identityRef.current === identity)
+                        updateView("Failed", identity);
+                    return undefined;
+                }
+
+                return confirmEmail(userId, code);
+            })
             .then((result) => {
+                if (!result) return;
                 entry!.accepted = result.isSuccess;
                 updateView(result.isSuccess ? "Success" : "Failed", identity);
             })
@@ -90,16 +115,20 @@ const ConfirmEmail: FC = () => {
         void request.then(() => {
             if (entry!.inFlight === request) entry!.inFlight = undefined;
         });
-    }, [identity, validParams, userId, code]);
+    }, [identity, identityGeneration, validParams, userId, code]);
+
+    verifyRef.current = verify;
 
     useFocusEffect(
         useCallback(() => {
             focusedRef.current = true;
-            verify();
+            focusEpochRef.current++;
+            if (identityRef.current === identity) verifyRef.current();
             return () => {
                 focusedRef.current = false;
+                focusEpochRef.current++;
             };
-        }, [verify]),
+        }, [identity]),
     );
 
     const status = view.identity === identity ? view.status : validParams ? "Verifying" : "Failed";
