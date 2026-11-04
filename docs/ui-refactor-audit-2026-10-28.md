@@ -31,6 +31,10 @@ Statusy w tym dokumencie:
 - **Implementacja i kontrola Android**: ekran ma nową implementację, testy
   handlerów oraz udokumentowane kontrole emulatora; zakres i ograniczenia
   dostępności pozostają w raporcie walidacji.
+- **Implementacja; wybrane kontrole Android**: kod i wskazane stany natywne są
+  sprawdzone, ale pełna macierz Task 6 pozostaje otwarta.
+- **Implementacja; kontrola Android pending**: handlerowo zweryfikowana
+  implementacja nie ma jeszcze wystarczającego aktualnego dowodu natywnego.
 
 P1 oznacza problem z dostępem do funkcji, zapisem lub odzyskaniem po błędzie.
 P2 oznacza dalszą migrację i ujednolicenie, a P3 drobne dopracowanie.
@@ -45,9 +49,16 @@ Emulator potwierdził role, odzyskiwanie po błędach, częściowy zapis, usuwan
 klawiaturę, oba motywy i targety. TalkBack oraz fizyczne MQTT pozostają
 niezweryfikowane; raport dokumentuje także ostrzeżenie dostępności po usunięciu.
 
-Poza automatyzacjami wymagają pracy wybór źródła danych dla domu, listy źródeł
-i operacji, szczegóły operacji, część ustawień urządzenia oraz pomocnicze ekrany
-zgód, potwierdzania e-maila, dokumentów prawnych i przerwy technicznej.
+Po audycie Tasks 1–5 uzupełniły zgodę, wybór i listę źródeł, konfigurację
+urządzenia, szczegóły operacji, potwierdzanie e-maila, dokumenty prawne,
+konserwację i informacje o aplikacji. Wybrane stany Android są opisane w
+[raporcie Task 6](superpowers/validation/2026-11-03-ui-audit-remainder.md).
+Korekta F1/F2/M1/F3 na `8f4f7f4` została zatwierdzona w scoped review; `a705c23`
+dodaje krótszą etykietę Email w App Info i jej oczekiwanie testowe. Macierz
+ograniczonych przypadków natywnych, kontrole kodu, eksport i cleanup są
+zakończone i przypięte do źródła w raporcie. Końcowy przegląd Sol dokumentacji
+i dowodów pozostaje pending; TalkBack, prawdziwy backend i sprzęt nie były
+testowane.
 
 Dashboardy, widgety i tworzenie operacji zostały już objęte ostatnim refaktorem.
 Nie należy ponownie traktować ich jako całych nieprzeniesionych obszarów.
@@ -61,16 +72,16 @@ Nie należy ponownie traktować ich jako całych nieprzeniesionych obszarów.
 | P1 | `/automation/details` | Implementacja i kontrola Android | Sprawdzono role, PUT stanu + błąd PATCH i ponowienie, a także natywny dialog Cancel/Back/confirm z odczytem 200/404. [route](../src/app/(app)/automation/details.tsx), [formularz](../src/components/automations/AutomationForm.tsx). |
 | P1 | `/automation/conditions/add` | Implementacja i kontrola Android | Jedna FormSection, pełny katalog i dokładne wartości; natywnie sprawdzono draft, błąd PUT/Retry i lokalny Retry devices. Historia typów oraz brakujące kontrole są rozdzielone w raporcie. [formularz](../src/components/automations/conditions/AutomationConditionForm.tsx), [route](../src/app/(app)/automation/conditions/add.tsx). |
 | P1 | `/automation/results/add` | Implementacja i kontrola Android | Dokładny string i lokalny dopisek do draftu z powrotem; Add result dostępne nad IME przy 130% tekstu. Saved-child PUT i pozostałe przypadki pokrywają testy handlerów. [formularz](../src/components/automations/results/AutomationResultForm.tsx), [route](../src/app/(app)/automation/results/add.tsx). |
-| P1 | `/consents` | Migracja UI | Układ z wysokościami 15%/85%, bez scrolla, stare przyciski Cancel/Accept obok siebie. Niepowodzenie `makeConsents()` sygnalizuje tylko toast z providera; brak trwałego błędu na ekranie. Potrzebny skalowalny układ, widoczny pending, lokalne błędy i blokada ponownego wysłania. [consents.tsx](../src/app/consents.tsx#L27), [układ](../src/app/consents.tsx#L73). |
-| P2 | `/home/dataSource/select` | Migracja UI | Lista używa już nowych wierszy, ale ekran nadal ma pływającą ikonę Add, spinner zastępujący cały wybór i toasty. Wyjątek jest tylko logowany. Potrzebny wybór w kontekście bieżącego domu, lokalny pending/error i nazwana akcja dodawania. [select.tsx](../src/app/(app)/home/dataSource/select.tsx#L22). |
-| P2 | `/device/details` | Dokończenie | Formularz i układ sekcji są nowe; w sekcjach Tile i Presence pozostały stare dropdowny i `OperationSelector`, a brak wymaganej operacji zgłaszany jest toastem. Usuwanie urządzenia również ma tylko toast błędu. Dokończyć kontrolki i feedback bez przebudowy całego ekranu. [DeviceForm](../src/components/device/DeviceForm.tsx#L195), [Tile](../src/components/device/DeviceForm.tsx#L473), [Presence](../src/components/device/DeviceForm.tsx#L683), [delete](../src/app/(app)/device/details.tsx#L77). |
-| P2 | `/device/operation/details` | Dokończenie | Wspólny `OperationForm` jest już nowy i read-only. Stara pozostała otoczka: nagłówek, Delete FAB, brak lokalnego Retry i pending przy usuwaniu. Po nieudanym GET renderuje się formularz bez odczytanej operacji. [details.tsx](../src/app/(app)/device/operation/details.tsx#L21), [nowy formularz](../src/components/device/operation/OperationForm.tsx#L262). |
-| P2 | `/dataSource/list` | Dokończenie | Wiersze `ListRow` i badge stanu są już ujednolicone. Pozostały FAB, stary nagłówek i brak rozróżnienia błędu pierwszego odczytu od pustej listy z inline Retry. [route](../src/app/(app)/dataSource/list.tsx#L14), [DataSourceList](../src/components/dataSource/DataSourceList.tsx#L44). |
-| P2 | `/device/operation/list` | Dokończenie; sprawdzić użycie | Nowe wiersze, stary FAB i toast-only recovery. W źródłach brak przejścia do tej trasy poza rejestracją w Stack. Najpierw ustalić jej rolę względem aktualnego zarządzania operacjami przez `/device/widget/list`. [route](../src/app/(app)/device/operation/list.tsx#L14), [OperationList](../src/components/device/operation/OperationList.tsx#L43). |
-| P2 | `/confirmEmail` | Migracja UI | Osobny stary ekran statusu: centrowany `View`, brak przewijania i ograniczenia szerokości, stare CTA. Błąd sugeruje ponowienie, ale jedyna akcja prowadzi do Start. Ujednolicić układ ze stanami auth i pokazać właściwą ścieżkę odzyskania. [confirmEmail.tsx](../src/app/confirmEmail.tsx#L53). |
-| P2 | `/privacy`, `/terms`, `/user/privacy`, `/user/terms` | Dokończenie wspólnych widoków | To cztery trasy korzystające z dwóch wspólnych dokumentów. Po błędzie pobrania pozostaje toast oraz pusta treść/wersja, bez Retry. Publiczne nagłówki także zachowują stary układ. Poprawić wspólne komponenty i obie otoczki nawigacyjne. [PrivacyPolicy](../src/components/user/PrivacyPolicy.tsx#L17), [TermsAndConditions](../src/components/user/TermsAndConditions.tsx#L17), [publiczny nagłówek](../src/app/privacy.tsx#L18). |
-| P2 | `/maintenance` | Migracja UI | Stary układ z logo w `Tile` i odświeżaniem dostępnym tylko przez pull-to-refresh. Potrzebny spójny ekran statusu, jawna akcja ponowienia oraz treść mogąca rosnąć i przewijać się. [maintenance.tsx](../src/app/maintenance.tsx#L32). |
-| P3 | `/user/info` | Dopracowanie | Wiersze `SimpleItemList → ListRow` są już nowe. Pozostał niescrollowalny wrapper z paddingiem 15 i stary nagłówek. Ujednolicić szerokość, odstępy i przewijanie. [info.tsx](../src/app/(app)/user/info.tsx#L37). |
+| P1 | `/consents` | Implementacja; wybrane kontrole Android | Lokalna kontrola zgody, Retry bez ponownego POST, Back/Cancel i czytelne linki/copy. Capture 010 pokazuje wariant 448 dp Light; 148–153 na `a705c23` obejmują pełny tekst przy 320 × 480 dp, błąd odczytu po zaakceptowanym POST, odzyskanie bez drugiego POST i Cancel podczas opóźnionego żądania. [consents.tsx](../src/app/consents.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
+| P2 | `/home/dataSource/select` | Implementacja; wybrane kontrole Android | Wybór jest związany z bieżącym routowanym domem i rolą Owner. Po zaakceptowanym PUT błąd odczytu pozostaje lokalny; Retry wykonuje sam GET i wraca do Home. Captures 027/028 na `6c44bf4`: jeden PUT, Home GET 3→4. [select.tsx](../src/app/(app)/home/dataSource/select.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
+| P2 | `/device/details` | Implementacja; wybrane kontrole Android | Natywne Tile/Presence, pełny katalog, lokalna walidacja i częściowe zapisy zachowują istniejące ID. Capture 034 pokazuje końcowe akcje nad Gboard; 107 pokazuje Delete przy 320 dp Dark/font 1.3. Capture 124 pokazuje szeroki układ z limitem 448 dp; 129/130 potwierdzają lokalne Retry po kolekcji 503 i powrót bez powtórzenia zaakceptowanego DELETE. [DeviceForm](../src/components/device/DeviceForm.tsx), [details](../src/app/(app)/device/details.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
+| P2 | `/device/operation/details` | Implementacja; wybrane kontrole Android | Read-only OperationForm montuje się po zweryfikowanym odczycie; DELETE wymaga członkostwa bieżącego domu i Owner/Manager. Captures 119/121/123 pokazują Cancel Owner, dostępny Delete Manager (bez otwarcia dialogu) i brak Delete dla Display. Captures 127/128 na `8f4f7f4` potwierdzają Retry po zaakceptowanym DELETE i odczycie 503, jeden DELETE i powrót po drugim GET. Wcześniejszy emulator ANR pozostaje niewyjaśniony; późniejsze odczyty nie dowodzą jego usunięcia. [details](../src/app/(app)/device/operation/details.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
+| P2 | `/dataSource/list` | Implementacja; wybrane kontrole Android | Pełny katalog i row-local status Retry zachowują osobne odczyty. Captures 108/109 na `93d7652` pokazują błąd i Retry przy 320 dp Dark/font 1.3; 110/111 pokazują pełnoszeroki helper oraz alias. Późniejsze korekty nie zmieniły tych stanów. Krótki viewport listy nie był osobno sprawdzany. [route](../src/app/(app)/dataSource/list.tsx), [DataSourceList](../src/components/dataSource/DataSourceList.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
+| P2 | `/device/operation/list` | Alias kompatybilności; wybrane kontrole Android | Headerless alias przekazuje jawny `deviceId` do `/device/widget/list`; osobny OperationList usunięto, ale zachowano historyczny [plik z audytowanego commita](https://github.com/SenswaveLabs/Mobile/blob/4855e9a89f068d2a439a77e8575bbb6a64bc525d/src/components/device/operation/OperationList.tsx#L43). Capture 065 pokazuje stary operationId-only link bez Delete; capture 111 na `93d7652` — aktualny alias/helper przy wąskim ciemnym układzie. |
+| P2 | `/confirmEmail` | Implementacja; wybrane kontrole Android | Lokalna walidacja i Retry/Sign in zachowują scalarową tożsamość i jedno POST. Captures 137/138 pokazują Unicode fixture, błąd i Retry; 156/157 lokalne odrzucenie pustego kodu i Sign in; 159/160 cold development-client flow po wyborze zapamiętanego projektu. Cold release APK i browser domain association są niezweryfikowane. [confirmEmail.tsx](../src/app/confirmEmail.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
+| P2 | `/privacy`, `/terms`, `/user/privacy`, `/user/terms` | Implementacja; wybrane kontrole Android | Cztery wrappery używają wspólnego LegalDocumentView; lokalne błędy/Retry nie zastępują serwerowej treści i Version. Capture 013 pokazuje public Privacy w Light, a 134/136 i 145/147 końcowe prywatne/publiczne strony przy 320 × 480 dp Dark/font 1.3. Fixture copy jest fikcyjne. [LegalDocumentView](../src/components/user/LegalDocumentView.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
+| P2 | `/maintenance` | Implementacja; wybrane kontrole Android | Retry i pull-to-refresh współdzielą blokadę, a routowanie czeka na zakończenie initialize i aktualną sesję. Captures 154/155 pokazują version GET 503 i jawne Retry do Start bez auth-refresh POST; capture 139 dokumentuje krótki błąd z opisanym ograniczeniem przejścia. [maintenance.tsx](../src/app/maintenance.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
+| P3 | `/user/info` | Implementacja; wybrane kontrole Android | Metadane i oba linki prawne pozostają w jednym scrollu. Capture 151 na `a705c23` pokazuje jednowyrazową etykietę Email, pełną wartość i dostępny 48 dp wiersz Privacy przy 320 × 480 dp Dark/font 1.3. [info.tsx](../src/app/(app)/user/info.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
 
 ## Błędy przepływu znalezione w snapshotie 28 października
 
@@ -112,33 +123,25 @@ kolorowe powierzchnie i ikonowe akcje na rzecz hierarchii sekcji oraz
 `ContentSection.headerAction` / `SectionHeaderAction`. Wiersze listy automatyzacji
 już korzystają z `ListRow`; nie wymagają powrotu do wcześniejszych kafelków.
 
-## Wspólne pozostałości implementacyjne
+## Wspólne komponenty — status po migracji wskazanych tras
 
-- **OperationSelector** dotyczy odnowionych ustawień urządzenia: Switch, Slider,
-  Options, Display i Presence. Nadal używa `Dropdown`, małego `ImageButton size24`
-  bez nazwy dostępności i toastów przy błędzie pobierania. Naprawić komponent
-  wspólnie dla istniejących callerów, zachowując filtrowanie typów i dokładne ID.
-  [OperationSelector](../src/components/device/operation/OperationSelector.tsx#L53),
-  [kontrolki](../src/components/device/operation/OperationSelector.tsx#L110).
-- **Dropdown** ma opcje o stałej wysokości 40 dp i rozwija całą listę bez jej
-  przewijania. Automatyzacje używają teraz `BottomSheetSelect`; pozostałe
-  zastosowania to Tile/Presence. W tych miejscach użyć istniejącego pola
-  `BottomSheetSelect` z nazwanymi opcjami i targetami 48 dp.
-  [Dropdown](../src/components/common/Dropdown.tsx#L44).
-- **Stary DefaultHeader** pozostaje na trasach opisanych jako zaległe. Domyślny
-  wariant ma stałe 80 dp, tytuł ograniczony do jednej linii i mniejszy target Back.
-  Automatyzacje rejestrują już wariant `brand`; zastosować go także podczas
-  migracji pozostałych odpowiednich ekranów.
-  [DefaultHeader](../src/components/headers/DefaultHeader.tsx#L84),
-  [konfiguracja tras](../src/app/(app)/_layout.tsx#L45).
-- **Legacy FAB** ma akcje o rozmiarze 44 dp i bez dostępnej nazwy. Pozostał na
-  listach źródeł/operacji oraz szczegółach operacji. Akcje formularzy
-  i usuwania przenieść do właściwych sekcji, a akcje list dopasować do ich hierarchii.
-  [FAB](../src/components/common/FAB.tsx#L29).
-- **Toasty i inline feedback są jeszcze mieszane na pozostałych trasach.** Pięć
-  ścieżek automatyzacji wycisza już globalne overlaye; pozostałe ekrany nadal
-  wymagają lokalnej obsługi i wyciszania późnych odpowiedzi w
-  [ToastProvider](../src/contexts/ToastProvider.tsx).
+- **OperationSelector** ma obecnie natywne pole wyboru, pełny katalog per-device,
+  dokładne filtrowanie typów, zachowanie niedostępnych ID i lokalne Retry.
+  Współdzielony kod obsługuje Tile/Presence bez nadpisywania historycznych kluczy.
+  [OperationSelector](../src/components/device/operation/OperationSelector.tsx),
+  [polityka UI](agent-guide/interface.md).
+- **BottomSheetSelect** zastąpił Dropdown w polach Tile i Presence. Ta aktualizacja
+  nie zleca globalnego usunięcia Dropdown ani przebudowy callerów poza zakresem
+  audytu.
+- **Nagłówki** na przeniesionych ekranach zgód, list, szczegółów operacji i ekranów
+  prawnych używają właściwego wariantu brand lub nagłówka stosu. Domyślne zachowanie
+  wspólnego DefaultHeader pozostaje bez globalnego redesignu.
+- **Akcje FAB** zostały zastąpione w wskazanych listach i szczegółach przez akcje
+  nagłówka, przyciski sekcji lub akcje lokalne. Pozostałe użycia wspólnego FAB poza
+  migracją nie są z tego powodu osobnym zadaniem.
+- **Inline feedback i wyciszanie toastów** są skonfigurowane na trasach naprawionych
+  w Tasks 1–5. To nie jest globalna zmiana domyślnego zachowania providerów dla
+  niezmienionych callerów.
 
 Pozostawienie pliku w `components/common` samo w sobie nie oznacza starego UI.
 Na przykład `InputNumber` w nowych formularzach ma już wariant `auth`.
@@ -156,29 +159,36 @@ pliku lub komponentu. Tabela nie jest potwierdzeniem braku błędów.
 | Auth i reset hasła | `/start`, `/login`, `/register`, `/forgotPassword`, `/server`, `/resetPassword` | Natywny `AuthPanel` / formularz resetu, keyboard-aware scroll, nowe pola, lokalna walidacja i błędy. `/server` pozostaje narzędziem Development. |
 | Domy | `/`, `/home/list`, `/home/add`, `/home/join`, `/home/details`, `/home/share` | Nowy dashboard domu i kafelki urządzeń, wybór domu, zaproszenia, tworzenie i edycja, mapa, sekcje źródła/udostępniania i destrukcyjne potwierdzenia. Wyjątek: osobny `/home/dataSource/select` opisany wyżej. |
 | Pokoje | `/home/room/add`, `/home/room/details` | Keyboard-aware `RoomForm`, `FormSection` w edycji, walidacja i lokalne odzyskiwanie po błędzie. |
-| Tworzenie urządzenia | `/device/add` | Nowy formularz z ikonami z katalogu, wyborem pokoju, błędami inline i akcją w tym samym scrollu. Edycja ma pozostałości opisane osobno. |
-| Źródło danych i broker | `/dataSource/add`, `/dataSource/details`, `/dataSource/brokers/startBrokerClient`, `/dataSource/brokers/addSubscription` | Nowe formularze, szczegóły i ustawienia, lokalne błędy/Retry, stany brokera i akcje subskrypcji. Lista i wybór źródła wymagają dokończenia osobno. |
+| Tworzenie i edycja urządzenia | `/device/add`, `/device/details` | Tworzenie zachowuje istniejący formularz. Edycja używa natywnych Tile/Presence selektorów, lokalnej walidacji, pełnego katalogu operacji i częściowych zapisów. Capture 034 potwierdza dostęp do ostatnich akcji nad Gboard; capture 107 pokazuje Delete nad Gboard przy 320 dp Dark/font 1.3. Captures 129/130 na `8f4f7f4` potwierdzają lokalne Retry po błędzie kolekcji i powrót bez powtórzenia zaakceptowanego DELETE. Bounded stany natywne są opisane w raporcie; TalkBack, backend i sprzęt pozostają niezweryfikowane. |
+| Źródło danych i broker | `/dataSource/add`, `/dataSource/details`, `/dataSource/list`, `/home/dataSource/select`, `/dataSource/brokers/startBrokerClient`, `/dataSource/brokers/addSubscription` | Formularze, szczegóły, pełna lista i wybór źródła używają lokalnego odzyskiwania i istniejących transportów. Wybór domu zachowuje owner/current-home guards i Retry bez powtarzania PUT. Wybrane native stany opisuje raport Task 6. |
 | Dashboard urządzenia | `/device/device`, `/device/dashboard/add`, `/device/dashboard/details`, `/device/dashboard/placeWidget` | Wspólny scroll kontekstu i siatki, wybór dashboardu, nowe formularze, dodawanie z wolnej komórki, gesty placementu i rozdzielenie ról. |
 | Widgety | `/device/widget/add`, `/device/widget/details`, `/device/widget/list` | Nowe formularze typów i opcje, odczyt konfiguracji, potwierdzane usuwanie definicji, lista/picker oraz lokalna obsługa błędów. Kontrolki live i edytor koloru także mają nową implementację. |
-| Tworzenie operacji | `/device/operation/add` | Nowy formularz wraz z Boolean, Numeric, Options, modalem opcji i edytorem JSON path. Osobne szczegóły/lista nadal wymagają dokończenia. |
-| Profil | `/user/profile` | Nowe preferencje, wybór motywu, nawigacja ustawień, lokalne błędy i natywne potwierdzenie usuwania konta. App information i legal views opisano osobno. |
+| Operacje | `/device/operation/add`, `/device/operation/details`, `/device/operation/list`, `/device/widget/list` | Tworzenie, read-only szczegóły, role/membership gates i lokalne odzyskiwanie są zaimplementowane. Dawny `/device/operation/list` pozostaje aliasem do WidgetList; samodzielny OperationList usunięto, a operationId-only link nie ujawnia Delete. |
+| Profil i informacje | `/user/profile`, `/user/info`, `/user/privacy`, `/user/terms` | Ustawienia profilu zachowują lokalne błędy i natywne potwierdzenie. Informacje i prywatne dokumenty prawne są w jednym scrollu z istniejącymi wartościami i linkami. Wybrane legal captures i pozostałe braki są w raporcie Task 6. |
 
-## Proponowana kolejność
+## Postęp względem pierwotnej kolejności
 
 1. **Automatyzacje — zrealizowano:** osobna lista domu, cztery natywne formularze
    i naprawy zapisu; globalne klucze ikon i kontrakty zachowane. Zakres kontroli
    oraz pozostałe ograniczenia opisuje raport walidacji.
-2. **Zgody:** domknąć ekran bramkujący dostęp do aplikacji, szczególnie błędy
-   przyjęcia zgód i skalowalny układ.
-3. **Konfiguracja domu/urządzeń:** dokończyć wybór/listę źródeł,
-   `OperationSelector`, Tile/Presence oraz szczegóły operacji. Współdzielone
-   komponenty poprawiać raz, z uwzględnieniem wszystkich callerów.
-4. **Ekrany pomocnicze:** ujednolicić potwierdzenie e-maila, dokumenty prawne,
-   przerwę techniczną i App information. Rozstrzygnąć, czy osobna lista operacji
-   ma nadal pełnić rolę nawigacyjną.
-5. **Końcowe dopracowanie:** sprawdzić spójność nagłówków, targety, błędy
-   i ścieżki powrotu po migracji. Ocena wizualna i zachowania natywnego pozostaje
-   poza zakresem tego audytu kodu.
+2. **Zgody — implementacja ukończona:** lokalne sprawdzenie consent, Retry bez
+   ponownego POST, Back/Cancel i czytelne linki/copy. Raport dokumentuje też
+   pełny tekst, błąd i Retry oraz Cancel podczas opóźnionego POST przy 320 × 480 dp
+   Dark/font 1.3.
+3. **Źródła, urządzenia i operacje — implementacja i wybrane odzyskiwanie
+   natywne sprawdzone:** listy i wybór źródła, OperationSelector, Tile/Presence
+   oraz szczegóły operacji są dostarczone. Captures 127/128 i 129/130 na
+   `8f4f7f4` potwierdzają odpowiednio accepted-read recovery dla operacji i
+   urządzenia bez powtórzenia DELETE; wcześniejsze awarie i poprawione przebiegi
+   pozostają przypięte do 59cb891/ec47b34.
+4. **Ekrany pomocnicze — implementacja ukończona:** confirmation, legal,
+   maintenance i App information mają lokalne stany i odzyskiwanie. Końcowe
+   public/private legal, App Info, confirmation i maintenance są przypięte w
+   raporcie do source revision i hashy aktualnych capture’ów.
+5. **Task 6 — raportowany, przegląd dokumentacji pending:** bounded native matrix,
+   kontrole kodu, eksport i cleanup są zakończone. Scoped review zatwierdził
+   source correction F1/F2/M1/F3; finalny Sol review dokumentacji i dowodów jest
+   jeszcze wymagany. Nie ma PR ani całościowego werdyktu review.
 
 Dokument jest listą zaległości z badanego commita, a nie nową specyfikacją API
 ani zmianą polityki UI. Przy realizacji aktualizować statusy względem rzeczywistego
@@ -196,3 +206,19 @@ Na Node `26.12.1` z `.nvmrc` wykonano bez błędów:
 Sprawdzono także istnienie lokalnych odnośników i wskazanych linii oraz obecność
 wszystkich 45 tras w raporcie. Te kontrole nie odtwarzają znalezionych błędów
 automatyzacji i nie zastępują osobnych testów przy ich późniejszej naprawie.
+
+## Aktualizacja 4 listopada 2026
+
+Statusy powyżej odnoszą się do źródła `a705c23` po Tasks 1–6 i bounded,
+source-pinned stanów natywnych; nie zmieniają historycznego zakresu audytu z
+28 października. Oryginalne profile Android 0 i 11 zachowano. QA user 10 był
+faktycznie zapisany jako `Codex`, serial 12, utworzony około 09:06 UTC, i został
+usunięty po zatrzymaniu; poprzednie pliki z `/tmp` zniknęły przy nocnym resecie
+i nie są publikowane. Finalny eksport Android ma 55 assetów i nie zawiera
+fixture origin; pierwotny `.env` pozostał bez zmian, a task-owned `.env.local`,
+API i QA Metro usunięto/zatrzymano po kontroli. Fizyczny viewport/density
+przywrócono, zapisane ustawienia user 0 pozostały niezmienione. Po restarcie
+system raportował `Night mode: no`; dokładna etykieta wcześniejszego
+`custom_bedtime` nie jest deklarowana jako przywrócona. Raport walidacji
+rozdziela bounded obserwacje, historyczne błędy ANR i niezweryfikowane obszary.
+Końcowy Sol review dokumentacji/dowodów oraz PR pozostają pending.

@@ -20,7 +20,7 @@
 - Every write has a synchronous lock, captured identity/permission checks and an accepted latch before refresh/return. Recovery after acceptance cannot repeat the write. Ignore stale screen feedback/navigation.
 - Every migrated route owns persistent error/Retry before toast suppression is enabled. Silence the initiating provider where a late result could otherwise toast on another route.
 - Install hooks once per clone. Preserve the frozen lockfile and exact dependency versions. Each code-task commit requires `pnpm typecheck`, `pnpm lint`, `pnpm test:poc`, its narrow suite and `git diff --check`.
-- Expected failure of a newly added TDD characterization is an authorized red step. Any unexpected existing-test/check failure: notify the coordinator and STOP for the human; do not continue fixes or unrelated work without direction.
+- Expected failure of a newly added TDD characterization is an authorized red step. The earlier plan wording to pause on unexpected failures was superseded by the user's direct 2026-11-04 instruction: report failures, diagnose/fix/retest and continue the authorized work without asking whether to continue. Preserve failure output; do not hide failures or expand scope into unrelated work.
 - Existing completed flows and their documented limitations remain intact. Tests establish handler behavior; Android captures establish the particular rendered/touch states actually exercised.
 
 ## Review Focus
@@ -39,7 +39,48 @@ New product files are limited to `user/LegalDocumentView.tsx`; new test files st
 
 Preflight belongs to the coordinator: record existing check results, Node/pnpm, Git baseline, emulator identity and settings. Do not duplicate a completed preflight. The coordinator may keep local Metro/native fixture tooling outside tracked product code. A test-only Android user/account and temporary labelled fixtures must be cleaned up before final delivery.
 
-Recorded preflight: Node 26.12.1, typecheck/lint passed (281 formatted files), PoC 43/43 passed; only existing `MODULE_TYPELESS_PACKAGE_JSON` warning. Hooks are installed. The coordinator owns disposable emulator user 11 on `emulator-5554`, with original user 0 stopped, and prepares fixtures under `/tmp`; preserve that isolation rather than creating competing QA state.
+Recorded preflight: Node 26.12.1, typecheck/lint passed (281 formatted files), PoC 43/43 passed; only existing `MODULE_TYPELESS_PACKAGE_JSON` warning. Hooks are installed. The overnight reset removed the earlier `/tmp` runtime and captures. Preserve pre-existing Android users 0 and 11; only the fresh task QA user 10 is owned and may be removed. Its actual stored label is `Codex`, serial 12, created around 09:06 UTC; the intended descriptive full label was not stored. Current runtime tooling and captures live under the ignored Task 6 SDD runtime directory. The original `.env` was untouched; the task-owned ignored `.env.local` fixture override must be removed before production export. Do not present lost historical captures as current assets.
+
+## Current execution status — 2026-11-04
+
+Tasks 1–5 and the Task 6 source corrections are committed on the original local
+`next-dev`. The final product source checkpoint is `a705c23` (20 commits ahead
+of its original base). The reviewed F1/F2/M1/F3 correction wave is at
+`8f4f7f4`; the final `a705c23` product change only shortens the App Info label
+from Contact to Email and updates its existing value lookup. The corrected copy
+was recommended in the Sol source review, and its rendering is captured at 320 ×
+480 dp. The final whole-change Sol review of this documentation/evidence
+addendum is still pending.
+
+The current report and [asset manifest](../validation/assets/ui-audit-remainder/manifest.json)
+record the bounded Android matrix, with each selected PNG/XML pinned to its
+actual source and file hashes. Captures 127–130 on `8f4f7f4` prove accepted
+operation and device-delete recovery without repeating DELETE. Final-source
+captures include compact consent, legal, App Info, confirmation and maintenance
+states. The earlier Android graphics ANRs and null-child fatal remain
+unexplained; later selected flows are not evidence of cause or cure. TalkBack,
+real backend/account, production MQTT and hardware are unverified. Development
+client cold confirmation requires cached-project selection; release APK and
+browser domain association are unverified.
+
+The recorded relevant check set passes: typecheck and lint (290 files), PoC 103,
+data-sources 75, device-details 242, homes 83, dashboard 53, icons 30,
+automations 82 and build 2. Results are source-pinned in the validation report;
+focused final follow-up checks are distinguished from suites not rerun after the
+last optional Display metadata correction. The final clear-cache Android
+production export succeeded with 55 assets and no fixture-origin matches.
+Cleanup preserved original Android users 0/11 and `.env`, removed only owned QA
+user 10 and `.env.local`, stopped QA services and restored the physical display.
+The saved user 0 font/night settings were unchanged; the post-reboot service
+night label differs and is not claimed restored.
+
+Task 6 implementation, bounded native evidence, source checks, export and
+cleanup are recorded. The documentation/evidence Sol gate and PR publication are
+not complete. Root will retry the requested Sol review once after this
+checkpoint. If the gate remains quota-blocked, the authorized fallback is a
+Draft PR with the review status explicitly pending; do not substitute a reviewer,
+claim overall approval, merge or release. Do not mark the plan complete until the
+review gate and PR publication are actually recorded.
 
 ---
 
@@ -106,7 +147,7 @@ Recorded preflight: Node 26.12.1, typecheck/lint passed (281 formatted files), P
 ### Task 3: Finish Tile/Presence controls and device-delete recovery
 
 **Files:**
-- Modify: `src/components/device/DeviceForm.tsx`, `src/components/device/operation/OperationSelector.tsx`, `src/app/(app)/device/details.tsx`, `src/contexts/ToastProvider.tsx`, `package.json`.
+- Modify: `src/components/device/DeviceForm.tsx`, `src/components/device/operation/OperationSelector.tsx`, `src/app/(app)/device/details.tsx`, `src/contexts/custom/DeviceListProvider.tsx`, `src/contexts/ToastProvider.tsx`, `package.json`.
 - Create: `tests/operationSelector.test.mjs`.
 - Modify: `tests/deviceDetails.test.mjs`, `tests/operationSelector.test.mjs`, `tests/nativeComponentHarness.mjs`, `tests/resourceIconForms.test.mjs`, `tests/feedback.test.mjs` for selector mocks, committed focus lifecycle and route deletion checks.
 - Read/regress: `src/app/(app)/device/add.tsx`, `RoomSelector.tsx`, existing device tile preview logic. Do not change their public payloads or read/subscription behavior.
@@ -115,10 +156,11 @@ Recorded preflight: Node 26.12.1, typecheck/lint passed (281 formatted files), P
 **Interfaces:**
 - Keep `OperationSelectorProps`'s `deviceId`, `initialOperationId?`, `filterTypes: OperationType[]`, `onSelected(value: string): void`; add `title?: string` (default `Operation`), `error?: string`, `disabled?: boolean`. No caller receives an automatic None callback when loading/filtering fails.
 - Add optional `disabled?: boolean` to DeviceForm props for route-owned delete/accepted state; default false leaves creation unchanged. All form submit/selection/reset handlers honor combined own pending and external disabled state; preserve `DeviceFormRef` and partial submission shape.
+- For accepted DeviceForm deletion, reuse and await the existing DeviceListProvider collection loader while preserving `refresh(): Promise<boolean>`. Its boolean must describe the completed collection read, not request scheduling. Do not duplicate the GET or let create/save callers observe an early success.
 - Title each selector distinctly: `Tile operation`, `Primary reading operation`, `Reading N operation`, `Presence operation`. Add operation forwards exact routed `deviceId` and remains owner/manager-only.
 - Append `tests/operationSelector.test.mjs` to `test:device-details`.
 
-- [ ] **Step 1: Add failing selector and delete-handler tests.** Names: `one compatible operation remains selectable`, `missing stored operation survives unrelated save`, `retained choices cannot mutate a pending form`, `accepted device deletion retries return only`. Required assertions include:
+- [x] **Step 1: Add failing selector and delete-handler tests.** Names: `one compatible operation remains selectable`, `missing stored operation survives unrelated save`, `retained choices cannot mutate a pending form`, `accepted device deletion retries return only`. Required assertions include:
   ```js
   assert.match(operationReads[0], /size=2147483647/);
   assert.equal(chosenIds[0], "operation-101");
@@ -126,30 +168,34 @@ Recorded preflight: Node 26.12.1, typecheck/lint passed (281 formatted files), P
   assert.equal(deleteCalls.length, 1); // accepted DELETE, refresh/return failed
   ```
   Test zero/one/101 operations, exact type filters/IDs and None, thrown/malformed/404 reads, local Retry, returning from Add, stale device/filter/option callbacks, historical selection retention, disabled Add and setter guards. Update Dropdown-based assertions to BottomSheetSelect. Pin required command/display/presence errors, disclosure opening and independent error clearing; retain readings/reset/preview invariants. Delete tests cover Cancel/Back, lost role/home/device/catalog membership, double confirm, failure/Retry and accepted/refocus/navigation-only recovery, including refocus before DELETE acceptance and while accepted refresh is pending.
-- [ ] **Step 2: Run the characterization.** `pnpm exec node --test tests/operationSelector.test.mjs tests/deviceDetails.test.mjs`; expected failures confined to the new migration behavior.
-- [ ] **Step 3: Implement native selectors and local recovery.** Use BottomSheetSelect for Tile/Presence, preserve current options and exact values, and build OperationSelector from existing field/section-action/alert primitives. One focus read loads the complete per-device catalog; rendering/filtering must not mutate the selected ID. Keep loaded same-device choices on refresh failure. Missing required selections stay as local field errors, with no toast. Preserve compatible type-transition drafts and PATCH omission of untouched references. Before exposing management, prove routed device membership in the selected home's existing complete `useDeviceList().devices`; recheck live membership and role before DELETE. Retain that verified target after accepted deletion even if refresh removes it from the catalog. Same-home list-read errors must not unmount a form whose membership was already proven. Bind confirmation/recovery to the loaded device/home/session and external disabled state; accepted follow-up resumes in the current matching focus generation after pending work releases, never with another DELETE. Route errors/Retry stay above Delete. Remove device detail success/error toasts and add `/device/details` inline suppression only now.
-- [ ] **Step 4: Verify task and update UI policy.** Run `pnpm test:device-details`, `pnpm test:icons`, required typecheck/lint/PoC and `git diff --check`; expected zero failures. In policy, record title/disabled/error behavior and unchanged values/partial saves, not unverified native claims.
-- [ ] **Step 5: Commit and review.** Commit `feat: finish native device tile and presence settings`. Sol checks unrelated edits with an unavailable historical operation, hidden disclosures and retained callback locks before Task 4.
+- [x] **Step 2: Run the characterization.** `pnpm exec node --test tests/operationSelector.test.mjs tests/deviceDetails.test.mjs`; expected failures confined to the new migration behavior.
+- [x] **Step 3: Implement native selectors and local recovery.** Use BottomSheetSelect for Tile/Presence, preserve current options and exact values, and build OperationSelector from existing field/section-action/alert primitives. One focus read loads the complete per-device catalog; rendering/filtering must not mutate the selected ID. Keep loaded same-device choices on refresh failure. Missing required selections stay as local field errors, with no toast. Preserve compatible type-transition drafts and PATCH omission of untouched references. Before exposing management, prove routed device membership in the selected home's existing complete `useDeviceList().devices`; recheck live membership and role before DELETE. Retain that verified target after accepted deletion even if refresh removes it from the catalog. Same-home list-read errors must not unmount a form whose membership was already proven. Bind confirmation/recovery to the loaded device/home/session and external disabled state; accepted follow-up resumes in the current matching focus generation after pending work releases, never with another DELETE. Route errors/Retry stay above Delete. Remove device detail success/error toasts and add `/device/details` inline suppression only now.
+- [x] **Step 4: Verify task and update UI policy.** Run `pnpm test:device-details`, `pnpm test:icons`, required typecheck/lint/PoC and `git diff --check`; expected zero failures. In policy, record title/disabled/error behavior and unchanged values/partial saves, not unverified native claims.
+- [x] **Step 5a: Commit implementation.** Commit `feat: finish native device tile and presence settings` was completed at `739a190` and follow-up provider correction at `ec47b34`.
+- [x] **Step 5b: Complete scoped review.** Sol approved the Task 3 collection-loader correction with no findings. The native ec47 captures 079/080 verified local Retry after collection 503; current-source recheck is in captures 129/130.
 
 **Authorized review follow-up — fix round 1:** Require selected-home catalog membership before device management; resume accepted DELETE refresh/return after early blur/refocus; and test route/selector focus through committed harness effects. `nativeComponentHarness` may accept `modules` as either its existing object or a factory called once with the harness React object. Keep object callers unchanged; focused tests register `useFocusEffect` with that React object's `useEffect(..., [callback])`, and explicit focus/blur only invoke committed registrations/cleanup. No product dependency or new generic abstraction.
+
+**Authorized provider follow-up — fix round 3/5, 2026-11-04:** Native capture 077 on source 59cb891 reproduced an accepted device DELETE followed by a collection GET 503 and immediate return to Widgets. Commit `ec47b34` reuses and awaits the existing collection loader, preserves its boolean refresh contract, keeps accepted writes latched and covers pending, failure, 404, latest-read, home-change and real route composition. Captures 079/080 on ec47b34 verify local Retry after collection 503 and return after the matching read recovers without another DELETE. Task 3 scoped Sol review approved with no findings. Current-source recovery is independently retested in captures 129/130.
 
 ### Task 4: Complete operation details and consolidate the legacy list
 
 **Files:**
-- Modify: `src/app/(app)/device/operation/details.tsx`, `src/app/(app)/device/operation/list.tsx`, `src/app/(app)/_layout.tsx`, `src/components/device/operation/OperationForm.tsx`, `src/components/device/operation/OperationTile.tsx`, `src/components/device/widgets/WidgetList.tsx`, `src/contexts/ToastProvider.tsx`, `package.json`.
+- Modify: `src/app/(app)/device/operation/details.tsx`, `src/app/(app)/device/operation/list.tsx`, `src/app/(app)/_layout.tsx`, `src/components/device/operation/OperationForm.tsx`, `src/components/device/operation/OperationTile.tsx`, `src/components/device/widgets/WidgetList.tsx`, `src/contexts/custom/DeviceListProvider.tsx`, `src/contexts/ToastProvider.tsx`, `package.json`.
 - Delete: `src/components/device/operation/OperationList.tsx` (only its legacy route imports it).
 - Create: `tests/operationDetails.test.mjs`.
-- Modify/test: `tests/operationForm.test.mjs`, `tests/widgetPicker.test.mjs`, `tests/widgetConfigPermissions.test.mjs`, `tests/feedback.test.mjs`.
+- Modify/test: `tests/operationForm.test.mjs`, `tests/homeDashboard.test.mjs`, `tests/widgetPicker.test.mjs`, `tests/widgetConfigPermissions.test.mjs`, `tests/feedback.test.mjs`.
 - Docs: AGENTS; repository/interface/validation guides, noting retained URL alias and proven role context.
 
 **Interfaces:**
 - Add `children?: ReactNode` to OperationForm props and render it after configuration inside its existing KeyboardAwareScrollView. Preserve edit read-only behavior and create-only growing actions/feedback/returnAction. No new shared dialog component is needed.
 - Add `deviceId?: string` to OperationTile props; WidgetList passes its explicit resolved device ID. Details route receives `operationId?: string|string[]`, `deviceId?: string|string[]`, normalizes opaque nonempty IDs and requests the routed operation.
 - Consume current-home `useDeviceList(): { devices, loading, error, refresh, ... }`, existing home roles, and the full per-device operation catalog. These establish deletion context; an operationId-only old link permits server-authorized read-only detail and no Delete.
+- `refreshDevice(deviceId)` returns `Promise<boolean>` for the validated matching current-home read. Failure, malformed, missing, mismatched or stale reads return false without replacing cache; live-update callers may ignore the result and remain fire-and-forget. No backend DTO or API field changes.
 - Legacy route replaces itself with `/device/widget/list`, forwarding valid explicit `deviceId` and otherwise retaining canonical bound-device fallback. Keep registration without the old header/FAB; no new destination or DTO.
 - Append `tests/operationDetails.test.mjs` to `test:device-details`.
 
-- [ ] **Step 1: Add failing route/membership/alias tests.** Names: `failed operation read never mounts a blank form`, `management in another home cannot delete this operation`, `accepted operation deletion retries only return`, `legacy operation list replaces to widgets with routed device`. Pin:
+- [x] **Step 1: Add failing route/membership/alias tests.** Names: `failed operation read never mounts a blank form`, `management in another home cannot delete this operation`, `accepted operation deletion retries only return`, `legacy operation list replaces to widgets with routed device`. Pin:
   ```js
   assert.equal(renderedOperationForms.length, 0); // failed GET
   assert.equal(deleteCalls.length, 0); // current home manages A, operation belongs to B
@@ -157,10 +203,12 @@ Recorded preflight: Node 26.12.1, typecheck/lint passed (281 formatted files), P
   assert.deepEqual(replacements[0], { pathname: "/device/widget/list", params: { deviceId: "device-a" } });
   ```
   Cover read/parse failure and Retry, missing/array IDs, known operation ID mismatch, Display read-only, owner/manager membership, stale/error device catalog, operation absent from bound device, old link without context, Cancel/Back, lost focus/role/context, widget/tile conflicts, thrown requests, synchronous DELETE lock and accepted/refocus fallback. Preserve selection-only WidgetList and creation form assertions.
-- [ ] **Step 2: Run characterization.** `pnpm exec node --test tests/operationDetails.test.mjs tests/operationForm.test.mjs tests/widgetPicker.test.mjs`; expected new detail/alias assertions fail before implementation.
-- [ ] **Step 3: Implement details and compatibility alias.** Only mount a validated matching read-only form. Render separate Delete ContentSection through the children slot. Follow existing native Modal/named PortalHost Reusables confirmation with scrollable body and stacked buttons. Delete requires a loaded current-home device, exact operation membership and current owner/manager permission; stale/unavailable membership offers local read recovery rather than Delete. Accurate copy explains detach/unlink requirements and automation consequences, without claiming widgets are cascaded. Capture confirmation identity, latch accepted DELETE before matching-cache refresh, ignore late feedback/return and provide navigation-only return recovery. Add both operation routes to inline suppression, forward `deviceId`, replace the old list and delete its unused component.
-- [ ] **Step 4: Verify task and update conventions.** Run `pnpm test:device-details`, required typecheck/lint/PoC and `git diff --check`; expected zero failures. Confirm `rg -n 'OperationList|device/operation/list' src` finds no stale component import and only intentional compatibility references. Record the alias and safe deletion context in guides.
-- [ ] **Step 5: Commit and review.** Commit `feat: complete native operation details and list compatibility`. Sol reviews membership proof, full catalog, preserved read-only values and unchanged widget picker/create behavior before Task 5.
+- [x] **Step 2: Run characterization.** `pnpm exec node --test tests/operationDetails.test.mjs tests/operationForm.test.mjs tests/widgetPicker.test.mjs`; expected new detail/alias assertions fail before implementation.
+- [x] **Step 3: Implement details and compatibility alias.** Only mount a validated matching read-only form. Render separate Delete ContentSection through the children slot. Follow existing native Modal/named PortalHost Reusables confirmation with scrollable body and stacked buttons. Delete requires a loaded current-home device, exact operation membership and current owner/manager permission; stale/unavailable membership offers local read recovery rather than Delete. Accurate copy explains detach/unlink requirements and automation consequences, without claiming widgets are cascaded. Capture confirmation identity, latch accepted DELETE before matching-cache refresh, ignore late feedback/return and provide navigation-only return recovery. Add both operation routes to inline suppression, forward `deviceId`, replace the old list and delete its unused component.
+- [x] **Step 4: Verify task and update conventions.** Run `pnpm test:device-details`, required typecheck/lint/PoC and `git diff --check`; expected zero failures. Confirm `rg -n 'OperationList|device/operation/list' src` finds no stale component import and only intentional compatibility references. Record the alias and safe deletion context in guides.
+- [x] **Step 5: Commit and review.** Commit `feat: complete native operation details and list compatibility`; scoped Sol review approved the Task 4 fix with no findings. Task 6 retested both accepted-read recovery boundaries on source 8f4f7f4 in captures 127–130.
+
+**Fix round 3/5 status, 2026-11-04:** Commit 59cb891 implements the boolean per-device refresh result and keeps accepted read Retry until success. Task 4 tests and selected native captures 075/076 passed, including one accepted DELETE and two matching-device reads after Retry. Scoped Sol review approved with no findings. Because Task 3 later changed the shared provider collection loader in ec47b34, Task 6 replayed both recovery boundaries on current source 8f4f7f4 in captures 127–130.
 
 ### Task 5: Complete confirmation, legal, maintenance and app information screens
 
@@ -177,7 +225,7 @@ Recorded preflight: Node 26.12.1, typecheck/lint passed (281 formatted files), P
 - Preserve `getTerms(): Promise<Result<LegalDocument>>`, `getPrivacy(): Promise<Result<LegalDocument>>`, `confirmEmail(userId: string, code: string): Promise<SimpleResult>`, `initialize(): Promise<void>`. Legal failure/parse validation returns Result; no transport/public contract change. Key view requests by kind and `configuration.getBaseUrl().toString()`, never an unstable provider object.
 - Append all three test files to `test:poc`. Inline routes: `/confirmEmail`, `/maintenance`, `/privacy`, `/terms`, `/user/privacy`, `/user/terms`, `/user/info`.
 
-- [ ] **Step 1: Add failing public-provider and route tests.** Names: `confirmation sends exact opaque query values`, `confirmation succeeds once across rerenders`, `legal content and version remain authoritative`, `maintenance exits using updated provider state`. Essential oracles:
+- [x] **Step 1: Add failing public-provider and route tests.** Names: `confirmation sends exact opaque query values`, `confirmation succeeds once across rerenders`, `legal content and version remain authoritative`, `maintenance exits using updated provider state`. Essential oracles:
   ```js
   assert.equal(sentUrl.searchParams.get("code"), "a+b/=&✓");
   assert.equal(confirmationPosts.length, 1); // success plus rerender/refocus
@@ -186,10 +234,10 @@ Recorded preflight: Node 26.12.1, typecheck/lint passed (281 formatted files), P
   assert.equal(startReplacements.length, 0); // compatibility restored, now authenticated
   ```
   Confirmation cases include missing/empty/repeated params, exact strings without double decoding, failure/throw/Retry, parallel presses, changed params/server and blur. Legal tests cover each kind and all four wrappers, parse/shape/error/Retry, empty summary allowed but nonempty version/full content required, stale kind/server/unmount and no initial Version placeholder. Maintenance covers still-blocked neutral copy, shared pull/button lock, updated auth state and blurred local completion. Info tests pin every existing metadata value/legal destination, wrapping scroll and final-row access through host props.
-- [ ] **Step 2: Run characterization.** `pnpm exec node --test tests/confirmEmail.test.mjs tests/legalDocuments.test.mjs tests/statusScreens.test.mjs`; expected failures on query encoding, recovery and old wrappers, with no unrelated suite failures accepted.
-- [ ] **Step 3: Implement the supporting screens.** Use the existing auth/status grammar, themed growing scrolls and separate real Retry/Sign in controls. Encode confirmation through `URL.searchParams` and remove exception interpolation that could contain a token; retain exact code strings, one in-flight request and success latch per parameter identity. Reject ambiguous parameters locally. Legal provider catches request/JSON/consumed-shape failures; shared view owns local read/Retry and exact summary/content/version. Both wrapper types use brand headers without nested scrolling. Maintenance awaits existing initialization and reacts to the resulting live provider state, routing authenticated recovery to consents and other compatible recovery to Start; keep the provider's own authentication routing. Explicit Retry and optional pull share one lock. Info keeps its existing values/navigation inside one 448 dp scroll. Add route suppression only after local recovery exists.
-- [ ] **Step 4: Verify task and update architecture/policy.** Run `pnpm test:poc`, `pnpm test:data-sources`, `pnpm test:device-details`, required typecheck/lint and `git diff --check`; expected zero failures. Add delayed provider failure/keyboard checks to feedback tests. Update guides for the shared legal component, exact token encoding, status recovery and test commands. Do not mark audit entries natively verified yet.
-- [ ] **Step 5: Commit and review.** Commit `feat: complete native account and service support screens`. Sol checks token-containing error paths, URL identity changes, all four legal wrappers and absence of stale maintenance navigation.
+- [x] **Step 2: Run characterization.** `pnpm exec node --test tests/confirmEmail.test.mjs tests/legalDocuments.test.mjs tests/statusScreens.test.mjs`; expected failures on query encoding, recovery and old wrappers, with no unrelated suite failures accepted.
+- [x] **Step 3: Implement the supporting screens.** Use the existing auth/status grammar, themed growing scrolls and separate real Retry/Sign in controls. Encode confirmation through `URL.searchParams` and remove exception interpolation that could contain a token; retain exact code strings, one in-flight request and success latch per parameter identity. Reject ambiguous parameters locally. Legal provider catches request/JSON/consumed-shape failures; shared view owns local read/Retry and exact summary/content/version. Both wrapper types use brand headers without nested scrolling. Maintenance awaits existing initialization and reacts to the resulting live provider state, routing authenticated recovery to consents and other compatible recovery to Start; keep the provider's own authentication routing. Explicit Retry and optional pull share one lock. Info keeps its existing values/navigation inside one 448 dp scroll. Add route suppression only after local recovery exists.
+- [x] **Step 4: Verify task and update architecture/policy.** Run `pnpm test:poc`, `pnpm test:data-sources`, `pnpm test:device-details`, required typecheck/lint and `git diff --check`; expected zero failures. Add delayed provider failure/keyboard checks to feedback tests. Update guides for the shared legal component, exact token encoding, status recovery and test commands. Do not mark audit entries natively verified yet.
+- [x] **Step 5: Commit and review.** Commit `feat: complete native account and service support screens`; the Task 5 fix review addressed the retained-callback findings with no new important breakage. Broader native artifact loss and release-link limits remain documented in Task 6.
 
 ### Task 6: Verify Android integration, update the audit and open the PR
 
@@ -203,11 +251,11 @@ Recorded preflight: Node 26.12.1, typecheck/lint passed (281 formatted files), P
 - Production export: `pnpm exec expo export --platform android --output-dir /tmp/senswave-ui-audit-android-export`.
 - Final remote review branch: `feat/ui-audit-remainder`; PR base `next-dev`, title `feat: complete remaining native UI audit flows`. Keep local branch `next-dev` and do not merge.
 
-- [ ] **Step 1: Run the final relevant regression set.** After source/fixture cleanup, run `pnpm typecheck`, `pnpm lint`, `pnpm test:poc`, `pnpm test:data-sources`, `pnpm test:device-details`, `pnpm test:homes`, `pnpm test:dashboard`, `pnpm test:icons`, `pnpm test:automations`, the production Android export and `git diff --check`. Expected: checks exit 0 and tests report zero failures. Do not rerun unchanged suites after documentation-only edits; rerun the affected suites after any source correction. Record existing warnings precisely.
-- [ ] **Step 2: Exercise the actual Android flows and capture evidence.** Use `emulator-5554` when still available; record original settings first. Verify each changed route at 448 dp Light and 320 dp Dark, font scales 1.0 and 1.3, with a short 480 dp window and tall window represented. Confirm first/last content, native 48 dp targets, large names/URLs/legal text, pending/error/Retry, all sheet/dialog Cancel/Back/Confirm paths, gate logout/legal return, and IME reachability for DeviceForm. Use disposable data for writes; preserve original household metadata/configuration. Include Owner/Manage/Display source/operation gates, accepted-write recovery, legacy operation URL, exact token confirmation failure/retry, every legal wrapper, maintenance recovery and info navigation. Label fixtures on screen; they prove layout/handlers, not real backend or hardware writes. Capture real happy-path reads and disposable request behavior separately. Restore settings and remove temporary routes/exports.
-- [ ] **Step 3: Write the native report and audit corrections.** Manifest records revision, device, viewport/density/font/theme/state and fixture/live origin for each numbered capture. Keep useful original PNG/XML evidence, link it from the report and document cleanup. Update every remaining audit row from actual implementation/check evidence; distinguish unexercised TalkBack, physical MQTT, hardware and backend paths. Preserve completed automation/dashboard evidence and historical audit findings. Check relative links and `git diff --check`.
-- [ ] **Step 4: Run the whole-change Sol review and commit delivery documentation.** Reviewer reads the complete diff from `b40b990`, approved spec, task checks and native captures. Address concrete findings using the owning task's checks, then confirm no fixture/product residue, credentials or token URLs appear in the diff. For any final source change, run the required commit gate. Commit `chore: document remaining UI audit completion` after documentation checks; record limitations in the report and PR.
-- [ ] **Step 5: Publish the reviewable result.** Verify clean status and branch/commit identities; push local HEAD only to the new remote branch (`git push origin HEAD:refs/heads/feat/ui-audit-remainder`). Create the PR targeting `next-dev` with the exact title above and a normal-prose body written to a temporary file and passed by `--body-file`. Describe resulting behavior, meaningful check/native evidence, compatibility alias and material limits. Do not push to remote `next-dev`/`main`, merge or release. Report PR URL and unverified behavior to the user.
+- [x] **Step 1: Run the final relevant regression set and production export.** Typecheck, lint, PoC, data-sources, device-details, homes, dashboard, icons, automations, build and the final clear-cache Android export passed. Their latest source and outcome are listed in the validation report; several unchanged owning suites were not repeated after the optional Display metadata follow-up.
+- [x] **Step 2: Exercise the bounded Android matrix.** Root completed the planned disposable-fixture cases across normal and compact viewports, Light and Dark themes, font scales, role gates, keyboard reachability, accepted-write recovery, confirmation, legal, maintenance and App Info. The report distinguishes exact-source captures, historical failures and unverified TalkBack/backend/hardware/release-link behavior.
+- [x] **Step 3: Prepare the native report, curated manifest and audit corrections.** Selected actual PNG/XML pairs are hash- and source-pinned; the audit covers remaining rows, preserves the legacy OperationList history and automation/dashboard evidence, and records cleanup and limits. Relative links, manifest hashes and diff checks are part of this docs checkpoint.
+- [ ] **Step 4: Obtain the final whole-change Sol review of documentation and evidence.** Source review approved the F1/F2/M1/F3 correction wave, but the final documentation addendum, including the App Info label follow-up, is still pending review because the reviewer tool reported its usage limit. Root will retry once after this checkpoint. If unavailable, keep the gate explicitly pending and use the Draft-only publication rule below; do not substitute another reviewer or claim overall approval.
+- [ ] **Step 5: Publish the reviewable result.** No PR exists yet. After the documentation checkpoint, publish the local `next-dev` result to `feat/ui-audit-remainder`, targeting `next-dev` with title `feat: complete remaining native UI audit flows`. If the Sol documentation gate remains quota-blocked, create a Draft PR that says so plainly. Do not push to remote `next-dev`/`main`, merge or release; report the resulting PR URL and limits.
 
 ## Plan self-review
 

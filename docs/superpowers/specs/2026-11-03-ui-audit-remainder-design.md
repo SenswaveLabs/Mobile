@@ -9,6 +9,38 @@ implementation, followed by Android verification and a PR targeting `next-dev`.
 This is the approved design; the separate
 [implementation plan](../plans/2026-11-03-ui-audit-remainder.md) defines execution.
 
+Execution update, 2026-11-04: Tasks 1–5 and the Task 6 source corrections are
+committed. The final product source is `a705c23`; it contains the approved F1/F2/
+M1/F3 source correction wave from `8f4f7f4` and a small App Info label change
+from Contact to Email. The correction wave passed its scoped Sol review; the
+final whole-change review of this documentation/evidence addendum is pending.
+
+The bounded Android matrix, relevant source checks, clear-cache Android
+production export and cleanup are recorded in the validation report and its
+hash-pinned manifest. Captures 127–130 on `8f4f7f4` verify both accepted
+operation and device-delete read recovery without repeating DELETE. Final-source
+captures cover the compact consent, legal, App Info, confirmation and maintenance
+cases. The earlier graphics ANR and null-child fatal remain unexplained; selected
+later passes do not establish cause or cure. TalkBack, real backend/account,
+production MQTT and hardware are not verified. Development-client cold
+confirmation requires cached-project selection; release APK and browser
+association are unverified.
+
+The latest relevant checks pass: typecheck, lint (290 files), PoC 103,
+data-sources 75, device-details 242, homes 83, dashboard 53, icons 30,
+automations 82 and build 2. The report pins each result to its latest owning
+source and identifies suites not repeated after the final optional metadata
+correction. The production export exited 0 with 55 assets and no fixture-origin
+matches. Cleanup preserved Android users 0/11 and the original `.env`, removed
+task-owned user 10 and `.env.local`, stopped the QA API/Metro and restored the
+physical display. The stored user 0 font/night settings remained unchanged; the
+post-reboot service night label is not claimed restored.
+
+The source and bounded native evidence are recorded; the overall review gate is
+not closed. Root will retry the requested Sol documentation/evidence review after
+the documentation checkpoint. If that reviewer remains quota-blocked, only a
+Draft PR with the pending gate disclosed is authorized. No overall approval,
+merge or release is claimed.
 ## Intent and constraints
 
 Complete every remaining entry in
@@ -51,13 +83,22 @@ operations/widgets page. No in-app action currently reaches the old list.
 ## Evidence and shared behavior
 
 The audit's automation entries are complete; their native limitations remain in
-their existing report. The other audit entries still match source. In particular:
+their existing report. Tasks 1–5 implemented the other entries. Their remaining
+native, export and cleanup status is recorded by Task 6. The shared behavior
+decisions include:
 
 - `DataSourceList` and `OperationSelector` run both mount and focus loads. Replace
   each pair with one focus-scoped read and a request generation; retry/refresh
   cannot let older responses replace newer data.
 - `DeviceForm` is already a native edit/create form. Only its Tile/Presence
   dropdowns, operation selectors and missing-operation feedback need migration.
+- Accepted device deletion relies on the existing DeviceListProvider collection
+  read. The existing loader must return its actual completion result to the
+  route, rather than reporting scheduling as success; reuse that loader and do
+  not issue a duplicate collection GET.
+- Operation deletion relies on the existing per-device read. Its helper returns
+  success/failure only for the validated matching current-home device, preserving
+  live-update callers that ignore the result.
 - The only source references to `device/operation/list` are its route and Stack
   registration. `OperationList` has that single caller. Device details already
   opens `/device/widget/list` as “Manage operations and widgets”; `WidgetList`
@@ -205,6 +246,16 @@ context changes. Successful deletion cannot be repeated after refresh/navigation
 failure. Suppress its success/error toasts; save feedback remains local in the
 existing form.
 
+Approved provider follow-up, 2026-11-04: the Task 3 route awaits the existing
+DeviceListProvider collection loader while preserving its boolean refresh
+contract. Commit ec47b34 returns the actual matching collection-read outcome;
+the route receives no scheduling-only success and issues no duplicate GET.
+Pending/failure/404/latest-read/home-change behavior remains covered for
+create/save callers, and accepted DELETE stays latched before recovery. Native
+capture 077 reproduces the pre-fix 503 path on 59cb891; captures 079/080 verify
+local Retry and recovery on ec47b34. Scoped Sol review approved with no findings;
+captures 129/130 repeat the accepted-read flow on current source 8f4f7f4.
+
 ## Operation details and legacy list compatibility
 
 Keep `OperationForm` read-only and mount it only after a validated operation read.
@@ -231,6 +282,16 @@ permanent and that automations using it can stop working. Conflict recovery is
 local and preserves the loaded configuration. After acceptance refresh only
 matching device/home caches and return once; navigation failure offers Return to
 operations, never another DELETE.
+
+Approved provider follow-up, 2026-11-04: DeviceListProvider.refreshDevice reports
+success only after a validated read for the matching device remains in the
+captured current-home collection. Failed, malformed, missing, mismatched and
+stale reads return failure without replacing cache. Existing live-update callers
+may ignore the result and remain fire-and-forget; no backend DTO or API field
+changes. Commit 59cb891 implements this reach and captures 075/076 show selected
+accepted-read recovery. Scoped review approved with no findings. Captures 127/128
+repeat the accepted-read recovery on current source 8f4f7f4 after Task 3 changed
+the shared provider collection loader.
 
 Retain `/device/operation/list` as a thin replacement/redirect to
 `/device/widget/list`, forwarding an explicit normalized `deviceId` when present
@@ -303,7 +364,7 @@ the final row reachable. No new metadata fields or links.
 | Authenticated routes | `(app)/_layout.tsx`; `dataSource/list.tsx`; `home/dataSource/select.tsx`; Home details source entry; device details; operation details/list alias; user info/privacy/terms |
 | Shared components | `headers/DefaultHeader`; `dataSource/DataSourceList` and existing `DataSourceTile` disabled/busy presentation as needed; `device/DeviceForm`; `operation/OperationSelector`, `OperationTile`, `OperationForm` footer; `widgets/WidgetList` forwards device ID; legal wrappers and new `user/LegalDocumentView` |
 | Deletion | Remove sole-use `device/operation/OperationList.tsx`; keep legacy URL alias |
-| Providers | `UserProvider`: result-owned consent failure, boolean consent validation and stale session read guard; `ThemeProvider`: optional session-guarded Default reset at the SecureStore boundary; `HomeProvider`: captured/background refresh result; `SessionProvider`: encoded confirmation URL and safe catch logging; `LegalProvider`: reliable validated Result failures; `ToastProvider`: inline-route suppression |
+| Providers | `UserProvider`: result-owned consent failure, boolean consent validation and stale session read guard; `ThemeProvider`: optional session-guarded Default reset at the SecureStore boundary; `HomeProvider`: captured/background refresh result; existing `DeviceListProvider.refresh()` collection loader awaited by Task 3 and `refreshDevice()` result reported by Task 4; `SessionProvider`: encoded confirmation URL and safe catch logging; `LegalProvider`: reliable validated Result failures; `ToastProvider`: inline-route suppression |
 | Other callers | Read/regress unchanged `BrokerClient`, `StartBrokerClientForm`, profile/account reads, HomeStateWidget, public auth legal links, WidgetList picker/management variants, operation creation/read-only form |
 | Tests | Focused consent/confirmation/maintenance/legal/info route checks; source-list/assignment checks; operation-selector/details/alias checks; update device-details selectors and feedback expectations; preserve icon/form/widget-picker regressions |
 | Config and exports | Add focused tests to existing `test:poc`, `test:data-sources` and `test:device-details` scripts; no dependencies, lockfile, platform/env/build config or domain DTO change; retain existing legal component exports |
@@ -362,9 +423,12 @@ per clone. Before committing run `pnpm typecheck`, `pnpm lint`, `pnpm test:poc`,
 `pnpm test:data-sources`, `pnpm test:device-details`, relevant homes/dashboard/icon
 regressions for changed callers, production Android JavaScript export and
 `git diff --check`. No backend build is needed while API contracts stay unchanged.
-An expected failing new TDD characterization is a planned red step; an unexpected
-existing-suite/check failure must be reported and work paused for the human, per
-AGENTS. Do not silently fix unrelated failures.
+The initial approved plan included a pause-on-error rule. On 2026-11-04, the user
+directly instructed the team to continue diagnosing, fixing and retesting errors
+without asking whether to continue, while reporting failures honestly. That later
+explicit instruction supersedes the earlier pause rule for this authorized work.
+Preserve failed output and distinguish fixes from baseline or fixture failures.
+Do not silently hide a failure or expand product scope to address an unrelated one.
 
 Use available Android emulator for every changed flow at narrow 320 dp Dark and
 448 dp Light, normal and enlarged text, short/tall windows and IME where fields
