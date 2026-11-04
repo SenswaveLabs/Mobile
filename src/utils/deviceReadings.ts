@@ -45,8 +45,8 @@ const isDeviceConfiguration = (value: unknown) => {
                     (reading) =>
                         isRecord(reading) &&
                         typeof reading.operationId === "string" &&
-                        typeof reading.label === "string" &&
-                        typeof reading.unit === "string",
+                        isOptionalString(reading.label) &&
+                        isOptionalString(reading.unit),
                 )))
     );
 };

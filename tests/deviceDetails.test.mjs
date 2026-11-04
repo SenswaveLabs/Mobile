@@ -950,6 +950,39 @@ test("device details rejects malformed consumed fields before mounting and retri
     assert.deepEqual(mounted.form().props.initTileReadings, valid.tile.configuration.readings);
 });
 
+test("device details mounts raw Display readings with backend default label and unit values", async () => {
+    const readings = [
+        { operationId: "legacy/reading:1" },
+        { operationId: "legacy/reading:2", label: null },
+        ...Array.from({ length: 6 }, (_, index) => ({
+            operationId: `legacy/reading:${index + 3}`,
+            label: `Reading ${index + 3}`,
+            unit: index === 0 ? "" : "%",
+        })),
+    ];
+    const device = {
+        id: "device-1",
+        name: "Lamp",
+        icon: "legacy/device-icon:key",
+        roomId: null,
+        tile: {
+            type: "Display",
+            configuration: { label: null, unit: "", readings },
+        },
+        presence: null,
+    };
+    const mounted = mountDeviceDetails({
+        get: async () => ({
+            isSuccess: true,
+            response: { json: async () => device },
+        }),
+    });
+    await mounted.ready();
+
+    assert.ok(mounted.form(), `valid raw Display readings should mount: ${mounted.route.text()}`);
+    assert.deepEqual(mounted.form().props.initTileReadings, readings);
+});
+
 test("device delete Cancel and stale confirmation callbacks do not send a request", async () => {
     for (const invalidate of [
         (mounted) =>
