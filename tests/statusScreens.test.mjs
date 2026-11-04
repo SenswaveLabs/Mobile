@@ -288,7 +288,7 @@ test("App information retains metadata, legal destinations and a growing scroll"
         [
             ["App Version", "9.8.7"],
             ["Min. Api Version", "4.5.6"],
-            ["Contact", "contact@example.test"],
+            ["Email", "contact@example.test"],
             ["Terms And Conditions", undefined],
             ["Privacy Policy", undefined],
         ],

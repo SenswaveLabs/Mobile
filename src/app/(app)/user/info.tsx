@@ -18,7 +18,7 @@ const AppInfo: FC = () => {
             name: "Min. Api Version",
             value: process.env.EXPO_PUBLIC_MINIMAL_API_VERSION,
         },
-        { icon: "mail-outline", name: "Contact", value: process.env.EXPO_PUBLIC_CONTACT_EMAIL },
+        { icon: "mail-outline", name: "Email", value: process.env.EXPO_PUBLIC_CONTACT_EMAIL },
         {
             icon: "document-text-outline",
             name: "Terms And Conditions",
