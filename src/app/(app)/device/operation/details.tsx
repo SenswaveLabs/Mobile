@@ -838,7 +838,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         gap: 16,
         padding: 24,
-        maxWidth: 480,
+        maxWidth: 448,
         width: "100%",
         alignSelf: "center",
     },

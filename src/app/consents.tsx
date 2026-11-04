@@ -285,7 +285,7 @@ const ConsentsPage: FC = () => {
                     <Text accessibilityRole="header" size="large" color="onBackground" bold>
                         Review and accept
                     </Text>
-                    <Text size="medium" color="onBackground">
+                    <Text size="medium" color="onBackground" numberOfLines={0}>
                         Before continuing, please review and accept our Terms of Service and Privacy
                         Policy.
                     </Text>
@@ -295,7 +295,7 @@ const ConsentsPage: FC = () => {
                             accessibilityLabel="Terms of Service"
                             onPress={() => router.push("/terms")}
                             style={styles.legalLink}>
-                            <Text size="medium" color="complementary" style={styles.underlined}>
+                            <Text size="medium" color="onBackground" style={styles.underlined}>
                                 Terms of Service
                             </Text>
                         </Pressable>
@@ -304,22 +304,23 @@ const ConsentsPage: FC = () => {
                             accessibilityLabel="Privacy Policy"
                             onPress={() => router.push("/privacy")}
                             style={styles.legalLink}>
-                            <Text size="medium" color="complementary" style={styles.underlined}>
+                            <Text size="medium" color="onBackground" style={styles.underlined}>
                                 Privacy Policy
                             </Text>
                         </Pressable>
                     </View>
-                    <Text size="medium" color="onBackground">
+                    <Text size="medium" color="onBackground" numberOfLines={0}>
                         By tapping Accept, you confirm that you have read and agree to our Terms of
                         Service and Privacy Policy.
                     </Text>
-                    <Text size="medium" color="onBackground">
+                    <Text size="medium" color="onBackground" numberOfLines={0}>
                         You can tap Cancel if you do not wish to continue.
                     </Text>
                     {statusText && (
                         <Text
                             accessibilityLiveRegion="polite"
                             size="small"
+                            numberOfLines={0}
                             color={
                                 gateState === "read-error" || gateState === "write-error"
                                     ? "error"

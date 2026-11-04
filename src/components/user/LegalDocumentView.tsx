@@ -144,7 +144,7 @@ const LegalDocumentView: FC<LegalDocumentViewProps> = ({ kind }) => {
             )}
             {currentState.status === "Ready" && (
                 <>
-                    <Text size="medium" color="complementary" numberOfLines={0}>
+                    <Text size="medium" color="onBackground" numberOfLines={0}>
                         Version: {currentState.document.version}
                     </Text>
                     <Divider />

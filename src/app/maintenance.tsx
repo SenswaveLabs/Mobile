@@ -82,7 +82,7 @@ const ForceUpgradePage: FC = () => {
                     style={styles.logo}
                     accessible={false}
                 />
-                <Text size="large" color="complementary" numberOfLines={0}>
+                <Text size="large" color="onBackground" numberOfLines={0}>
                     Senswave is under maintenance
                 </Text>
                 <Text size="small" color="onBackground" numberOfLines={0}>

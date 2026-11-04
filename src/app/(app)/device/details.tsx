@@ -484,17 +484,28 @@ function Details() {
                         title="Manage operations and widgets"
                         description="Configure device functions and dashboard controls."
                         onPress={() => {
+                            const target = deviceId && homeId ? { deviceId, homeId } : undefined;
                             if (
+                                !active.current ||
                                 !canManageRef.current ||
                                 pending.current ||
-                                hasChanges ||
-                                openingManagement.current
+                                hasChangesRef.current ||
+                                openingManagement.current ||
+                                !target ||
+                                !isCurrentHomeMember(target) ||
+                                (acceptedDelete.current?.deviceId === target.deviceId &&
+                                    acceptedDelete.current.homeId === target.homeId)
                             )
                                 return;
                             openingManagement.current = true;
                             router.push({ pathname: "device/widget/list", params: { deviceId } });
                         }}
-                        disabled={!canManage || mutationPending || hasChanges}
+                        disabled={
+                            !canManage ||
+                            mutationPending ||
+                            hasChanges ||
+                            deleteAcceptedForCurrentDevice
+                        }
                     />
                 </ContentSection>
                 <ContentSection title="Delete device" separated>

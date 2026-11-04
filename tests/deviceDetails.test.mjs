@@ -1038,6 +1038,66 @@ test("accepted device deletion retries return only", async () => {
     assert.equal(mounted.state.toasts.length, 0);
 });
 
+test("device management rejects retained callbacks after context change or accepted delete", async () => {
+    let staleContextPushes = 0;
+    const stale = mountDeviceDetails({
+        router: {
+            canGoBack: () => true,
+            back() {},
+            replace() {},
+            push: () => staleContextPushes++,
+        },
+    });
+    await stale.ready();
+    const staleManagement = stale.route
+        .elements()
+        .find(
+            (node) =>
+                node.type === "ListRow" && node.props.title === "Manage operations and widgets",
+        );
+    stale.state.homes.current = { ...stale.state.homes.current, id: "home-2" };
+    stale.route.render();
+    staleManagement.props.onPress();
+
+    let deletes = 0;
+    let acceptedContextPushes = 0;
+    const accepted = mountDeviceDetails({
+        delete: async () => (deletes++, { isSuccess: true }),
+        refresh: async () => true,
+        router: {
+            canGoBack: () => true,
+            back: () => {
+                throw new Error("navigation unavailable");
+            },
+            replace() {},
+            push: () => acceptedContextPushes++,
+        },
+    });
+    await accepted.ready();
+    const retainedManagement = accepted.route
+        .elements()
+        .find(
+            (node) =>
+                node.type === "ListRow" && node.props.title === "Manage operations and widgets",
+        );
+    accepted.deleteButton().props.onPress();
+    accepted.route.render();
+    await accepted.dialog().props.onConfirm();
+    accepted.route.render();
+    const acceptedRowDisabled = accepted.route
+        .elements()
+        .find(
+            (node) =>
+                node.type === "ListRow" && node.props.title === "Manage operations and widgets",
+        ).props.disabled;
+    retainedManagement.props.onPress();
+
+    assert.deepEqual(
+        { staleContextPushes, acceptedRowDisabled, acceptedContextPushes, deletes },
+        { staleContextPushes: 0, acceptedRowDisabled: true, acceptedContextPushes: 0, deletes: 1 },
+    );
+});
+
 test("accepted device deletion refresh Retry cannot repeat DELETE", async () => {
     let deletes = 0;
     let refreshes = 0;
