@@ -105,12 +105,9 @@ const DeviceListProvider: FC<PropsWithChildren> = ({ children }) => {
             : devices.filter((device) => device.roomId === activeFilter);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
-    const [refreshKey, setRefreshKey] = useState(0);
+    const refreshLoader = useRef<() => Promise<boolean>>(() => Promise.resolve(false));
 
-    const refresh = async () => {
-        setRefreshKey((k) => k + 1);
-        return true;
-    };
+    const refresh = () => refreshLoader.current();
 
     const setFilterFunc = (roomId: string) => {
         setFilter(roomId);
@@ -179,12 +176,18 @@ const DeviceListProvider: FC<PropsWithChildren> = ({ children }) => {
     useEffect(() => {
         let active = true;
         const homeId = homes.current?.id;
-        const getDevices = async () => {
+        let latestRead = 0;
+        const getDevices = async (): Promise<boolean> => {
+            const read = ++latestRead;
+            const isCurrent = () =>
+                active && homeId === currentHomeId.current && read === latestRead;
+
+            if (!isCurrent()) return false;
             if (!homeId) {
                 setCollection({ items: [] });
                 setError(null);
                 setLoading(false);
-                return;
+                return false;
             }
 
             setLoading(true);
@@ -194,30 +197,37 @@ const DeviceListProvider: FC<PropsWithChildren> = ({ children }) => {
                 const result = await httpClient.get(
                     "v1/devices/display?size=2147483647&homeId=" + homeId,
                 );
-                if (!active) return;
+                if (!isCurrent()) return false;
                 if (result.statusCode === 404) {
                     setCollection({ homeId, items: [] });
                 } else {
                     if (!result.isSuccess || !result.response)
                         throw new Error("Device request failed");
                     const data = (await result.response.json()) as ListResponse<Device>;
+                    if (!isCurrent()) return false;
                     if (!Array.isArray(data.items)) throw new Error("Invalid device list");
-                    if (active) setCollection({ homeId, items: data.items });
+                    setCollection({ homeId, items: data.items });
                 }
+                return true;
             } catch {
-                if (active) setError("Couldn't load devices. Please try again.");
+                if (!isCurrent()) return false;
+                setError("Couldn't load devices. Please try again.");
+                return false;
             } finally {
-                if (active) setLoading(false);
+                if (isCurrent()) setLoading(false);
             }
         };
 
+        refreshLoader.current = getDevices;
         void getDevices();
         return () => {
             active = false;
+            if (refreshLoader.current === getDevices)
+                refreshLoader.current = () => Promise.resolve(false);
         };
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [homes.current?.id, refreshKey]);
+    }, [homes.current?.id]);
 
     console.info("[DeviceListProvider] Initialized.");
 

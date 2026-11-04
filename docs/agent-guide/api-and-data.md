@@ -179,8 +179,12 @@ It derives room filtering from the current home's device collection, preserves a
 valid selected room during refresh and resets to All on home changes. Collections
 from another home are hidden immediately and late list responses are ignored.
 Failed reads retain cached current-home devices and expose an inline error;
-`404` represents an empty collection. `refresh()` schedules a reload and returns
-`true`; awaiting it does not wait for the request or report its result.
+`404` represents an empty collection. `refresh()` invokes the current home's
+full-collection loader and resolves only after the latest read settles. It returns
+`true` for a validated collection or `404` empty result, and `false` for transport,
+response, JSON, shape, stale-read, stale-home or missing-home outcomes. Failed reads
+preserve cached devices and expose the inline error; stale reads cannot change the
+current collection, error or loading state.
 `refreshDevice(deviceId)` returns `true` only when its read matches a device in
 the still-current home's cached collection; HTTP, parsing, identity or home/device
 binding failures return `false` and preserve the cache. Retained device-update

@@ -73,6 +73,7 @@ function mountDeviceDetails(overrides = {}) {
         delete: async () => ({ isSuccess: true }),
         refresh: async () => true,
         devices: [device],
+        deviceList: undefined,
         devicesLoading: false,
         devicesError: null,
         router: {
@@ -96,12 +97,15 @@ function mountDeviceDetails(overrides = {}) {
                 "@/components/common/Button": "Button",
                 "@/components/device/DeviceForm": "DeviceForm",
                 "@/contexts/custom/DeviceListProvider": {
-                    useDeviceList: () => ({
-                        devices: state.devices,
-                        loading: state.devicesLoading,
-                        error: state.devicesError,
-                        refresh: (...args) => state.refresh(...args),
-                    }),
+                    useDeviceList: () =>
+                        state.deviceList
+                            ? state.deviceList()
+                            : {
+                                  devices: state.devices,
+                                  loading: state.devicesLoading,
+                                  error: state.devicesError,
+                                  refresh: (...args) => state.refresh(...args),
+                              },
                 },
                 "@/contexts/domain/HomeProvider": { useHomes: () => state.homes },
                 "@/contexts/HttpClientProvider": {
@@ -148,6 +152,34 @@ function mountDeviceDetails(overrides = {}) {
         dialog: () => route.elements().find((node) => node.type === "ConfirmDialog"),
         retry: () =>
             route.elements().find((node) => node.type === "Button" && node.props.name === "Retry"),
+    };
+}
+
+function mountRealDeviceList(get, homes) {
+    const requests = [];
+    const component = mountNativeComponent("src/contexts/custom/DeviceListProvider.tsx", {
+        exportName: "DeviceListProvider",
+        modules: {
+            "../domain/HomeProvider": { useHomes: () => homes },
+            "../HttpClientProvider": {
+                useHttpClient: () => ({
+                    get: (path) => {
+                        requests.push(path);
+                        return get(path);
+                    },
+                }),
+            },
+        },
+    });
+    component.flushEffects();
+    return { component, requests, value: () => component.elements()[0].props.value };
+}
+
+function listResponse(items) {
+    return {
+        isSuccess: true,
+        statusCode: 200,
+        response: { json: async () => ({ items }) },
     };
 }
 
@@ -1121,6 +1153,107 @@ test("accepted device deletion refresh Retry cannot repeat DELETE", async () => 
     assert.equal(deletes, 1);
     assert.equal(refreshes, 2);
     assert.equal(backs, 1);
+});
+
+test("real device list refresh failure keeps accepted delete local until Retry succeeds", async () => {
+    let resolveFirstRefresh;
+    let resolveRetryRefresh;
+    const pending503 = new Promise((resolve) => (resolveFirstRefresh = resolve));
+    const pendingRetry = new Promise((resolve) => (resolveRetryRefresh = resolve));
+    const homes = {
+        loading: false,
+        current: {
+            id: "home-1",
+            isOwner: true,
+            canManage: false,
+            rooms: [{ id: "room-1", name: "Living room" }],
+        },
+    };
+    const listedDevice = {
+        id: "device-1",
+        name: "Lamp",
+        icon: "bulb-outline",
+        roomId: "room-1",
+        tile: { type: "Default", value: null },
+        display: null,
+        createdAtUtc: "",
+        updatedAtUtc: "",
+    };
+    let collectionReads = 0;
+    const provider = mountRealDeviceList((path) => {
+        assert.match(path, /size=2147483647&homeId=home-1/);
+        collectionReads++;
+        if (collectionReads === 1) return listResponse([listedDevice]);
+        if (collectionReads === 2) return pending503;
+        if (collectionReads === 3) return pendingRetry;
+        assert.fail(`Unexpected collection read: ${collectionReads}`);
+    }, homes);
+    await new Promise((resolve) => setImmediate(resolve));
+    provider.component.render();
+    provider.component.flushEffects();
+    provider.component.render();
+    assert.equal(collectionReads, 1);
+    assert.deepEqual(
+        provider.value().devices.map((item) => item.id),
+        ["device-1"],
+    );
+
+    let deletes = 0;
+    let backs = 0;
+    const mounted = mountDeviceDetails({
+        homes,
+        deviceList: () => provider.value(),
+        delete: async () => (deletes++, { isSuccess: true }),
+        router: { canGoBack: () => true, back: () => backs++, replace() {}, push() {} },
+    });
+    await mounted.ready();
+    mounted.deleteButton().props.onPress();
+    mounted.route.render();
+    const accepted = mounted.dialog().props.onConfirm();
+    await new Promise((resolve) => setImmediate(resolve));
+    provider.component.render();
+    provider.component.flushEffects();
+    assert.equal(collectionReads, 2);
+    assert.equal(backs, 0);
+    assert.equal(deletes, 1);
+
+    resolveFirstRefresh({ isSuccess: false, statusCode: 503, response: null });
+    await accepted;
+    await new Promise((resolve) => setImmediate(resolve));
+    provider.component.render();
+    mounted.route.render();
+    assert.equal(backs, 0);
+    assert.equal(deletes, 1);
+    assert.equal(provider.value().devices.length, 1);
+    assert.ok(provider.value().error);
+    assert.ok(mounted.retry());
+    assert.match(mounted.route.text(), /Device deleted/);
+    assert.equal(mounted.form().props.disabled, true);
+    assert.equal(
+        mounted.route
+            .elements()
+            .find(
+                (node) =>
+                    node.type === "ListRow" && node.props.title === "Manage operations and widgets",
+            ).props.disabled,
+        true,
+    );
+
+    const retry = mounted.retry().props.onPress;
+    const retryRequest = retry();
+    retry();
+    assert.equal(collectionReads, 3);
+    assert.equal(backs, 0);
+    resolveRetryRefresh(listResponse([]));
+    await retryRequest;
+    await new Promise((resolve) => setImmediate(resolve));
+    provider.component.render();
+    mounted.route.render();
+
+    assert.equal(collectionReads, 3);
+    assert.equal(deletes, 1);
+    assert.equal(backs, 1);
+    assert.equal(provider.value().devices.length, 0);
 });
 
 test("accepted device deletion after blur returns on refocus without repeating DELETE", async () => {
