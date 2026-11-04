@@ -6,11 +6,12 @@ import Button from "@/components/common/Button";
 import DeviceForm, { DeviceFormRef } from "@/components/device/DeviceForm";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Device, useDeviceList } from "@/contexts/custom/DeviceListProvider";
+import { isConsumedDevice } from "@/utils/deviceReadings";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { CircleAlert } from "lucide-react-native";
 
 interface DeleteTarget {
@@ -305,10 +306,9 @@ function Details() {
             try {
                 const response = await httpClient.get(`v1/devices/${deviceId}`);
                 if (!response.isSuccess || !response.response) throw new Error();
-                const content = (await response.response.json()) as Device;
+                const content: unknown = await response.response.json();
                 if (
-                    !content ||
-                    content.id !== deviceId ||
+                    !isConsumedDevice(content, deviceId) ||
                     routeDeviceIdRef.current !== deviceId ||
                     homeIdRef.current !== homeId
                 )
@@ -358,7 +358,7 @@ function Details() {
     if (home.loading) return <Loading />;
     if (!canManage) {
         return (
-            <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 16 }}>
+            <View style={styles.recovery}>
                 <Alert icon={CircleAlert} variant="destructive" accessibilityRole="alert">
                     <AlertDescription>
                         You don't have permission to manage this device.
@@ -379,7 +379,7 @@ function Details() {
     }
     if (!deviceId) {
         return (
-            <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 16 }}>
+            <View style={styles.recovery}>
                 <Alert icon={CircleAlert} variant="destructive" accessibilityRole="alert">
                     <AlertDescription>Device not found.</AlertDescription>
                 </Alert>
@@ -396,7 +396,7 @@ function Details() {
     if (!device || loadedDeviceId !== requestedDeviceId || loadedHomeId !== homeId) {
         if (failedDeviceId !== requestedDeviceId) return <Loading />;
         return (
-            <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 16 }}>
+            <View style={styles.recovery}>
                 <Alert
                     icon={CircleAlert}
                     variant="destructive"
@@ -417,7 +417,7 @@ function Details() {
         if (devices.loading) return <Loading />;
         const catalogFailed = !!devices.error;
         return (
-            <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 16 }}>
+            <View style={styles.recovery}>
                 <Alert
                     icon={CircleAlert}
                     variant="destructive"
@@ -551,3 +551,15 @@ function Details() {
 }
 
 export default Details;
+
+const styles = StyleSheet.create({
+    recovery: {
+        flex: 1,
+        width: "100%",
+        maxWidth: 448,
+        alignSelf: "center",
+        justifyContent: "center",
+        padding: 24,
+        gap: 16,
+    },
+});

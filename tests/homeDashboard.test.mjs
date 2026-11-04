@@ -321,6 +321,70 @@ test("per-device refresh reports only matching current-home reads and preserves 
     assert.equal(mounted.value().devices[0].tile.value, true);
 });
 
+test("device reads reject malformed consumed shapes and preserve valid historical values", async () => {
+    let refreshed = responseBody(device());
+    let collection = response([device()]);
+    const mounted = mountDevices(async (path) =>
+        path.startsWith("v1/devices/display?") ? collection : refreshed,
+    );
+    await settle(mounted.component);
+    const cached = mounted.value().devices[0];
+    const malformed = [
+        { id: "device-1", name: "Lamp", icon: "opaque-device-key" },
+        { ...device(), tile: null },
+        { ...device(), tile: { type: "Display", configuration: { readings: {} } } },
+        {
+            ...device(),
+            tile: {
+                type: "Display",
+                configuration: { readings: [{ operationId: 17, label: "Humidity", unit: "%" }] },
+            },
+        },
+        { ...device(), presence: [] },
+        { ...device(), presence: { type: "BooleanOperation", value: "false" } },
+    ];
+
+    for (const body of malformed) {
+        refreshed = responseBody(body);
+        assert.equal(await mounted.value().refreshDevice("device-1"), false);
+        mounted.component.render();
+        assert.strictEqual(mounted.value().devices[0], cached);
+    }
+
+    collection = response([
+        { ...device("device-2"), tile: { type: "Display", configuration: { readings: {} } } },
+    ]);
+    assert.equal(await mounted.value().refresh(), false);
+    mounted.component.render();
+    assert.strictEqual(mounted.value().devices[0], cached);
+    assert.ok(mounted.value().error);
+
+    const historical = {
+        ...device(),
+        icon: "legacy/device-icon:key",
+        roomId: null,
+        tile: {
+            type: "Display",
+            operationId: "legacy/operation:key",
+            displayableOperationId: "legacy/display:key",
+            value: null,
+            configuration: {
+                unit: null,
+                label: null,
+                step: null,
+                readings: [
+                    { operationId: "outside-catalog:key", label: "Humidity", unit: "%", value: 0 },
+                ],
+            },
+        },
+        presence: null,
+    };
+    refreshed = responseBody(historical);
+    assert.equal(await mounted.value().refreshDevice("device-1"), true);
+    mounted.component.render();
+    assert.deepEqual(mounted.value().devices[0], historical);
+});
+
 test("late per-device refresh returns false after the current home changes", async () => {
     const pending = deferred();
     const mounted = mountDevices((path) => {

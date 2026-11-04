@@ -598,8 +598,7 @@ test("accepted operation deletion retries return only and forwards the bound dev
     });
 });
 
-test("accepted delete retries a real failed DeviceList refresh without repeating DELETE", async () => {
-    const displayRefresh = deferred();
+test("accepted delete retries a malformed DeviceList refresh without repeating DELETE", async () => {
     const homeValue = home();
     const deviceGets = [];
     const deviceProvider = mountDeviceListProvider(async (path) => {
@@ -608,7 +607,9 @@ test("accepted delete retries a real failed DeviceList refresh without repeating
             deviceGets.push(path);
             return deviceGets.length === 1
                 ? { isSuccess: false, statusCode: 503, response: null }
-                : displayRefresh.promise;
+                : deviceGets.length === 2
+                  ? responseBody({ id: "device-a" })
+                  : responseBody(device("device-a", true));
         }
         assert.fail(`Unexpected DeviceList request: ${path}`);
     }, homeValue);
@@ -646,23 +647,29 @@ test("accepted delete retries a real failed DeviceList refresh without repeating
     assert.ok(mounted.button("Retry"));
     assert.equal(mounted.button("Delete operation"), undefined);
 
+    const malformedRetry = mounted.button("Retry");
+    malformedRetry.props.onPress();
+    await mounted.settle();
+    assert.equal(deviceGets.length, 2);
+    assert.equal(backs, 0);
+    assert.equal(deletes, 1);
+    assert.match(
+        mounted.route.text(),
+        /Operation deleted\. Couldn't refresh this device\. Try again\./,
+    );
+    assert.equal(deviceProvider.value().devices[0].tile.value, false);
+
     const retry = mounted.button("Retry");
     retry.props.onPress();
     retry.props.onPress();
-    assert.equal(deviceGets.length, 2);
+    await mounted.settle();
+    assert.equal(deviceGets.length, 3);
     assert.equal(deletes, 1);
-    displayRefresh.resolve(responseBody(device("device-a", true)));
-    for (let attempt = 0; attempt < 8; attempt++) {
-        await new Promise((resolve) => setImmediate(resolve));
-        deviceProvider.component.render();
-        deviceProvider.component.flushEffects();
-        mounted.route.render();
-        mounted.route.flushEffects();
-    }
 
-    assert.equal(deviceGets.length, 2);
+    assert.equal(deviceGets.length, 3);
     assert.equal(deletes, 1);
     assert.equal(backs, 1);
+    deviceProvider.component.render();
     assert.equal(deviceProvider.value().devices[0].tile.value, true);
 });
 

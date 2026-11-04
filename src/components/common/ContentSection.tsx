@@ -21,6 +21,14 @@ const ContentSection: FC<ContentSectionProps> = ({
 }) => {
     const { colors } = useTheme().current;
     const hasContent = React.Children.toArray(children).length > 0;
+    const hasHeaderAction =
+        headerAction !== undefined && headerAction !== null && headerAction !== false;
+    const renderHelper = () =>
+        typeof helper === "string" ? (
+            <NativeText style={[styles.helper, { color: colors.authMuted }]}>{helper}</NativeText>
+        ) : (
+            helper
+        );
     return (
         <View
             style={[
@@ -37,17 +45,13 @@ const ContentSection: FC<ContentSectionProps> = ({
                         style={[styles.title, { color: colors.authForeground }]}>
                         {title}
                     </NativeText>
-                    {helper !== undefined &&
-                        (typeof helper === "string" ? (
-                            <NativeText style={[styles.helper, { color: colors.authMuted }]}>
-                                {helper}
-                            </NativeText>
-                        ) : (
-                            helper
-                        ))}
+                    {helper !== undefined && !hasHeaderAction && renderHelper()}
                 </View>
                 {headerAction}
             </View>
+            {helper !== undefined && hasHeaderAction && (
+                <View style={styles.headerHelper}>{renderHelper()}</View>
+            )}
             {hasContent && <View style={styles.content}>{children}</View>}
             {actions !== undefined && actions !== null && actions !== false && (
                 <View style={styles.actions}>{actions}</View>
@@ -68,6 +72,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     heading: { flex: 1, minWidth: 0, gap: 2 },
+    headerHelper: { width: "100%", marginTop: 2 },
     title: { fontSize: 20, lineHeight: 28, fontWeight: "600" },
     helper: { fontSize: 14, lineHeight: 20 },
     content: { marginTop: 8 },

@@ -481,6 +481,87 @@ for (const [kind, body] of [
     });
 }
 
+test("UserProvider rejects malformed consumed account fields before state or theme changes", async () => {
+    const malformed = [
+        [
+            "missing email",
+            { Id: "user-1", theme: ThemeMode.Light, language: "en", hasActiveConsent: false },
+        ],
+        ["non-string email", { ...activeUser(), email: 17 }],
+        ["missing theme", { ...activeUser(), theme: undefined }],
+        ["unsupported theme", { ...activeUser(), theme: "system" }],
+        ["non-string language", { ...activeUser(), language: 17 }],
+    ];
+
+    for (const [label, body] of malformed) {
+        const app = mountRuntime();
+        const read = app.user().getUserData({ silent: true });
+        app.requests.get[0].resolve(rawSuccessResponse(body));
+        const result = await read;
+
+        assert.equal(result.isSuccess, false, label);
+        assert.equal(app.user().data.email, "", label);
+        assert.equal(app.user().data.theme, ThemeMode.Light, label);
+        assert.deepEqual(app.themeCalls, [], label);
+        assert.equal(app.toasts.length, 0, label);
+    }
+});
+
+test("UserProvider resolves malformed JSON and thrown account reads as failures", async () => {
+    const malformedJson = mountRuntime();
+    const jsonRead = malformedJson.user().getUserData({ silent: true });
+    malformedJson.requests.get[0].resolve({
+        isSuccess: true,
+        response: { json: async () => Promise.reject(new Error("invalid JSON")) },
+    });
+    assert.equal((await jsonRead).isSuccess, false);
+    assert.equal(malformedJson.user().data.email, "");
+    assert.deepEqual(malformedJson.themeCalls, []);
+    assert.equal(malformedJson.toasts.length, 0);
+
+    const thrownRequest = mountRuntime();
+    const transportRead = thrownRequest.user().getUserData({ silent: true });
+    thrownRequest.requests.get[0].reject(new Error("offline"));
+    assert.equal((await transportRead).isSuccess, false);
+    assert.equal(thrownRequest.user().data.email, "");
+    assert.deepEqual(thrownRequest.themeCalls, []);
+    assert.equal(thrownRequest.toasts.length, 0);
+
+    const silentInitialization = mountRuntime();
+    silentInitialization.provider.flushEffects();
+    assert.equal(silentInitialization.requests.get.length, 1);
+    silentInitialization.requests.get[0].reject(new Error("offline"));
+    await flush();
+    assert.equal(silentInitialization.user().data.email, "");
+    assert.equal(silentInitialization.toasts.length, 0);
+});
+
+test("theme persistence rejection does not reject valid account reads", async () => {
+    const app = mountRuntime();
+    const unhandled = [];
+    const onUnhandled = (error) => unhandled.push(error);
+    process.on("unhandledRejection", onUnhandled);
+    app.theme().lightTheme = async () => {
+        app.themeCalls.push(ThemeMode.Light);
+        throw new Error("storage failed");
+    };
+
+    try {
+        const read = app.user().getUserData({ silent: true });
+        app.requests.get[0].resolve(successResponse());
+        const result = await read;
+        await flush();
+        app.provider.render();
+
+        assert.equal(result.isSuccess, true);
+        assert.equal(app.user().data.email, "user@example.com");
+        assert.deepEqual(app.themeCalls, [ThemeMode.Light]);
+        assert.deepEqual(unhandled, []);
+    } finally {
+        process.off("unhandledRejection", onUnhandled);
+    }
+});
+
 test("default theme reset cannot overwrite a newer session theme after storage resolves", async () => {
     let currentSession = {
         loading: false,

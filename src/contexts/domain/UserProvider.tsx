@@ -17,11 +17,24 @@ interface GetUserDataOptions {
 }
 
 type UserResponse = {
-    Id: string;
     email: string;
     theme: ThemeMode;
     language: string;
     hasActiveConsent: boolean;
+};
+
+const isUserResponse = (value: unknown): value is UserResponse => {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+    const data = value as Record<string, unknown>;
+    return (
+        typeof data.email === "string" &&
+        data.email.length > 0 &&
+        typeof data.language === "string" &&
+        (data.theme === ThemeMode.Light ||
+            data.theme === ThemeMode.Dark ||
+            data.theme === ThemeMode.Default) &&
+        typeof data.hasActiveConsent === "boolean"
+    );
 };
 
 interface UserData {
@@ -137,31 +150,31 @@ export const UserProvider = ({ children }: any) => {
         const isCurrentSession = () =>
             sessionRef.current.authenticated === requestAuthenticated &&
             sessionRef.current.accessToken === requestAccessToken;
-        const response = await httpClient.get("v1/users");
+        try {
+            const response = await httpClient.get("v1/users");
+            if (!response.isSuccess) {
+                if (!silent && isCurrentSession()) toast.httpError(response);
+                return Result.failure<UserData>("Failed to load account details.");
+            }
+            if (!response.response)
+                return Result.failure<UserData>("Failed to load account details.");
 
-        if (response.isSuccess) {
             console.debug("[User Provider] User data loaded.");
-
-            const parsedData: unknown = await response.response?.json();
-            if (
-                typeof parsedData !== "object" ||
-                parsedData === null ||
-                typeof (parsedData as { hasActiveConsent?: unknown }).hasActiveConsent !== "boolean"
-            )
+            const parsedData: unknown = await response.response.json();
+            if (!isUserResponse(parsedData) || !isCurrentSession())
                 return Result.failure<UserData>("Failed to load account details.");
 
-            const data = parsedData as UserResponse;
-            if (!isCurrentSession())
-                return Result.failure<UserData>("Failed to load account details.");
-
-            updateThemeInternal(data.theme, isCurrentSession);
+            const data = parsedData;
+            void updateThemeInternal(data.theme, isCurrentSession).catch((error) =>
+                console.error("[User Provider] Failed to apply account theme.", error),
+            );
             const name = data.email.charAt(0).toUpperCase() + data.email.split("@")[0].slice(1);
 
             const userData: UserData = {
                 theme: data.theme,
                 language: data.language,
                 email: data.email,
-                name: name,
+                name,
                 hasActiveConsent: data.hasActiveConsent,
             };
 
@@ -170,9 +183,7 @@ export const UserProvider = ({ children }: any) => {
             setUserData(userData);
 
             return Result.success<UserData>(userData);
-        } else {
-            if (!silent && isCurrentSession()) toast.httpError(response);
-
+        } catch {
             return Result.failure<UserData>("Failed to load account details.");
         }
     };

@@ -127,7 +127,7 @@ function mountDeviceDetails(overrides = {}) {
                     useLocalSearchParams: () => state.params,
                     useRouter: () => state.router,
                 },
-                "react-native": { View: "View" },
+                "react-native": { View: "View", StyleSheet: { create: (styles) => styles } },
             };
         },
     });
@@ -876,7 +876,7 @@ test("device details load failure shows retry and recovers on the same device ro
                     useLocalSearchParams: () => ({ deviceId: "device-1" }),
                     useRouter: () => ({ back() {}, push() {} }),
                 },
-                "react-native": { View: "View" },
+                "react-native": { View: "View", StyleSheet: { create: (styles) => styles } },
             };
         },
     });
@@ -901,6 +901,53 @@ test("device details load failure shows retry and recovers on the same device ro
     route.render();
     assert.equal(attempts, 2);
     assert.ok(route.elements().some((node) => node.type === "DeviceForm"));
+});
+
+test("device details rejects malformed consumed fields before mounting and retries unchanged data", async () => {
+    const valid = {
+        id: "device-1",
+        name: "Lamp",
+        icon: "legacy/device-icon:key",
+        roomId: null,
+        tile: {
+            type: "Display",
+            operationId: "legacy/operation:key",
+            value: null,
+            configuration: {
+                unit: null,
+                label: null,
+                readings: [{ operationId: "outside-catalog:key", label: "Humidity", unit: "%" }],
+            },
+        },
+        presence: null,
+    };
+    const malformed = {
+        ...valid,
+        tile: { ...valid.tile, configuration: { readings: {} } },
+    };
+    let reads = 0;
+    const mounted = mountDeviceDetails({
+        get: async () => ({
+            isSuccess: true,
+            response: { json: async () => (++reads === 1 ? malformed : valid) },
+        }),
+    });
+    await mounted.ready();
+
+    assert.equal(mounted.form(), undefined);
+    assert.match(mounted.route.text(), /Failed to load device details/);
+    assert.ok(mounted.retry());
+    mounted.retry().props.onPress();
+    mounted.route.render();
+    mounted.route.flushEffects();
+    await new Promise((resolve) => setImmediate(resolve));
+    mounted.route.render();
+
+    assert.equal(reads, 2);
+    assert.ok(mounted.form(), `valid retry should mount DeviceForm: ${mounted.route.text()}`);
+    assert.equal(mounted.form().props.initIcon, valid.icon);
+    assert.equal(mounted.form().props.initTileOperationId, "legacy/operation:key");
+    assert.deepEqual(mounted.form().props.initTileReadings, valid.tile.configuration.readings);
 });
 
 test("device delete Cancel and stale confirmation callbacks do not send a request", async () => {

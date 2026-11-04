@@ -120,9 +120,10 @@ interface HomeDataSource { id, name, state }  // state updated via SignalR
 **User**
 ```ts
 enum ThemeMode { Light = "light", Dark = "dark", Default = "default" }
-interface UserData { language, theme, email, name, image?, hasActiveConsent? }
+interface UserData { language: string; theme: ThemeMode; email: string; name: string; image?: string; hasActiveConsent: boolean }
 ```
 `name` = first char of email uppercased + rest before `@`. `Default` theme = follow system.
+UserProvider validates consumed account fields before applying account or theme state and returns read, JSON and shape failures through `Result`.
 
 **Result pattern**
 ```ts

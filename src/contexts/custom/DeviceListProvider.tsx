@@ -9,8 +9,8 @@ import React, {
 } from "react";
 import { useHttpClient } from "../HttpClientProvider";
 import { useHomes } from "../domain/HomeProvider";
-import { ListResponse } from "@/utils/httpClient";
 import { DevicePresenceType, OperationType } from "@/types/DeviceTypes";
+import { isConsumedDevice } from "@/utils/deviceReadings";
 
 export interface OperationListDto {
     id: string;
@@ -143,14 +143,7 @@ const DeviceListProvider: FC<PropsWithChildren> = ({ children }) => {
             }
 
             const updated: unknown = await result.response.json();
-            if (
-                !updated ||
-                typeof updated !== "object" ||
-                Array.isArray(updated) ||
-                !("id" in updated) ||
-                updated.id !== deviceId
-            )
-                return false;
+            if (!isConsumedDevice(updated, deviceId)) return false;
 
             const currentCollection = collectionRef.current;
             if (
@@ -203,10 +196,18 @@ const DeviceListProvider: FC<PropsWithChildren> = ({ children }) => {
                 } else {
                     if (!result.isSuccess || !result.response)
                         throw new Error("Device request failed");
-                    const data = (await result.response.json()) as ListResponse<Device>;
+                    const data: unknown = await result.response.json();
                     if (!isCurrent()) return false;
-                    if (!Array.isArray(data.items)) throw new Error("Invalid device list");
-                    setCollection({ homeId, items: data.items });
+                    if (
+                        !data ||
+                        typeof data !== "object" ||
+                        Array.isArray(data) ||
+                        !("items" in data) ||
+                        !Array.isArray(data.items) ||
+                        !data.items.every((item) => isConsumedDevice(item))
+                    )
+                        throw new Error("Invalid device list");
+                    setCollection({ homeId, items: data.items as Device[] });
                 }
                 return true;
             } catch {
