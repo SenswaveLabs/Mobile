@@ -32,9 +32,7 @@ Statusy w tym dokumencie:
   handlerów oraz udokumentowane kontrole emulatora; zakres i ograniczenia
   dostępności pozostają w raporcie walidacji.
 - **Implementacja; wybrane kontrole Android**: kod i wskazane stany natywne są
-  sprawdzone, ale pełna macierz Task 6 pozostaje otwarta.
-- **Implementacja; kontrola Android pending**: handlerowo zweryfikowana
-  implementacja nie ma jeszcze wystarczającego aktualnego dowodu natywnego.
+  sprawdzone. Zakres prób i ograniczenia opisano przy danej trasie.
 
 P1 oznacza problem z dostępem do funkcji, zapisem lub odzyskaniem po błędzie.
 P2 oznacza dalszą migrację i ujednolicenie, a P3 drobne dopracowanie.
@@ -49,16 +47,19 @@ Emulator potwierdził role, odzyskiwanie po błędach, częściowy zapis, usuwan
 klawiaturę, oba motywy i targety. TalkBack oraz fizyczne MQTT pozostają
 niezweryfikowane; raport dokumentuje także ostrzeżenie dostępności po usunięciu.
 
-Po audycie Tasks 1–5 uzupełniły zgodę, wybór i listę źródeł, konfigurację
-urządzenia, szczegóły operacji, potwierdzanie e-maila, dokumenty prawne,
-konserwację i informacje o aplikacji. Wybrane stany Android są opisane w
-[raporcie Task 6](superpowers/validation/2026-11-03-ui-audit-remainder.md).
-Korekta F1/F2/M1/F3 na `8f4f7f4` została zatwierdzona w scoped review; `a705c23`
-dodaje krótszą etykietę Email w App Info i jej oczekiwanie testowe. Macierz
-ograniczonych przypadków natywnych, kontrole kodu, eksport i cleanup są
-zakończone i przypięte do źródła w raporcie. Końcowy przegląd Sol dokumentacji
-i dowodów pozostaje pending; TalkBack, prawdziwy backend i sprzęt nie były
-testowane.
+Consent, wybór źródła, konfiguracja urządzeń, szczegóły operacji, potwierdzanie
+e-maila, dokumenty prawne, konserwacja i informacje o aplikacji korzystają teraz
+z natywnych formularzy i lokalnego odzyskiwania po błędach. Wybrane przebiegi
+sprawdzono na Androidzie w normalnym i kompaktowym układzie, obu motywach,
+zwiększonym tekście, przy otwartej klawiaturze oraz dla różnych ról. Szczegóły
+kodowe i zakres poszczególnych prób są wskazane w tabeli poniżej.
+
+TalkBack, prawdziwe konto/backend, produkcyjny broker/MQTT, sprzęt oraz cold
+start release APK i powiązanie domeny przeglądarki nie były sprawdzane. Podczas
+wcześniejszych prób emulator zawiesił się przed wejściem do ekranu; przyczyna
+graficznego ANR nie jest potwierdzona. Osobno zdarzał się fatalny błąd React z
+`ScreenContentWrapper` i pustym dzieckiem; późniejsze wybrane przebiegi nie
+dowodzą, że nie może wrócić.
 
 Dashboardy, widgety i tworzenie operacji zostały już objęte ostatnim refaktorem.
 Nie należy ponownie traktować ich jako całych nieprzeniesionych obszarów.
@@ -72,24 +73,23 @@ Nie należy ponownie traktować ich jako całych nieprzeniesionych obszarów.
 | P1 | `/automation/details` | Implementacja i kontrola Android | Sprawdzono role, PUT stanu + błąd PATCH i ponowienie, a także natywny dialog Cancel/Back/confirm z odczytem 200/404. [route](../src/app/(app)/automation/details.tsx), [formularz](../src/components/automations/AutomationForm.tsx). |
 | P1 | `/automation/conditions/add` | Implementacja i kontrola Android | Jedna FormSection, pełny katalog i dokładne wartości; natywnie sprawdzono draft, błąd PUT/Retry i lokalny Retry devices. Historia typów oraz brakujące kontrole są rozdzielone w raporcie. [formularz](../src/components/automations/conditions/AutomationConditionForm.tsx), [route](../src/app/(app)/automation/conditions/add.tsx). |
 | P1 | `/automation/results/add` | Implementacja i kontrola Android | Dokładny string i lokalny dopisek do draftu z powrotem; Add result dostępne nad IME przy 130% tekstu. Saved-child PUT i pozostałe przypadki pokrywają testy handlerów. [formularz](../src/components/automations/results/AutomationResultForm.tsx), [route](../src/app/(app)/automation/results/add.tsx). |
-| P1 | `/consents` | Implementacja; wybrane kontrole Android | Lokalna kontrola zgody, Retry bez ponownego POST, Back/Cancel i czytelne linki/copy. Capture 010 pokazuje wariant 448 dp Light; 148–153 na `a705c23` obejmują pełny tekst przy 320 × 480 dp, błąd odczytu po zaakceptowanym POST, odzyskanie bez drugiego POST i Cancel podczas opóźnionego żądania. [consents.tsx](../src/app/consents.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
-| P2 | `/home/dataSource/select` | Implementacja; wybrane kontrole Android | Wybór jest związany z bieżącym routowanym domem i rolą Owner. Po zaakceptowanym PUT błąd odczytu pozostaje lokalny; Retry wykonuje sam GET i wraca do Home. Captures 027/028 na `6c44bf4`: jeden PUT, Home GET 3→4. [select.tsx](../src/app/(app)/home/dataSource/select.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
-| P2 | `/device/details` | Implementacja; wybrane kontrole Android | Natywne Tile/Presence, pełny katalog, lokalna walidacja i częściowe zapisy zachowują istniejące ID. Capture 034 pokazuje końcowe akcje nad Gboard; 107 pokazuje Delete przy 320 dp Dark/font 1.3. Capture 124 pokazuje szeroki układ z limitem 448 dp; 129/130 potwierdzają lokalne Retry po kolekcji 503 i powrót bez powtórzenia zaakceptowanego DELETE. [DeviceForm](../src/components/device/DeviceForm.tsx), [details](../src/app/(app)/device/details.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
-| P2 | `/device/operation/details` | Implementacja; wybrane kontrole Android | Read-only OperationForm montuje się po zweryfikowanym odczycie; DELETE wymaga członkostwa bieżącego domu i Owner/Manager. Captures 119/121/123 pokazują Cancel Owner, dostępny Delete Manager (bez otwarcia dialogu) i brak Delete dla Display. Captures 127/128 na `8f4f7f4` potwierdzają Retry po zaakceptowanym DELETE i odczycie 503, jeden DELETE i powrót po drugim GET. Wcześniejszy emulator ANR pozostaje niewyjaśniony; późniejsze odczyty nie dowodzą jego usunięcia. [details](../src/app/(app)/device/operation/details.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
-| P2 | `/dataSource/list` | Implementacja; wybrane kontrole Android | Pełny katalog i row-local status Retry zachowują osobne odczyty. Captures 108/109 na `93d7652` pokazują błąd i Retry przy 320 dp Dark/font 1.3; 110/111 pokazują pełnoszeroki helper oraz alias. Późniejsze korekty nie zmieniły tych stanów. Krótki viewport listy nie był osobno sprawdzany. [route](../src/app/(app)/dataSource/list.tsx), [DataSourceList](../src/components/dataSource/DataSourceList.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
-| P2 | `/device/operation/list` | Alias kompatybilności; wybrane kontrole Android | Headerless alias przekazuje jawny `deviceId` do `/device/widget/list`; osobny OperationList usunięto, ale zachowano historyczny [plik z audytowanego commita](https://github.com/SenswaveLabs/Mobile/blob/4855e9a89f068d2a439a77e8575bbb6a64bc525d/src/components/device/operation/OperationList.tsx#L43). Capture 065 pokazuje stary operationId-only link bez Delete; capture 111 na `93d7652` — aktualny alias/helper przy wąskim ciemnym układzie. |
-| P2 | `/confirmEmail` | Implementacja; wybrane kontrole Android | Lokalna walidacja i Retry/Sign in zachowują scalarową tożsamość i jedno POST. Captures 137/138 pokazują Unicode fixture, błąd i Retry; 156/157 lokalne odrzucenie pustego kodu i Sign in; 159/160 cold development-client flow po wyborze zapamiętanego projektu. Cold release APK i browser domain association są niezweryfikowane. [confirmEmail.tsx](../src/app/confirmEmail.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
-| P2 | `/privacy`, `/terms`, `/user/privacy`, `/user/terms` | Implementacja; wybrane kontrole Android | Cztery wrappery używają wspólnego LegalDocumentView; lokalne błędy/Retry nie zastępują serwerowej treści i Version. Capture 013 pokazuje public Privacy w Light, a 134/136 i 145/147 końcowe prywatne/publiczne strony przy 320 × 480 dp Dark/font 1.3. Fixture copy jest fikcyjne. [LegalDocumentView](../src/components/user/LegalDocumentView.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
-| P2 | `/maintenance` | Implementacja; wybrane kontrole Android | Retry i pull-to-refresh współdzielą blokadę, a routowanie czeka na zakończenie initialize i aktualną sesję. Captures 154/155 pokazują version GET 503 i jawne Retry do Start bez auth-refresh POST; capture 139 dokumentuje krótki błąd z opisanym ograniczeniem przejścia. [maintenance.tsx](../src/app/maintenance.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
-| P3 | `/user/info` | Implementacja; wybrane kontrole Android | Metadane i oba linki prawne pozostają w jednym scrollu. Capture 151 na `a705c23` pokazuje jednowyrazową etykietę Email, pełną wartość i dostępny 48 dp wiersz Privacy przy 320 × 480 dp Dark/font 1.3. [info.tsx](../src/app/(app)/user/info.tsx), [raport](superpowers/validation/2026-11-03-ui-audit-remainder.md). |
+| P1 | `/consents` | Implementacja; wybrane kontrole Android | Lokalna kontrola zgody, Retry bez ponownego POST, Back/Cancel oraz czytelne linki i pełny tekst. Sprawdzono na 448 dp Light oraz 320 × 480 dp Dark/font 1.3; kompaktowy przebieg obejmował błąd po zaakceptowanym POST, Retry bez drugiego POST i Cancel podczas opóźnionego żądania. [consents.tsx](../src/app/consents.tsx). |
+| P2 | `/home/dataSource/select` | Implementacja; wybrane kontrole Android | Wybór jest związany z bieżącym routowanym domem i rolą Owner. Po zaakceptowanym PUT błąd odczytu pozostaje lokalny; Retry wykonuje sam GET i wraca do Home. Przy 448 dp Light natywnie sprawdzono pojedynczy PUT i powrót po udanym ponownym odczycie domu. [select.tsx](../src/app/(app)/home/dataSource/select.tsx). |
+| P2 | `/device/details` | Implementacja; wybrane kontrole Android | Natywne Tile/Presence, pełny katalog, lokalna walidacja i częściowe zapisy zachowują istniejące ID. Ostatnie akcje były dostępne nad Gboard przy 448 dp Light; Delete był dostępny przy 320 dp Dark/font 1.3. Sprawdzono limit treści 448 dp na szerokim ekranie oraz local Retry po collection 503 bez ponowienia zaakceptowanego DELETE. [DeviceForm](../src/components/device/DeviceForm.tsx), [details](../src/app/(app)/device/details.tsx). |
+| P2 | `/device/operation/details` | Implementacja; wybrane kontrole Android | Read-only OperationForm montuje się po zweryfikowanym odczycie; DELETE wymaga członkostwa bieżącego domu i Owner/Manager. Przy 320 dp Dark/font 1.3 sprawdzono Owner Cancel/Back, dostępny Manager Delete oraz brak Delete dla Display; przy 448 dp Light zaakceptowany DELETE z błędem odczytu odzyskuje się lokalnym Retry bez powtórzenia zapisu. Wcześniejszy emulator ANR i fatalny błąd pustego dziecka pozostają niewyjaśnione; późniejsze przebiegi nie dowodzą, że nie wrócą. [details](../src/app/(app)/device/operation/details.tsx). |
+| P2 | `/dataSource/list` | Implementacja; wybrane kontrole Android | Pełny katalog i row-local status Retry zachowują osobne odczyty; Retry ponawia tylko status GET i nie aktywuje wiersza. Przy 320 dp Dark/font 1.3 sprawdzono stan błędu, odzyskanie i helper pod pełnoszerokim nagłówkiem. Krótki viewport listy nie był osobno sprawdzany. [route](../src/app/(app)/dataSource/list.tsx), [DataSourceList](../src/components/dataSource/DataSourceList.tsx). |
+| P2 | `/device/operation/list` | Alias kompatybilności; wybrane kontrole Android | Headerless alias przekazuje jawny `deviceId` do `/device/widget/list`; osobny OperationList usunięto, ale zachowano historyczny [plik z audytowanego commita](https://github.com/SenswaveLabs/Mobile/blob/4855e9a89f068d2a439a77e8575bbb6a64bc525d/src/components/device/operation/OperationList.tsx#L43). Przy wąskim ciemnym układzie helper aliasu pozostaje czytelny; stary operationId-only link pokazuje read-only szczegóły bez Delete. |
+| P2 | `/confirmEmail` | Implementacja; wybrane kontrole Android | Lokalna walidacja i Retry/Sign in zachowują scalarową tożsamość i nie powtarzają zaakceptowanego POST. Sprawdzono Unicode wartości z błędem i Retry, odrzucenie pustego kodu oraz development-client cold start po wyborze zapamiętanego projektu. Cold release APK i browser domain association są niezweryfikowane. [confirmEmail.tsx](../src/app/confirmEmail.tsx). |
+| P2 | `/privacy`, `/terms`, `/user/privacy`, `/user/terms` | Implementacja; wybrane kontrole Android | Cztery wrappery używają wspólnego LegalDocumentView; lokalne błędy/Retry nie zastępują serwerowej treści ani Version. Public Privacy Version sprawdzono przy 448 dp Light, a publiczne i prywatne końce dokumentów przy 320 × 480 dp Dark/font 1.3; treść pochodziła z fikcyjnego fixture. [LegalDocumentView](../src/components/user/LegalDocumentView.tsx). |
+| P2 | `/maintenance` | Implementacja; wybrane kontrole Android | Retry i pull-to-refresh współdzielą blokadę, a routowanie czeka na zakończenie initialize i aktualną sesję. Sprawdzono version GET 503 i jawne Retry do Start bez auth-refresh POST, także przy 320 × 480 dp. [maintenance.tsx](../src/app/maintenance.tsx). |
+| P3 | `/user/info` | Implementacja; wybrane kontrole Android | Metadane i oba linki prawne pozostają w jednym scrollu. Przy 320 × 480 dp Dark/font 1.3 sprawdzono jednowyrazową etykietę Email, pełny adres oraz dostępny 48 dp Privacy wiersz. [info.tsx](../src/app/(app)/user/info.tsx). |
 
 ## Błędy przepływu znalezione w snapshotie 28 października
 
 Poniższe ustalenia opisują pierwotny audytowany commit, nie aktualną listę
-niezaimplementowanych ekranów. Implementacja z 31 października dodaje formularze
-i route ownership, a testy handlerów są opisane w
-[walidacji](agent-guide/validation.md). Weryfikacja na emulatorze/urządzeniu
-pozostaje pending.
+niezaimplementowanych ekranów. Późniejsza implementacja dodała formularze
+i route ownership; obecny stan tras podsumowują tabele powyżej i poniżej.
+Testy handlerów opisuje [przewodnik walidacji](agent-guide/validation.md).
 
 Te uwagi nie dotyczą wyłącznie wyglądu. Wynikały z kolejności wywołań i stanu
 w audytowanym snapshotie; nie były odtwarzane na urządzeniu.
@@ -140,7 +140,7 @@ już korzystają z `ListRow`; nie wymagają powrotu do wcześniejszych kafelków
   nagłówka, przyciski sekcji lub akcje lokalne. Pozostałe użycia wspólnego FAB poza
   migracją nie są z tego powodu osobnym zadaniem.
 - **Inline feedback i wyciszanie toastów** są skonfigurowane na trasach naprawionych
-  w Tasks 1–5. To nie jest globalna zmiana domyślnego zachowania providerów dla
+  w ramach migracji. To nie jest globalna zmiana domyślnego zachowania providerów dla
   niezmienionych callerów.
 
 Pozostawienie pliku w `components/common` samo w sobie nie oznacza starego UI.
@@ -159,66 +159,22 @@ pliku lub komponentu. Tabela nie jest potwierdzeniem braku błędów.
 | Auth i reset hasła | `/start`, `/login`, `/register`, `/forgotPassword`, `/server`, `/resetPassword` | Natywny `AuthPanel` / formularz resetu, keyboard-aware scroll, nowe pola, lokalna walidacja i błędy. `/server` pozostaje narzędziem Development. |
 | Domy | `/`, `/home/list`, `/home/add`, `/home/join`, `/home/details`, `/home/share` | Nowy dashboard domu i kafelki urządzeń, wybór domu, zaproszenia, tworzenie i edycja, mapa, sekcje źródła/udostępniania i destrukcyjne potwierdzenia. Wyjątek: osobny `/home/dataSource/select` opisany wyżej. |
 | Pokoje | `/home/room/add`, `/home/room/details` | Keyboard-aware `RoomForm`, `FormSection` w edycji, walidacja i lokalne odzyskiwanie po błędzie. |
-| Tworzenie i edycja urządzenia | `/device/add`, `/device/details` | Tworzenie zachowuje istniejący formularz. Edycja używa natywnych Tile/Presence selektorów, lokalnej walidacji, pełnego katalogu operacji i częściowych zapisów. Capture 034 potwierdza dostęp do ostatnich akcji nad Gboard; capture 107 pokazuje Delete nad Gboard przy 320 dp Dark/font 1.3. Captures 129/130 na `8f4f7f4` potwierdzają lokalne Retry po błędzie kolekcji i powrót bez powtórzenia zaakceptowanego DELETE. Bounded stany natywne są opisane w raporcie; TalkBack, backend i sprzęt pozostają niezweryfikowane. |
-| Źródło danych i broker | `/dataSource/add`, `/dataSource/details`, `/dataSource/list`, `/home/dataSource/select`, `/dataSource/brokers/startBrokerClient`, `/dataSource/brokers/addSubscription` | Formularze, szczegóły, pełna lista i wybór źródła używają lokalnego odzyskiwania i istniejących transportów. Wybór domu zachowuje owner/current-home guards i Retry bez powtarzania PUT. Wybrane native stany opisuje raport Task 6. |
+| Tworzenie i edycja urządzenia | `/device/add`, `/device/details` | Tworzenie zachowuje istniejący formularz. Edycja używa natywnych Tile/Presence selektorów, lokalnej walidacji, pełnego katalogu operacji i częściowych zapisów. Na Androidzie sprawdzono dostępność ostatnich akcji nad otwartą klawiaturą przy normalnej szerokości oraz Delete przy kompaktowej szerokości, ciemnym motywie i zwiększonym tekście. Potwierdzono limit treści 448 dp na szerokim ekranie i odzyskiwanie odczytu po zaakceptowanym usunięciu bez powtórzenia DELETE. |
+| Źródło danych i broker | `/dataSource/add`, `/dataSource/details`, `/dataSource/list`, `/home/dataSource/select`, `/dataSource/brokers/startBrokerClient`, `/dataSource/brokers/addSubscription` | Formularze, szczegóły i pełny katalog używają istniejących transportów oraz lokalnego odzyskiwania. Wybór domu sprawdza bieżący dom i rolę Owner; po zaakceptowanym PUT lokalny Retry wykonuje tylko GET i nie ponawia przypisania. [lista](../src/app/(app)/dataSource/list.tsx), [wybór](../src/app/(app)/home/dataSource/select.tsx). |
 | Dashboard urządzenia | `/device/device`, `/device/dashboard/add`, `/device/dashboard/details`, `/device/dashboard/placeWidget` | Wspólny scroll kontekstu i siatki, wybór dashboardu, nowe formularze, dodawanie z wolnej komórki, gesty placementu i rozdzielenie ról. |
 | Widgety | `/device/widget/add`, `/device/widget/details`, `/device/widget/list` | Nowe formularze typów i opcje, odczyt konfiguracji, potwierdzane usuwanie definicji, lista/picker oraz lokalna obsługa błędów. Kontrolki live i edytor koloru także mają nową implementację. |
 | Operacje | `/device/operation/add`, `/device/operation/details`, `/device/operation/list`, `/device/widget/list` | Tworzenie, read-only szczegóły, role/membership gates i lokalne odzyskiwanie są zaimplementowane. Dawny `/device/operation/list` pozostaje aliasem do WidgetList; samodzielny OperationList usunięto, a operationId-only link nie ujawnia Delete. |
-| Profil i informacje | `/user/profile`, `/user/info`, `/user/privacy`, `/user/terms` | Ustawienia profilu zachowują lokalne błędy i natywne potwierdzenie. Informacje i prywatne dokumenty prawne są w jednym scrollu z istniejącymi wartościami i linkami. Wybrane legal captures i pozostałe braki są w raporcie Task 6. |
+| Profil i informacje | `/user/profile`, `/user/info`, `/user/privacy`, `/user/terms` | Ustawienia profilu zachowują lokalne błędy i natywne potwierdzenie. Informacje i prywatne dokumenty prawne są w jednym scrollu z istniejącymi wartościami i linkami. Na kompaktowym ekranie z ciemnym motywem i zwiększonym tekstem sprawdzono pełny adres e-mail oraz dostępność ostatniego linku prawnego. |
 
-## Postęp względem pierwotnej kolejności
+## Zakres i ograniczenia kontroli
 
-1. **Automatyzacje — zrealizowano:** osobna lista domu, cztery natywne formularze
-   i naprawy zapisu; globalne klucze ikon i kontrakty zachowane. Zakres kontroli
-   oraz pozostałe ograniczenia opisuje raport walidacji.
-2. **Zgody — implementacja ukończona:** lokalne sprawdzenie consent, Retry bez
-   ponownego POST, Back/Cancel i czytelne linki/copy. Raport dokumentuje też
-   pełny tekst, błąd i Retry oraz Cancel podczas opóźnionego POST przy 320 × 480 dp
-   Dark/font 1.3.
-3. **Źródła, urządzenia i operacje — implementacja i wybrane odzyskiwanie
-   natywne sprawdzone:** listy i wybór źródła, OperationSelector, Tile/Presence
-   oraz szczegóły operacji są dostarczone. Captures 127/128 i 129/130 na
-   `8f4f7f4` potwierdzają odpowiednio accepted-read recovery dla operacji i
-   urządzenia bez powtórzenia DELETE; wcześniejsze awarie i poprawione przebiegi
-   pozostają przypięte do 59cb891/ec47b34.
-4. **Ekrany pomocnicze — implementacja ukończona:** confirmation, legal,
-   maintenance i App information mają lokalne stany i odzyskiwanie. Końcowe
-   public/private legal, App Info, confirmation i maintenance są przypięte w
-   raporcie do source revision i hashy aktualnych capture’ów.
-5. **Task 6 — raportowany, przegląd dokumentacji pending:** bounded native matrix,
-   kontrole kodu, eksport i cleanup są zakończone. Scoped review zatwierdził
-   source correction F1/F2/M1/F3; finalny Sol review dokumentacji i dowodów jest
-   jeszcze wymagany. Nie ma PR ani całościowego werdyktu review.
+Natywne kontrole obejmowały wybrane stany Androida: różne role, tryby jasny i
+ciemny, kompaktową szerokość, zwiększony tekst, otwartą klawiaturę oraz odzyskiwanie
+po błędach odczytu i zapisu. Nie są to testy TalkBack ani walidacja prawdziwego
+konta/backendu, produkcyjnego MQTT lub sprzętu. Cold start potwierdzania e-maila
+sprawdzono tylko w development client po wyborze zapamiętanego projektu; cold
+start release APK i browser domain association pozostają niezweryfikowane.
 
-Dokument jest listą zaległości z badanego commita, a nie nową specyfikacją API
-ani zmianą polityki UI. Przy realizacji aktualizować statusy względem rzeczywistego
-kodu; nie oznaczać zadania jako zakończonego wyłącznie na podstawie nowego nagłówka
-lub zielonych testów handlerów.
-
-## Weryfikacja przed commitem dokumentu
-
-Na Node `26.12.1` z `.nvmrc` wykonano bez błędów:
-
-- `pnpm typecheck`;
-- `pnpm lint`;
-- `pnpm test:poc` — 5 plików testowych zakończonych powodzeniem, 0 niepowodzeń.
-
-Sprawdzono także istnienie lokalnych odnośników i wskazanych linii oraz obecność
-wszystkich 45 tras w raporcie. Te kontrole nie odtwarzają znalezionych błędów
-automatyzacji i nie zastępują osobnych testów przy ich późniejszej naprawie.
-
-## Aktualizacja 4 listopada 2026
-
-Statusy powyżej odnoszą się do źródła `a705c23` po Tasks 1–6 i bounded,
-source-pinned stanów natywnych; nie zmieniają historycznego zakresu audytu z
-28 października. Oryginalne profile Android 0 i 11 zachowano. QA user 10 był
-faktycznie zapisany jako `Codex`, serial 12, utworzony około 09:06 UTC, i został
-usunięty po zatrzymaniu; poprzednie pliki z `/tmp` zniknęły przy nocnym resecie
-i nie są publikowane. Finalny eksport Android ma 55 assetów i nie zawiera
-fixture origin; pierwotny `.env` pozostał bez zmian, a task-owned `.env.local`,
-API i QA Metro usunięto/zatrzymano po kontroli. Fizyczny viewport/density
-przywrócono, zapisane ustawienia user 0 pozostały niezmienione. Po restarcie
-system raportował `Night mode: no`; dokładna etykieta wcześniejszego
-`custom_bedtime` nie jest deklarowana jako przywrócona. Raport walidacji
-rozdziela bounded obserwacje, historyczne błędy ANR i niezweryfikowane obszary.
-Końcowy Sol review dokumentacji/dowodów oraz PR pozostają pending.
+Wcześniejszy emulator graphics ANR i okresowy fatal z pustym dzieckiem React
+mają nieustaloną przyczynę. Późniejsze wybrane przebiegi nie dowodzą, że któryś
+z tych problemów został usunięty lub nie może wystąpić ponownie.
