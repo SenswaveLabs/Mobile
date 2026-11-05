@@ -1,5 +1,5 @@
 import React, { FC } from "react";
-import { ActivityIndicator, StyleProp, View, ViewStyle } from "react-native";
+import { ActivityIndicator, StyleProp, useWindowDimensions, View, ViewStyle } from "react-native";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { useRouter } from "expo-router";
 import Text from "@/components/common/Text";
@@ -32,6 +32,8 @@ const DataSourceTile: FC<DataSourceTileProps> = ({
 }: DataSourceTileProps) => {
     const theme = useTheme();
     const router = useRouter();
+    const { fontScale } = useWindowDimensions();
+    const stacked = fontScale >= 1.3;
 
     const dataSourceClicked = () => {
         if (onClickDisabled) {
@@ -56,7 +58,7 @@ const DataSourceTile: FC<DataSourceTileProps> = ({
                 trailing={
                     <View
                         style={{
-                            maxWidth: 120,
+                            maxWidth: stacked ? 168 : 120,
                             flexDirection: "row",
                             alignItems: "center",
                             gap: 6,
@@ -75,6 +77,7 @@ const DataSourceTile: FC<DataSourceTileProps> = ({
                 disabled={onClickDisabled}
                 selected={selected}
                 loading={loading}
+                stacked={stacked}
                 accessibilityLabel={loading ? `Linking ${name}` : undefined}>
                 {loading && (
                     <Text size="small" color="onBackground">

@@ -274,6 +274,43 @@ test("selected linking row keeps status badge and names the source", () => {
     assert.equal(stateReader.props.inlineRecovery, true);
 });
 
+test("enlarged broker rows put status outside and below the full-width navigation target", () => {
+    for (const fontScale of [1, 1.29, 1.3, 2]) {
+        const selected = [];
+        const tile = mountNativeComponent("src/components/dataSource/tile/DataSourceTile.tsx", {
+            props: {
+                ...source("source-11", "Kitchen broker"),
+                onClicked: (id) => selected.push(id),
+            },
+            modules: {
+                "react-native": {
+                    View: "View",
+                    ActivityIndicator: "ActivityIndicator",
+                    useWindowDimensions: () => ({ width: 320, height: 480, fontScale }),
+                },
+                "expo-router": { useRouter: () => ({ push() {} }) },
+                "@/components/common/ListRow": "ListRow",
+                "../state/DataSourceStateGet": "DataSourceStateGet",
+            },
+        });
+        const rowProps = tile.elements().find((node) => node.type === "ListRow").props;
+        const row = mountNativeComponent("src/components/common/ListRow.tsx", { props: rowProps });
+        const style = Object.assign({}, ...row.output().props.style.flat().filter(Boolean));
+        assert.equal(
+            style.flexDirection,
+            fontScale >= 1.3 ? "column" : "row",
+            `scale ${fontScale}`,
+        );
+        const target = row.elements().find((node) => node.type === "Pressable");
+        assert.ok(!row.elements(target).some((node) => node.type === "DataSourceStateGet"));
+        assert.ok(
+            row.elements(rowProps.trailing).some((node) => node.type === "DataSourceStateGet"),
+        );
+        target.props.onPress();
+        assert.deepEqual(selected, ["source-11"]);
+    }
+});
+
 test("row status failures stay local and Retry rereads status without bubbling", async () => {
     let next = { isSuccess: false, statusCode: 503, response: null };
     const status = mountStatusReader({ get: async () => next });

@@ -20,6 +20,7 @@ interface ListRowProps {
     selected?: boolean;
     separator?: boolean;
     loading?: boolean;
+    stacked?: boolean;
     accessibilityLabel?: string;
     accessibilityHint?: string;
     children?: ReactNode;
@@ -36,6 +37,7 @@ const ListRow: FC<ListRowProps> = ({
     selected = false,
     separator = false,
     loading = false,
+    stacked = false,
     accessibilityLabel,
     accessibilityHint,
     children,
@@ -69,6 +71,7 @@ const ListRow: FC<ListRowProps> = ({
         <View
             style={[
                 styles.row,
+                stacked && styles.stacked,
                 separator && styles.separator,
                 { borderBottomColor: colors.authBorder, backgroundColor: colors.authBackground },
                 selected && {
@@ -90,11 +93,15 @@ const ListRow: FC<ListRowProps> = ({
                     onPress={onPress}
                     onLongPress={onLongPress}
                     android_ripple={{ color: colors.authBorder }}
-                    style={({ pressed }) => [styles.main, pressed && styles.pressed]}>
+                    style={({ pressed }) => [
+                        styles.main,
+                        stacked && styles.stackedMain,
+                        pressed && styles.pressed,
+                    ]}>
                     {content}
                 </Pressable>
             ) : (
-                <View style={styles.main}>{content}</View>
+                <View style={[styles.main, stacked && styles.stackedMain]}>{content}</View>
             )}
             {loading && !trailing ? (
                 <ActivityIndicator accessible={false} color={colors.authForeground} />
@@ -118,6 +125,8 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     separator: { borderBottomWidth: StyleSheet.hairlineWidth },
+    stacked: { flexDirection: "column", alignItems: "stretch" },
+    stackedMain: { flex: 0 },
     main: {
         flex: 1,
         minWidth: 0,
