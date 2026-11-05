@@ -80,12 +80,15 @@ function RoomSelector({ initialRoomId, onSelected, disabled = false }: RoomSelec
                                 },
                             ]}>
                             <NativeText
-                                style={{
-                                    color:
-                                        room.id === initialRoomId
-                                            ? colors.authOnPrimary
-                                            : colors.authForeground,
-                                }}>
+                                style={[
+                                    styles.optionLabel,
+                                    {
+                                        color:
+                                            room.id === initialRoomId
+                                                ? colors.authOnPrimary
+                                                : colors.authForeground,
+                                    },
+                                ]}>
                                 {room.name}
                             </NativeText>
                         </Pressable>
@@ -108,12 +111,15 @@ function RoomSelector({ initialRoomId, onSelected, disabled = false }: RoomSelec
                             },
                         ]}>
                         <NativeText
-                            style={{
-                                color:
-                                    !initialRoomId || initialRoomId === "None"
-                                        ? colors.authOnPrimary
-                                        : colors.authForeground,
-                            }}>
+                            style={[
+                                styles.optionLabel,
+                                {
+                                    color:
+                                        !initialRoomId || initialRoomId === "None"
+                                            ? colors.authOnPrimary
+                                            : colors.authForeground,
+                                },
+                            ]}>
                             None
                         </NativeText>
                     </Pressable>
@@ -130,7 +136,8 @@ function RoomSelector({ initialRoomId, onSelected, disabled = false }: RoomSelec
                                 styles.create,
                                 { borderTopColor: colors.authBorder },
                             ]}>
-                            <NativeText style={{ color: colors.authForeground }}>
+                            <NativeText
+                                style={[styles.optionLabel, { color: colors.authForeground }]}>
                                 Create room
                             </NativeText>
                         </Pressable>
@@ -145,11 +152,13 @@ export default RoomSelector;
 
 const styles = StyleSheet.create({
     option: {
-        minHeight: 48,
-        paddingHorizontal: 16,
+        minHeight: 56,
+        paddingHorizontal: 12,
+        paddingVertical: 16,
         flexDirection: "row",
         alignItems: "center",
         borderRadius: 8,
     },
+    optionLabel: { flex: 1, fontSize: 16 },
     create: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 8, paddingTop: 8 },
 });

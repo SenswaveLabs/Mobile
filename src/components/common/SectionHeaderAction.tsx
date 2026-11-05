@@ -44,6 +44,8 @@ const styles = StyleSheet.create({
     action: {
         minWidth: 72,
         minHeight: 48,
+        maxWidth: "100%",
+        flexShrink: 1,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
@@ -51,6 +53,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8,
         borderRadius: 8,
     },
-    label: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
+    label: { flexShrink: 1, fontSize: 14, lineHeight: 20, fontWeight: "600" },
     pressed: { opacity: 0.72 },
 });

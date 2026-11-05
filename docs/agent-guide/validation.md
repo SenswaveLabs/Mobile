@@ -205,6 +205,12 @@ do not prove that the external credentials, runner access or DNS are configured.
 
 ## Runtime checks
 
+Issue 39's data-source list regression executes the real tile and `ListRow` at
+font scales 1, 1.29, 1.3 and 2, checking side/stacked layout selection, exact
+navigation identity and a separate status/recovery target. These adapter checks
+do not prove native fit; verify the full-width broker address and GET-only Retry
+on Android with enlarged text, then recheck normal text and both themes.
+
 For Home/Device icon changes, also run `pnpm test:icons`. It executes the catalog
 hook, shared selector and real form handlers with the existing native host adapter,
 checking create/edit, constrained full search, exact-key submission, default and
