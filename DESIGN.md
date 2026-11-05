@@ -147,6 +147,13 @@ The light and dark values come from `ThemeProvider`; the root layout maps those 
 
 **The Shared Theme Role Rule.** Keep app-shell and reusable semantic colors derived from the existing light/dark `ThemeProvider` roles.
 
+Explicit Light/Dark choices override system appearance; System follows the current
+scheme. Text-only Create room uses the canvas foreground. Operation type letters
+use `authForeground` on `authFieldBackground`, preserving their full type labels
+and AA text contrast through the list row's disabled opacity.
+Read-only operation configuration follows Widget details: 14/20 labels and
+selectable 16/24 values in full foreground, without disabled-control opacity.
+
 ## Typography
 
 **Display Font:** No separate display face is defined; Android uses its native system sans face (Roboto).

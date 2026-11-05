@@ -130,7 +130,7 @@ function RoomSelector({ initialRoomId, onSelected, disabled = false }: RoomSelec
                                 styles.create,
                                 { borderTopColor: colors.authBorder },
                             ]}>
-                            <NativeText style={{ color: colors.authPrimary }}>
+                            <NativeText style={{ color: colors.authForeground }}>
                                 Create room
                             </NativeText>
                         </Pressable>

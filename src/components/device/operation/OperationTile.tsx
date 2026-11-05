@@ -1,6 +1,6 @@
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Text } from "react-native";
 import React, { FC } from "react";
-import Text from "@/components/common/Text";
+import { useTheme } from "@/contexts/ThemeProvider";
 import { useRouter } from "expo-router";
 import { OperationType } from "@/contexts/custom/DeviceListProvider";
 import ListRow from "@/components/common/ListRow";
@@ -24,20 +24,18 @@ const OperationTile: FC<OperationTileProps> = ({
     separator = false,
 }: OperationTileProps) => {
     const router = useRouter();
+    const { colors } = useTheme().current;
 
     const icons = {
-        Boolean: { letter: "B", colour: "#f5d258" },
-        Number: { letter: "N", colour: "#5478d6" },
-        Integer: { letter: "I", colour: "#2a59d4" },
-        Text: { letter: "T", colour: "#64bd72" },
-        HexColor: { letter: "HC", colour: "#71a832" },
-        Options: { letter: "O", colour: "#32a887" },
+        Boolean: "B",
+        Number: "N",
+        Integer: "I",
+        Text: "T",
+        HexColor: "HC",
+        Options: "O",
     };
 
-    const icon =
-        type && icons[type as keyof typeof icons]
-            ? icons[type]
-            : { letter: "?", colour: "#33363F40" };
+    const letter = Object.prototype.hasOwnProperty.call(icons, type) ? icons[type] : "?";
 
     const onOperationClicked = () => {
         if (disablePress) {
@@ -61,10 +59,8 @@ const OperationTile: FC<OperationTileProps> = ({
             separator={separator}
             description={type}
             leading={
-                <View style={[styles.typeIcon, { backgroundColor: icon.colour }]}>
-                    <Text size="small" color="onPrimary">
-                        {icon.letter}
-                    </Text>
+                <View style={[styles.typeIcon, { backgroundColor: colors.authFieldBackground }]}>
+                    <Text style={[styles.letter, { color: colors.authForeground }]}>{letter}</Text>
                 </View>
             }
             onPress={onOperationClicked}
@@ -74,6 +70,7 @@ const OperationTile: FC<OperationTileProps> = ({
 };
 
 const styles = StyleSheet.create({
+    letter: { fontSize: 14, lineHeight: 20 },
     typeIcon: {
         width: 40,
         height: 40,
