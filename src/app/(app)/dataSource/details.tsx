@@ -9,9 +9,9 @@ import { Text } from "@/components/ui/text";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { DataSourceDto } from "@/types/DataSourcesTypes";
-import { CircleAlert } from "lucide-react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { FC, useEffect, useRef, useState } from "react";
+import { CircleAlert, Info } from "lucide-react-native";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import React, { FC, useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 
 type DetailsTab = "Overview" | "Settings";
@@ -28,9 +28,9 @@ const isDataSource = (value: unknown, id: string): value is DataSourceDto => {
         Number.isInteger(source.port) &&
         source.port >= 1 &&
         source.port <= 65535 &&
-        typeof source.tls === "boolean" &&
-        typeof source.mqttVersion === "string" &&
-        ["MqttV5", "MqttV311", "MqttV310"].includes(source.mqttVersion)
+        typeof source.useTls === "boolean" &&
+        typeof source.protocolVersion === "string" &&
+        ["MqttV5", "MqttV311", "MqttV310"].includes(source.protocolVersion)
     );
 };
 
@@ -40,13 +40,41 @@ const DetailsPage: FC = () => {
     const { colors } = useTheme().current;
     const params = useLocalSearchParams();
     const id = typeof params.id === "string" && params.id.trim() ? params.id : undefined;
+    const currentId = useRef(id);
+    currentId.current = id;
     const [dataSource, setDataSource] = useState<DataSourceDto>();
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
     const [retry, setRetry] = useState(0);
     const [tab, setTab] = useState<DetailsTab>("Overview");
+    const [deletedId, setDeletedId] = useState<string>();
+    const [returnError, setReturnError] = useState("");
+    const deleted = useRef<string | undefined>(undefined);
+    const returned = useRef<string | undefined>(undefined);
+    const focused = useRef(false);
     const requestPending = useRef(false);
     const active = useRef(true);
+
+    useFocusEffect(
+        useCallback(() => {
+            focused.current = true;
+            return () => {
+                focused.current = false;
+            };
+        }, []),
+    );
+
+    const returnToList = () => {
+        if (!focused.current || returned.current === id || currentId.current !== id) return;
+        try {
+            if (router.canGoBack()) router.back();
+            else router.replace("/dataSource/list");
+            returned.current = id;
+            setReturnError("");
+        } catch {
+            setReturnError("Couldn't return to the list. Try again.");
+        }
+    };
 
     useEffect(() => {
         let current = true;
@@ -94,13 +122,13 @@ const DetailsPage: FC = () => {
     }, [id, retry]);
 
     const retryLoad = () => {
-        if (requestPending.current) return;
+        if (requestPending.current || deleted.current === currentId.current) return;
         requestPending.current = true;
         setRetry((value) => value + 1);
     };
 
     const saved = (updated: DataSourceDto) => {
-        if (active.current) setDataSource(updated);
+        if (active.current && currentId.current === updated.id) setDataSource(updated);
     };
 
     const detailsHeader = dataSource && (
@@ -146,7 +174,30 @@ const DetailsPage: FC = () => {
         </View>
     );
 
-    if (loading) {
+    if (deletedId && deletedId === id) {
+        return (
+            <ScrollView
+                style={[styles.screen, { backgroundColor: colors.background }]}
+                contentContainerStyle={styles.returnContent}>
+                <Alert accessibilityRole="alert" accessibilityLiveRegion="polite" icon={Info}>
+                    <AlertDescription>Data source deleted.</AlertDescription>
+                </Alert>
+                {!!returnError && (
+                    <Alert accessibilityRole="alert" variant="destructive" icon={CircleAlert}>
+                        <AlertDescription>{returnError}</AlertDescription>
+                    </Alert>
+                )}
+                <Button
+                    name="Return to data sources"
+                    type="auth"
+                    loading={false}
+                    onPress={returnToList}
+                />
+            </ScrollView>
+        );
+    }
+
+    if (loading || (dataSource && dataSource.id !== id)) {
         return (
             <View style={[styles.stateContainer, { backgroundColor: colors.background }]}>
                 <Loading activityColor="textOnBackground" />
@@ -215,10 +266,16 @@ const DetailsPage: FC = () => {
                             tab === "Settings" ? "auto" : "no-hide-descendants"
                         }>
                         <DataSourceDetailsSection
+                            key={dataSource.id}
                             dataSource={dataSource}
                             header={detailsHeader}
                             onSaved={saved}
-                            onDeleted={() => router.back()}
+                            onDeleted={() => {
+                                if (!active.current || currentId.current !== dataSource.id) return;
+                                deleted.current = dataSource.id;
+                                setDeletedId(dataSource.id);
+                                returnToList();
+                            }}
                         />
                     </TabsContent>
                 </Tabs>
@@ -231,6 +288,7 @@ export default DetailsPage;
 
 const styles = StyleSheet.create({
     screen: { flex: 1 },
+    returnContent: { width: "100%", maxWidth: 448, alignSelf: "center", padding: 24, gap: 16 },
     measure: { flex: 1, width: "100%", maxWidth: 448, alignSelf: "center" },
     tabsRoot: { flex: 1 },
     detailsHeader: { gap: 24 },

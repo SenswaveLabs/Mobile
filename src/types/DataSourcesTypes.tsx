@@ -6,8 +6,8 @@ export type DataSourceDto = {
     url: string;
     clientName: string;
     port: number;
-    mqttVersion: MqttVersion;
-    tls: boolean;
+    protocolVersion: MqttVersion;
+    useTls: boolean;
 };
 
 export type SubscriptionDto = {

@@ -41,6 +41,7 @@ interface BrokerSettings {
 
 interface DataSourceFormProps {
     edit?: boolean;
+    disabled?: boolean;
     header?: React.ReactNode;
     onClick: (values: DataSourceFormValues) => Promise<void>;
     children?: React.ReactNode;
@@ -55,6 +56,7 @@ interface DataSourceFormProps {
 
 export const DataSourceForm: FC<DataSourceFormProps> = ({
     edit = false,
+    disabled = false,
     header,
     onClick,
     children,
@@ -90,7 +92,14 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
     const [submitError, setSubmitError] = useState("");
     const [success, setSuccess] = useState("");
     const pending = useRef(false);
+    const disabledRef = useRef(disabled);
+    disabledRef.current = disabled;
     const attemptedSubmit = useRef(false);
+
+    const updateValues = (change: Partial<BrokerSettings>) => {
+        if (pending.current || disabledRef.current) return;
+        setValues((current) => ({ ...current, ...change }));
+    };
 
     const isDirty =
         values.server !== saved.server ||
@@ -114,7 +123,7 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
 
         if (!values.name) {
             valid = false;
-            if (!edit && attemptedSubmit.current) nextErrors.name = "Name is required.";
+            if (attemptedSubmit.current) nextErrors.name = "Name is required.";
         } else if (values.name.length > 64) {
             valid = false;
             nextErrors.name = "Name is too long.";
@@ -125,7 +134,7 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
 
         if (!values.server) {
             valid = false;
-            if (!edit && attemptedSubmit.current) nextErrors.server = "Server is required.";
+            if (attemptedSubmit.current) nextErrors.server = "Server is required.";
         } else if (values.server.length > 256) {
             valid = false;
             nextErrors.server = "Server url is too long.";
@@ -136,8 +145,7 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
 
         if (!values.clientName) {
             valid = false;
-            if (!edit && attemptedSubmit.current)
-                nextErrors.clientName = "Client name is required.";
+            if (attemptedSubmit.current) nextErrors.clientName = "Client name is required.";
         } else if (values.clientName.length > 64) {
             valid = false;
             nextErrors.clientName = "Client name is too long.";
@@ -183,7 +191,7 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
     };
 
     const triggerSave = async () => {
-        if (pending.current || (edit && !isDirty)) return;
+        if (pending.current || disabledRef.current || (edit && !isDirty)) return;
         pending.current = true;
         setLoading(true);
         setSubmitError("");
@@ -231,23 +239,23 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
         <Input
             error={errors.name}
             value={values.name}
-            setValue={(name) => setValues((current) => ({ ...current, name }))}
+            setValue={(name) => updateValues({ name })}
             title="Name"
             placeholder="My Cloud Broker"
             variant="auth"
-            editable={!loading}
+            editable={!loading && !disabled}
         />
     );
     const serverField = (
         <Input
             error={errors.server}
             value={values.server}
-            setValue={(server) => setValues((current) => ({ ...current, server }))}
+            setValue={(server) => updateValues({ server })}
             title="Server"
             placeholder="example.com"
             trim={true}
             variant="auth"
-            editable={!loading}
+            editable={!loading && !disabled}
             autoCapitalize="none"
             autoCorrect={false}
         />
@@ -256,11 +264,11 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
         <Input
             error={errors.clientName}
             value={values.clientName}
-            setValue={(clientName) => setValues((current) => ({ ...current, clientName }))}
+            setValue={(clientName) => updateValues({ clientName })}
             title="Client name"
             placeholder="Mobile App Client"
             variant="auth"
-            editable={!loading}
+            editable={!loading && !disabled}
         />
     );
     const portInput = (
@@ -268,11 +276,11 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
             title="Port"
             placeholder="1883"
             value={values.port.toString()}
-            setValue={(value) => setValues((current) => ({ ...current, port: Number(value) }))}
+            setValue={(value) => updateValues({ port: Number(value) })}
             error={errors.port}
             keyboardType="numeric"
             variant="auth"
-            editable={!loading}
+            editable={!loading && !disabled}
         />
     );
     const selectors = (
@@ -281,17 +289,17 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
                 <BottomSheetSelect
                     title="TLS"
                     value={values.tls ? "Enabled" : "Disabled"}
-                    disabled={loading}
+                    disabled={loading || disabled}
                     options={[
                         {
                             label: "Enabled",
                             selected: values.tls,
-                            onPress: () => setValues((current) => ({ ...current, tls: true })),
+                            onPress: () => updateValues({ tls: true }),
                         },
                         {
                             label: "Disabled",
                             selected: !values.tls,
-                            onPress: () => setValues((current) => ({ ...current, tls: false })),
+                            onPress: () => updateValues({ tls: false }),
                         },
                     ]}
                 />
@@ -303,15 +311,11 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
                         mqttVersionOptions.find((option) => option.value === values.mqttVersion)
                             ?.label ?? mqttVersionOptions[0].label
                     }
-                    disabled={loading}
+                    disabled={loading || disabled}
                     options={mqttVersionOptions.map((option) => ({
                         label: option.label,
                         selected: values.mqttVersion === option.value,
-                        onPress: () =>
-                            setValues((current) => ({
-                                ...current,
-                                mqttVersion: option.value,
-                            })),
+                        onPress: () => updateValues({ mqttVersion: option.value }),
                     }))}
                 />
             </View>
@@ -349,21 +353,25 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
             <Input
                 error={errors.username}
                 value={username}
-                setValue={setUsername}
+                setValue={(value) => {
+                    if (!pending.current && !disabledRef.current) setUsername(value);
+                }}
                 title="Username"
                 placeholder="Username"
                 variant="auth"
-                editable={!loading}
+                editable={!loading && !disabled}
                 autoCapitalize="none"
             />
             <PasswordInput
                 error={errors.password}
                 value={password}
-                setValue={setPassword}
+                setValue={(value) => {
+                    if (!pending.current && !disabledRef.current) setPassword(value);
+                }}
                 title="Password"
                 placeholder="Password"
                 variant="auth"
-                editable={!loading}
+                editable={!loading && !disabled}
                 onSubmitEditing={edit ? undefined : triggerSave}
                 returnKeyType={edit ? undefined : "done"}
             />
@@ -403,7 +411,7 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
                                         name="Save changes"
                                         type="auth"
                                         loading={loading}
-                                        disabled={!isDirty}
+                                        disabled={disabled || loading || !isDirty}
                                         onPress={triggerSave}
                                     />
                                 </>

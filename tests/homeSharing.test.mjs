@@ -249,3 +249,48 @@ test("home Back offers Cancel and Exit while loading, empty, failed or populated
         assert.equal(dialog().props.visible, false);
     }
 });
+
+test("failed first home read offers Retry and Choose home while confirmed empty keeps onboarding", async () => {
+    const navigation = [];
+    let reads = 0;
+    const homes = {
+        loading: false,
+        error: "Couldn't load home.",
+        initializeCurrentHome: async () => reads++,
+    };
+    const component = mountNativeComponent("src/app/(app)/index.tsx", {
+        modules: {
+            "expo-router": {
+                useFocusEffect() {},
+                useRouter: () => ({ push: (path) => navigation.push(path) }),
+            },
+            "@/contexts/domain/HomeProvider": { useHomes: () => homes },
+            "@/contexts/custom/DeviceListProvider": { useDeviceList: () => ({ devices: [] }) },
+            "@/hooks/useDeviceLayout": { useDeviceLayout: () => ({ layout: "list" }) },
+            "@/components/common/ConfirmDialog": "ConfirmDialog",
+            "@/components/common/WhatsNewModal": { WhatsNewModal: "WhatsNewModal" },
+            "@/components/home/NoHomeScreen": "NoHomeScreen",
+            "@/components/device/DeviceList": "DeviceList",
+            "@/components/device/DeviceLayoutToggle": "DeviceLayoutToggle",
+            "@/components/common/ContentSection": "ContentSection",
+            "@/components/common/SectionHeaderAction": "SectionHeaderAction",
+            "@/components/home/widgets/HomeStateWidget": "HomeStateWidget",
+            "@/components/room/RoomsView": "RoomsView",
+        },
+    });
+    const button = (name) =>
+        component.elements().find((node) => node.type === "Button" && node.props.name === name);
+    assert.equal(
+        component.elements().some((node) => node.type === "NoHomeScreen"),
+        false,
+    );
+    assert.ok(button("Choose home"));
+    button("Choose home").props.onPress();
+    assert.deepEqual(navigation, ["home/list"]);
+    await button("Retry").props.onPress();
+    assert.equal(reads, 1);
+    homes.error = "";
+    component.render();
+    assert.ok(component.elements().some((node) => node.type === "NoHomeScreen"));
+    assert.equal(button("Choose home"), undefined);
+});

@@ -17,6 +17,7 @@ const theme = {
             authOnPrimary: "#321A03",
             authBackground: "#F9F7F1",
             deviceTileSubtle: "#F0ECE3",
+            error: "#A51D2D",
         },
     },
 };
@@ -32,6 +33,8 @@ function mountSelect({
     dismissDisabled,
     keyboardAware,
     leading,
+    error,
+    triggerRef,
 } = {}) {
     const animations = [];
     const options = choices ?? [
@@ -50,6 +53,8 @@ function mountSelect({
             dismissDisabled,
             keyboardAware,
             leading,
+            error,
+            triggerRef,
         },
         modules: {
             "react-native": {
@@ -197,6 +202,38 @@ test("busy tile selector swaps its fixed icon slot without changing value or tri
         elements(pending, trigger(pending)).find((node) => node.type === "NativeText").props
             .children[0],
     );
+});
+
+test("invalid selector names its error, announces supporting text and retains its native focus target", () => {
+    const triggerRef = { current: { id: "external-trigger" } };
+    const form = mountSelect({ error: "Select a current device.", triggerRef });
+    const control = elements(form).find(
+        (node) => node.type === "Pressable" && node.props.accessibilityRole === "button",
+    );
+    assert.equal(
+        control.props.accessibilityLabel,
+        "Transport security, Required, invalid selection",
+    );
+    assert.match(control.props.accessibilityHint, /Select a current device/);
+    assert.equal(
+        Object.assign({}, ...control.props.style({ pressed: false })).borderColor,
+        theme.current.colors.error,
+    );
+    const error = elements(form).find(
+        (node) => node.type === "NativeText" && node.props.accessibilityRole === "alert",
+    );
+    assert.ok(error, "invalid selection has native alert supporting text");
+    assert.equal(error.props.accessibilityLiveRegion, "polite");
+    assert.equal(error.props.children[0], "Select a current device.");
+    assert.equal(control.props.ref, triggerRef);
+    control.props.onPress();
+    form.render();
+    form.flushEffects();
+    modal(form).props.onRequestClose();
+    form.render();
+    form.flushEffects();
+    afterInteractions.at(-1)();
+    assert.equal(accessibilityFocus.at(-1).id, "external-trigger");
 });
 
 test("opens after dismissing keyboard and marks current option visually and semantically", () => {

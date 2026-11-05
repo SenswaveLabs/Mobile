@@ -63,6 +63,14 @@ const Index: FC = () => {
                 loading={refreshing}
                 onPress={onRefresh}
             />
+            {!homes.current && (
+                <Button
+                    name="Choose home"
+                    type="brand-outline"
+                    loading={false}
+                    onPress={() => router.push("home/list")}
+                />
+            )}
         </View>
     ) : null;
 

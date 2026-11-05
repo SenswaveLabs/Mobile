@@ -345,6 +345,16 @@ what remains unverified instead of claiming a pass.
 
 ## Handoff
 
+Issue 36 regressions exercise real V1 broker `protocolVersion`/`useTls` reads,
+required edit errors, synchronous Save/Delete exclusion, confirmation cancellation,
+accepted-delete return-only recovery and retired overview callbacks. Row status
+tests reject unknown lifecycle strings and retry only GET. Automation suites cover
+status names and first-invalid selector scroll/accessibility focus. Device tests
+cover ready-home/role/focus/payload guards, accepted navigation-only return and
+Expander semantics. Home sharing tests preserve initial read-error Retry/Choose
+home separately from confirmed empty onboarding. Adapter evidence does not prove
+native layout, keyboard, TalkBack speech or physical device delivery.
+
 Confirm the requested behavior, preserved API/application boundaries, relevant
 checks and documentation updates. Report failures and any known limitations.
 Notify on test failure and wait for human; never merge PRs autonomously. Keep

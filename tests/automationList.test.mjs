@@ -247,17 +247,18 @@ test("one operation automation remains one visible list row", async () => {
     assert.deepEqual(navigation, ["automation/add"]);
 });
 
-test("automation rows keep status text, details navigation, and no long-press deletion", () => {
+test("automation rows name their visible status and keep one details target", () => {
     const navigation = [];
+    const props = {
+        automationId: "automation-1",
+        automationIcon: "flash-outline",
+        automationName: "Night lights",
+        automationIsEnabled: false,
+        isPressDisabled: false,
+        variant: "list",
+    };
     const component = mountNativeComponent("src/components/automations/AutomationTile.tsx", {
-        props: {
-            automationId: "automation-1",
-            automationIcon: "flash-outline",
-            automationName: "Night lights",
-            automationIsEnabled: false,
-            isPressDisabled: false,
-            variant: "list",
-        },
+        props,
         modules: {
             "@/contexts/ThemeProvider": {
                 useTheme: () => ({
@@ -272,8 +273,12 @@ test("automation rows keep status text, details navigation, and no long-press de
         },
     });
     const row = component.elements().find((node) => node.type === "ListRow");
-    assert.equal(row.props.accessibilityLabel, "Night lights");
+    assert.equal(row.props.accessibilityLabel, "Night lights, Disabled");
     assert.equal(row.props.onLongPress, undefined);
+    const renderedRow = mountNativeComponent("src/components/common/ListRow.tsx", {
+        props: row.props,
+    });
+    assert.equal(renderedRow.elements().filter((node) => node.type === "Pressable").length, 1);
     assert.ok(
         component
             .elements(row.props.description)
@@ -282,6 +287,11 @@ test("automation rows keep status text, details navigation, and no long-press de
     row.props.onPress();
     assert.equal(navigation[0].pathname, "automation/details");
     assert.equal(navigation[0].params.automationId, "automation-1");
+    component.render({ ...props, automationIsEnabled: true });
+    assert.equal(
+        component.elements().find((node) => node.type === "ListRow").props.accessibilityLabel,
+        "Night lights, Enabled",
+    );
 });
 
 test("refresh failure retains rows and exposes local recovery", async () => {

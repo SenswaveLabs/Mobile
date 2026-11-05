@@ -74,6 +74,7 @@ function mountForm(
             ? "src/components/automations/conditions/AutomationConditionForm.tsx"
             : "src/components/automations/results/AutomationResultForm.tsx";
     const requests = [];
+    const accessibilityFocus = [];
     const deviceState = {
         items: deviceItems,
         loading: deviceLoading,
@@ -89,6 +90,10 @@ function mountForm(
                 Text: "Text",
                 Pressable: "Pressable",
                 ActivityIndicator: "ActivityIndicator",
+                AccessibilityInfo: {
+                    setAccessibilityFocus: (target) => accessibilityFocus.push(target),
+                },
+                findNodeHandle: (target) => target?.id ?? null,
             },
             "react-native-keyboard-controller": {
                 KeyboardAwareScrollView: "KeyboardAwareScrollView",
@@ -140,7 +145,7 @@ function mountForm(
         },
     });
     form.flushEffects();
-    return { form, requests, deviceState };
+    return { form, requests, deviceState, accessibilityFocus };
 }
 
 function elements(component) {
@@ -170,6 +175,7 @@ function textContent(component) {
             visit(value.props?.children);
             visit(value.props?.title);
             visit(value.props?.accessibilityLabel);
+            visit(value.props?.error);
         }
     };
     visit(component.output());
@@ -708,6 +714,79 @@ test("result form rejects missing operation and empty value, then preserves exac
         operationName: "Lamp",
         valueToSend: " exact result ",
     });
+});
+
+test("child forms recover to the first missing selector without submitting or losing exact values", async () => {
+    for (const kind of ["condition", "result"]) {
+        const submitted = [];
+        const { form, deviceState, accessibilityFocus } = mountForm(kind, {
+            onSubmit: async (value) => submitted.push(value),
+        });
+        const scrolls = [];
+        const textInputFocus = [];
+        const scroll = elements(form).find((node) => node.type === "KeyboardAwareScrollView");
+        const content = elements(form).find((node) => node.type === "View" && node.props.ref);
+        if (scroll.props.ref)
+            scroll.props.ref.current = { scrollTo: (position) => scrolls.push(plain(position)) };
+        if (content) content.props.ref.current = {};
+        const bindSelector = (title, top) => {
+            const ref = selector(form, title).props.triggerRef;
+            if (!ref) return;
+            ref.current = {
+                id: title,
+                focus: () => textInputFocus.push(title),
+                measureLayout: (relativeTo, success) => {
+                    assert.equal(relativeTo, content.props.ref.current);
+                    success(0, top);
+                },
+            };
+        };
+        bindSelector("Device", 240);
+        await submitForm(form, kind);
+        assert.equal(submitted.length, 0);
+        assert.equal(selector(form, "Device").props.error, "Select a current device.");
+        assert.deepEqual(scrolls, [{ y: 208, animated: false }]);
+        assert.deepEqual(textInputFocus, [], "selector recovery must not take TextInput focus");
+        assert.deepEqual(accessibilityFocus, ["Device"]);
+
+        choose(form, "Device", "Device A");
+        await settle(form);
+        assert.equal(selector(form, "Device").props.error, "");
+        bindSelector("Operation", 960);
+        await submitForm(form, kind);
+        assert.equal(submitted.length, 0);
+        assert.equal(
+            selector(form, "Operation").props.error,
+            "Select an operation for this device.",
+        );
+        assert.deepEqual(scrolls.at(-1), { y: 928, animated: false });
+        assert.deepEqual(textInputFocus, []);
+        assert.deepEqual(accessibilityFocus, ["Device", "Operation"]);
+        assert.equal(
+            elements(form).filter((node) => node.type === "KeyboardAwareScrollView").length,
+            1,
+        );
+
+        choose(form, "Operation", "Operation 11");
+        assert.equal(selector(form, "Operation").props.error, "");
+        const inputTitle = kind === "condition" ? "Required value" : "Value to send";
+        change(form, inputTitle, " exact value ");
+        await submitForm(form, kind);
+        assert.equal(submitted.length, 1);
+        assert.equal(submitted[0].operationId, "operation-11");
+        assert.equal(
+            kind === "condition"
+                ? submitted[0].conditionConfiguration.requiredValue
+                : submitted[0].valueToSend,
+            " exact value ",
+        );
+        deviceState.items = devices.slice(1);
+        form.render();
+        await submitForm(form, kind);
+        assert.equal(submitted.length, 1, "a removed device cannot submit its retained draft");
+        assert.equal(field(form, inputTitle).props.value, " exact value ");
+        assert.equal(accessibilityFocus.at(-1), "Device");
+    }
 });
 
 test("pending child form ignores input changes and button and keyboard share one submit lock", async () => {

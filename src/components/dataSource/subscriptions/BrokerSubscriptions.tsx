@@ -118,13 +118,14 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
     );
 
     const retryLoad = () => {
-        if (requestPending.current) return;
+        if (!active.current || requestPending.current) return;
         readSequence.current++;
         requestPending.current = true;
         setReload((value) => value + 1);
     };
 
     const addSubscription = () => {
+        if (!active.current) return;
         router.push({
             pathname: "dataSource/brokers/addSubscription",
             params: { brokerId: id },
@@ -132,7 +133,7 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
     };
 
     const removeSubscription = async (subscriptionId: string) => {
-        if (removePending.current || requestPending.current) return;
+        if (!active.current || removePending.current || requestPending.current) return;
         removePending.current = true;
         setRemoving(true);
         setRemovingId(subscriptionId);

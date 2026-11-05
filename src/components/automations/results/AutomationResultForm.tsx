@@ -13,7 +13,7 @@ import { ListResponse } from "@/utils/httpClient";
 import { CircleAlert } from "lucide-react-native";
 import React, { FC, useRef, useState } from "react";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { StyleSheet, View } from "react-native";
+import { AccessibilityInfo, findNodeHandle, ScrollView, StyleSheet, View } from "react-native";
 import { keyboardOffset } from "@/styles/defaultStyles";
 
 interface AutomationResultFormProps {
@@ -68,8 +68,22 @@ const AutomationResultForm: FC<AutomationResultFormProps> = ({
     const submittingRef = useRef(false);
     const submitLock = useRef(false);
     const lastSubmitted = useRef<AutomationResultDraft | undefined>(undefined);
+    const scrollRef = useRef<ScrollView>(null);
+    const contentRef = useRef<View>(null);
+    const deviceInput = useRef<View>(null);
+    const operationInput = useRef<View>(null);
 
     const locked = () => pendingRef.current || submittingRef.current || acceptedRef.current;
+    const focusSelection = (input: View | null) => {
+        if (!input || !contentRef.current) return;
+        input.measureLayout(contentRef.current, (_left, top) => {
+            if (!contentRef.current || locked()) return;
+            // Leave space above the trigger for its label.
+            scrollRef.current?.scrollTo({ y: Math.max(0, top - 32), animated: false });
+            const tag = findNodeHandle(input);
+            if (tag !== null) AccessibilityInfo.setAccessibilityFocus(tag);
+        });
+    };
     const resetValue = () => {
         setOperationId("");
         setValueToSend("");
@@ -165,7 +179,11 @@ const AutomationResultForm: FC<AutomationResultFormProps> = ({
         if (!device) setDeviceError("Select a current device.");
         if (!operation) setOperationError("Select an operation for this device.");
         if (valueToSend.length === 0) setValueError("Enter a value to send.");
-        if (!device || !operation || valueToSend.length === 0) return;
+        if (!device || !operation) {
+            focusSelection(!device ? deviceInput.current : operationInput.current);
+            return;
+        }
+        if (valueToSend.length === 0) return;
 
         const value: AutomationResultDraft = {
             operationId: operation.id,
@@ -206,11 +224,12 @@ const AutomationResultForm: FC<AutomationResultFormProps> = ({
 
     return (
         <KeyboardAwareScrollView
+            ref={scrollRef}
             bottomOffset={keyboardOffset}
             keyboardShouldPersistTaps="handled"
             style={[styles.screen, { backgroundColor: colors.background }]}
             contentContainerStyle={styles.content}>
-            <View style={styles.layout}>
+            <View ref={contentRef} collapsable={false} style={styles.layout}>
                 <FormSection
                     title="Add result"
                     helper="Choose a device operation and enter the exact value it should receive.">
@@ -219,10 +238,9 @@ const AutomationResultForm: FC<AutomationResultFormProps> = ({
                         value={deviceName}
                         options={deviceOptions}
                         disabled={effectivePending || accepted}
+                        error={deviceError}
+                        triggerRef={deviceInput}
                     />
-                    {!!deviceError && (
-                        <Text style={[styles.message, { color: colors.error }]}>{deviceError}</Text>
-                    )}
                     {devicesLoading && (
                         <Text
                             accessibilityLiveRegion="polite"
@@ -287,12 +305,9 @@ const AutomationResultForm: FC<AutomationResultFormProps> = ({
                                 value={operationName}
                                 options={operationOptions}
                                 disabled={effectivePending || accepted}
+                                error={operationError}
+                                triggerRef={operationInput}
                             />
-                            {!!operationError && (
-                                <Text style={[styles.message, { color: colors.error }]}>
-                                    {operationError}
-                                </Text>
-                            )}
                         </>
                     )}
                     <Input
