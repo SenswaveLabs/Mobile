@@ -1,5 +1,4 @@
 import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
 import React, { FC } from "react";
 import { Button as ReusableButton } from "@/components/ui/button";
 import {
@@ -16,14 +15,7 @@ interface ButtonProps {
     name: string;
     loading: boolean;
     onPress: (event: GestureResponderEvent) => void;
-    type?:
-        | "default"
-        | "alternative"
-        | "outlined"
-        | "auth"
-        | "brand-outline"
-        | "brand-ghost"
-        | "brand-destructive";
+    type?: "auth" | "brand-outline" | "brand-ghost" | "brand-destructive";
     style?: StyleProp<ViewStyle>;
     disabled?: boolean;
     accessibilityLabel?: string;
@@ -34,7 +26,7 @@ const Button: FC<ButtonProps> = ({
     name,
     loading,
     onPress,
-    type = "default",
+    type = "auth",
     style,
     disabled = false,
     accessibilityLabel,
@@ -43,16 +35,11 @@ const Button: FC<ButtonProps> = ({
     const destructiveBrand = type === "brand-destructive";
     const outlinedBrand = type === "brand-outline" || destructiveBrand;
     const ghostBrand = type === "brand-ghost";
-    const auth = type === "auth" || outlinedBrand || ghostBrand;
     const foreground = destructiveBrand
         ? colors.error
-        : auth
-          ? outlinedBrand || ghostBrand
-              ? colors.authForeground
-              : colors.authOnPrimary
-          : type === "alternative"
-            ? colors.textOnSecondary
-            : colors.textOnPrimary;
+        : outlinedBrand || ghostBrand
+          ? colors.authForeground
+          : colors.authOnPrimary;
     const unavailable = loading || disabled;
 
     return (
@@ -66,35 +53,24 @@ const Button: FC<ButtonProps> = ({
             disabled={unavailable}
             style={[
                 styles.button,
-                auth && styles.authButton,
                 {
                     borderColor: destructiveBrand
                         ? colors.error
                         : outlinedBrand
                           ? colors.authBorder
-                          : type === "outlined"
-                            ? colors.secondary
-                            : "transparent",
+                          : "transparent",
                     backgroundColor: ghostBrand
                         ? "transparent"
                         : outlinedBrand
                           ? colors.authBackground
-                          : auth
-                            ? colors.authPrimary
-                            : type === "alternative"
-                              ? colors.secondary
-                              : colors.primary,
+                          : colors.authPrimary,
                 },
-                !auth && shadowStyles.default,
-                !auth && styles.legacyShadow,
                 disabled && styles.disabled,
                 style,
             ]}
             onPress={onPress}>
             {loading && <ActivityIndicator accessible={false} size="small" color={foreground} />}
-            <NativeText
-                allowFontScaling
-                style={[styles.label, auth && styles.authLabel, { color: foreground }]}>
+            <NativeText allowFontScaling style={[styles.label, { color: foreground }]}>
                 {name}
             </NativeText>
         </ReusableButton>
@@ -106,20 +82,17 @@ export default Button;
 const styles = StyleSheet.create({
     button: {
         width: "100%",
+        minHeight: 48,
         paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 12,
-        borderWidth: 1.5,
+        paddingVertical: 11,
+        borderRadius: 8,
+        borderWidth: 1,
         alignItems: "center",
         justifyContent: "center",
-        minHeight: 54,
         flexDirection: "row",
         rowGap: 10,
         columnGap: 10,
     },
-    label: { fontSize: 20, lineHeight: 24, fontWeight: "bold", flexShrink: 1, textAlign: "center" },
-    authButton: { minHeight: 48, borderRadius: 8, borderWidth: 1, paddingVertical: 11 },
-    authLabel: { fontSize: 16, lineHeight: 24, fontWeight: "500" },
-    legacyShadow: { shadowColor: "#000" },
+    label: { fontSize: 16, lineHeight: 24, fontWeight: "500", flexShrink: 1, textAlign: "center" },
     disabled: { opacity: 0.6 },
 });

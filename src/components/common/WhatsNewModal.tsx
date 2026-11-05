@@ -1,7 +1,7 @@
-import React from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import React, { FC } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTheme } from "@/contexts/ThemeProvider";
 import SenswaveModal from "./SenswaveModal";
-import Text from "./Text";
 import Icon from "./Icon";
 import { useWhatsNew } from "@/hooks/useWhatsNew";
 
@@ -78,7 +78,8 @@ const CHANGES: ChangeEntry[] = [
     },
 ];
 
-export function WhatsNewModal() {
+export const WhatsNewModal: FC = () => {
+    const { colors } = useTheme().current;
     const { show, dismiss } = useWhatsNew();
 
     return (
@@ -86,12 +87,12 @@ export function WhatsNewModal() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {CHANGES.map((entry) => (
                     <View key={entry.title} style={styles.entry}>
-                        <Icon icon={entry.icon} size={28} color="onBackground" />
+                        <Icon icon={entry.icon} size={28} color="brand" />
                         <View style={styles.entryText}>
-                            <Text size="medium" bold color="onBackground" numberOfLines={1}>
+                            <Text style={[styles.title, { color: colors.authForeground }]}>
                                 {entry.title}
                             </Text>
-                            <Text size="small" color="onBackground" numberOfLines={3}>
+                            <Text style={[styles.description, { color: colors.authMuted }]}>
                                 {entry.description}
                             </Text>
                         </View>
@@ -100,9 +101,11 @@ export function WhatsNewModal() {
             </ScrollView>
         </SenswaveModal>
     );
-}
+};
 
 const styles = StyleSheet.create({
+    title: { fontSize: 16, lineHeight: 24, fontWeight: "600" },
+    description: { fontSize: 14, lineHeight: 20 },
     content: {
         paddingTop: 8,
         gap: 24,

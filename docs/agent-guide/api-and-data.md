@@ -142,15 +142,13 @@ Result.success<T>(data) / Result.failure<T>("message") / Result.failureWithData<
 
 `HomeProvider.initializeCurrentHome()` returns success/failure and always releases
 its loading state, including location, request and response-parsing failures.
-Use `{ silent: true }` when the caller owns recovery and feedback, as joining does;
-other callers retain the existing notifications. This is a client context option,
-with no change to backend contracts. Home selection remains available before a
+Every initializer failure stays in local `error` state and returns `false`; a confirmed 404 clears that error and represents an empty account. The home screen shows Alert/Retry while retaining cached content after a failure. The existing `silent` option is accepted for caller compatibility and never enables global notifications. This is client state only, with no change to backend contracts. Home selection remains available before a
 current home has been established.
 
 After a successful delete/leave, call the initializer with
 `{ silent: true, removedHomeId: id }`. It discards that home before recovery I/O,
 including when the initiating screen lost focus. It preserves a different current
-selection, including one selected during recovery. A failed initializer sends the
+selection, including one selected during recovery. If another home is already selected when removed-home recovery starts, it is retained without another `/current` read. A failed initializer sends the
 active details screen to the picker; it must not repeat the destructive request.
 Ordinary initialization and refresh callers keep their existing behavior.
 
@@ -170,7 +168,7 @@ uses string `connectionStatus` and `latestSessionId` fields. List tiles enable
 inline recovery: failed, malformed and thrown reads keep the status unavailable
 with Retry for that same GET. Focus and request generations bind results to the
 current broker row, and the authenticated app teardown invalidates late work.
-Other tile callers keep the default toast feedback. These client behaviors do
+Every status-reader caller uses local error feedback and Retry; no global toast fallback exists. These client behaviors do
 not change the API contract.
 
 `DeviceListProvider` owns client-side device-list loading and error recovery. It
@@ -229,17 +227,14 @@ hide stale keys and ignore late responses. Failures expose inline feedback and r
 never a local allowed list. The V1 catalog accepts only object entries; it does not
 parse the previous string-array shape.
 
-Home/Device forms pass the matching catalog to `IconSelector`; it constrains both
-the quick strip and full search. The full resource browser shows and searches the
-English label selected by each entry's `labelKey`; unknown labels fall back to the
-opaque key. `resourceIcons.ts` maps resource keys to native Lucide symbols for
+Home/Device forms pass the matching catalog to `IconSelector`; it exclusively constrains the four-column bottom sheet. Each choice shows the English label selected by its entry's `labelKey`; unknown labels fall back to the opaque key. There is no quick strip or search. `resourceIcons.ts` maps resource keys to native Lucide symbols for
 presentation only, including safe Home/Device fallbacks. It is not an allowed list.
 Unknown or historical selections keep their original stored keys; their display
 fallback must never become a submitted replacement. Dashboard and Radio selection
 use their historical local palettes (16 and 15 keys) in brand bottom sheets; these
 are UI choice restrictions, not backend catalogs or a data migration. Existing
 saved keys outside those palettes remain readable and unchanged on unrelated
-saves. Automation retains its existing global icon browser. See the
+saves. Automation uses the same compact bottom sheet with the complete 318-key global palette, virtualized for scrolling; its former 14-key quick list is not the allowed set. See the
 [UI policy](interface.md) for the required presentation and behavior.
 
 Create requires a nonempty catalog key, including validation of `home-outline` and

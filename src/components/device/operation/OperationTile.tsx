@@ -1,10 +1,8 @@
-import { View, Pressable, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import React, { FC } from "react";
 import Text from "@/components/common/Text";
 import { useRouter } from "expo-router";
 import { OperationType } from "@/contexts/custom/DeviceListProvider";
-import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
 import ListRow from "@/components/common/ListRow";
 
 interface OperationTileProps {
@@ -13,7 +11,7 @@ interface OperationTileProps {
     name: string;
     type: OperationType;
     disablePress?: boolean;
-    variant?: "preview" | "list";
+    variant?: "list";
     separator?: boolean;
 }
 
@@ -23,11 +21,9 @@ const OperationTile: FC<OperationTileProps> = ({
     name,
     type,
     disablePress = false,
-    variant = "preview",
     separator = false,
 }: OperationTileProps) => {
     const router = useRouter();
-    const theme = useTheme();
 
     const icons = {
         Boolean: { letter: "B", colour: "#f5d258" },
@@ -59,67 +55,21 @@ const OperationTile: FC<OperationTileProps> = ({
         });
     };
 
-    if (variant === "list") {
-        return (
-            <ListRow
-                title={name}
-                separator={separator}
-                description={type}
-                leading={
-                    <View style={[styles.typeIcon, { backgroundColor: icon.colour }]}>
-                        <Text size="small" color="onPrimary">
-                            {icon.letter}
-                        </Text>
-                    </View>
-                }
-                onPress={onOperationClicked}
-                disabled={disablePress}
-            />
-        );
-    }
-
     return (
-        <Pressable
-            style={[
-                {
-                    height: 30,
-                    flexDirection: "row",
-                    alignItems: "center",
-                },
-            ]}
-            onPress={onOperationClicked}>
-            <View
-                style={[
-                    {
-                        backgroundColor: icon.colour,
-                        aspectRatio: 1,
-                        height: 40,
-                        marginRight: 10,
-                        borderRadius: 10,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        ...shadowStyles.default,
-                    },
-                ]}>
-                <Text size={"large"} color={"onPrimary"}>
-                    {icon.letter}
-                </Text>
-            </View>
-            <View
-                style={{
-                    backgroundColor: theme.current.colors.primary,
-                    height: 40,
-                    flex: 1,
-                    borderRadius: 10,
-                    justifyContent: "center",
-                    paddingLeft: 10,
-                    ...shadowStyles.default,
-                }}>
-                <Text size={"medium"} color={"onPrimary"}>
-                    {name}
-                </Text>
-            </View>
-        </Pressable>
+        <ListRow
+            title={name}
+            separator={separator}
+            description={type}
+            leading={
+                <View style={[styles.typeIcon, { backgroundColor: icon.colour }]}>
+                    <Text size="small" color="onPrimary">
+                        {icon.letter}
+                    </Text>
+                </View>
+            }
+            onPress={onOperationClicked}
+            disabled={disablePress}
+        />
     );
 };
 

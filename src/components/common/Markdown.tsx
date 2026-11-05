@@ -1,5 +1,6 @@
 import { useTheme } from "@/contexts/ThemeProvider";
 import { FC, PropsWithChildren } from "react";
+import { StyleSheet } from "react-native";
 import MarkdownDisplay, {
     MarkdownProps as NativeMarkdownProps,
 } from "react-native-markdown-display";
@@ -9,13 +10,20 @@ const Markdown: FC<PropsWithChildren<NativeMarkdownProps>> = (props) => {
 
     return (
         <MarkdownDisplay
+            {...props}
             style={{
-                body: { color: theme.current.colors.textOnBackground },
+                ...styles,
+                body: { ...styles.body, color: theme.current.colors.authForeground },
+                link: {
+                    color: theme.current.colors.authForeground,
+                    textDecorationLine: "underline",
+                },
+                hr: { backgroundColor: theme.current.colors.authBorder },
+                ...props.style,
             }}
-            {...props}>
-            {props.children}
-        </MarkdownDisplay>
+        />
     );
 };
 
 export default Markdown;
+const styles = StyleSheet.create({ body: { fontSize: 16, lineHeight: 24 } });

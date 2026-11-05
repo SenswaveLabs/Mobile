@@ -10,7 +10,7 @@
 | State | Context API + custom hooks |
 | Real-time | SignalR (`@microsoft/signalr` 8.x) |
 | Auth storage | `expo-secure-store` |
-| UI | Local React Native Reusables primitives in `src/components/ui`, including Toggle/ToggleGroup for native single-choice controls and AlertDialog with a named `@rn-primitives/portal` host in a native Modal, NativeWind 4 + Tailwind CSS 3. Existing `common` wrappers preserve their native APIs and appearance. Support libs: `reanimated-color-picker`, `@react-native-community/slider`, `react-native-markdown-display` |
+| UI | Local React Native Reusables primitives in `src/components/ui`, including Toggle/ToggleGroup for native single-choice controls and AlertDialog with a named `@rn-primitives/portal` host in a native Modal, NativeWind 4 + Tailwind CSS 3. Shared `common` wrappers preserve their native APIs but render only the current Reusables/brand system; retired variants cannot be selected. Support libs: `reanimated-color-picker`, `@react-native-community/slider`, `react-native-markdown-display` |
 | Auth, home and room UI | Welcome, login, registration, forgot password and development server selection render native `auth/AuthPanel`. Home selection, joining, creation and settings use the same local primitives; `home/HomeForm` and `room/RoomForm` own their fields and save actions. Session actions, Google OAuth and storage use the existing providers. See [native auth and home UI](../native-auth-ui.md). |
 | Home location | MapLibre React Native 11 with OpenStreetMap raster tiles; native modal picker and optional Expo Location GPS/address lookup. Expo web keeps a native-control fallback without importing the map SDK. |
 | Backend | .NET Minimal API — modular monolith (`Senswave.sln`) |
@@ -50,7 +50,7 @@ src/
     HttpClientProvider      # HTTP client, auto token refresh
     SignalRProvider         # SignalR hub connection
     OptimisticActionProvider # home tile action values above route Suspense
-    ThemeProvider MenuProvider ModalProvider ToastProvider
+    ThemeProvider MenuProvider ModalProvider
     custom/                 # feature providers: AutomationList, Automation, DeviceList,
                             #   Device, OperationForm, WidgetDetails
     domain/                 # entity providers: Home, User, LiveUpdate, Legal
@@ -137,3 +137,5 @@ The Babel preset resolves through the installed `expo` package; do not rely on
 hoisted transitive dependencies, since Gradle invokes Node directly.
 
 React Native Reusables sources are copied from the official NativeWind registry, with local import aliases. `components.json` records these aliases; `metro.config.js`, `babel.config.js`, `tailwind.config.js` and `global.css` configure NativeWind. The root layout derives native CSS variables from `ThemeProvider`, keeping one palette. Do not reintroduce Expo DOM, Base UI or a WebView for these screens. React Native Web and React DOM remain only for Expo web support.
+
+Global toast infrastructure is retired. HttpClientProvider returns HttpResponse failures and retains session logout/refresh behavior without overlays or keyboard side effects. UserProvider returns Result failures; HomeProvider exposes initialization error state and retains cached data on failed reads. Every broker status reader uses local Retry. IconSelector has one four-column sheet implementation; Automation passes all 318 global keys. ConfirmDialog owns Reusables AlertDialog inside a native Modal; the former Dialog component and tile preview branches are removed.

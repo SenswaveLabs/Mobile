@@ -4,6 +4,8 @@ import Icon from "@/components/common/Icon";
 import Loading from "@/components/common/Loading";
 import SectionHeaderAction from "@/components/common/SectionHeaderAction";
 import { WhatsNewModal } from "@/components/common/WhatsNewModal";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CircleAlert } from "lucide-react-native";
 import DeviceList from "@/components/device/DeviceList";
 import DeviceLayoutToggle from "@/components/device/DeviceLayoutToggle";
 import NoHomeScreen from "@/components/home/NoHomeScreen";
@@ -57,7 +59,28 @@ const Index: FC = () => {
         }
     };
 
-    if (homes.loading) return <Loading activityColor="textOnBackground" />;
+    const homeError = homes.error ? (
+        <View style={styles.homeError}>
+            <Alert icon={CircleAlert} variant="destructive">
+                <AlertDescription>{homes.error}</AlertDescription>
+            </Alert>
+            <Button
+                name="Retry"
+                accessibilityLabel="Retry loading home"
+                type="brand-outline"
+                loading={refreshing}
+                onPress={onRefresh}
+            />
+        </View>
+    ) : null;
+
+    if (homes.loading && !homes.current) return <Loading />;
+    if (!homes.current && homes.error)
+        return (
+            <View style={[styles.container, { backgroundColor: colors.background }]}>
+                {homeError}
+            </View>
+        );
     if (!homes.current)
         return (
             <NoHomeScreen
@@ -119,6 +142,7 @@ const Index: FC = () => {
                     layout={layout}
                     header={
                         <View style={styles.intro}>
+                            {homeError}
                             <HomeStateWidget />
                             <View style={styles.automationAction}>
                                 <SectionHeaderAction
@@ -187,6 +211,7 @@ const Index: FC = () => {
 export default Index;
 
 const styles = StyleSheet.create({
+    homeError: { padding: 16, gap: 12, width: "100%", maxWidth: 448, alignSelf: "center" },
     container: { flex: 1 },
     intro: { gap: 16, marginBottom: 20 },
     automationAction: { alignItems: "flex-end" },

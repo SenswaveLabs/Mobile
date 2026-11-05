@@ -62,6 +62,36 @@ spacing:
   tile-action-feedback-gap: "12px"
   tile-content-inset: "12px"
 components:
+  button-primary:
+    backgroundColor: "{colors.accent-light}"
+    textColor: "{colors.on-accent}"
+    rounded: "{rounded.native-card}"
+    typography: "{typography.body}"
+    padding: "11px 16px"
+  button-outline:
+    backgroundColor: "{colors.canvas-light}"
+    textColor: "{colors.foreground-light}"
+    rounded: "{rounded.native-card}"
+    typography: "{typography.body}"
+    padding: "11px 16px"
+  button-destructive:
+    backgroundColor: "{colors.canvas-light}"
+    textColor: "{colors.destructive-light}"
+    rounded: "{rounded.native-card}"
+    typography: "{typography.body}"
+    padding: "11px 16px"
+  input-field:
+    backgroundColor: "{colors.surface-light}"
+    textColor: "{colors.foreground-light}"
+    rounded: "{rounded.native-card}"
+    typography: "{typography.body}"
+    padding: "12px 14px"
+  icon-field:
+    backgroundColor: "{colors.surface-light}"
+    textColor: "{colors.foreground-light}"
+    rounded: "{rounded.native-card}"
+    typography: "{typography.body}"
+    padding: "8px 14px"
   device-tile-light:
     backgroundColor: "{colors.tile-light}"
     textColor: "{colors.foreground-light}"
@@ -99,7 +129,7 @@ Light and dark semantic roles set the app canvas, reusable surfaces, fields, foc
 
 ## Colors
 
-The light and dark values come from `ThemeProvider`; the root layout maps those roles into NativeWind semantic tokens. The frontmatter records the shell roles and the additional device-tile colors used by this surface. Specialized data-source status tones and other legacy theme roles remain defined in `ThemeProvider` and the mobile UI guide.
+The light and dark values come from `ThemeProvider`; the root layout maps those roles into NativeWind semantic tokens. The frontmatter records the shell roles and the additional device-tile colors used by this surface. Specialized data-source status tones and other specialized theme roles remain defined in `ThemeProvider` and the mobile UI guide.
 
 ### Primary
 - **Amber action:** `accent-light` and `accent-dark` color editable controls; `on-accent` supplies their foreground.
@@ -156,6 +186,14 @@ Device grid tiles use gently rounded corners (`rounded.device-tile`); list rows 
 
 **The Opt-In Alert Rule.** Home tile errors use the compact variant; existing non-tile Alerts retain their bordered card treatment. Dashboard command feedback follows the separate rule below.
 
+### Shared Native Controls
+
+Shared Button, Input, InputNumber, PasswordInput and DefaultHeader expose only the current native brand rendering. Omitting a variant never selects an old visual branch. List tiles have one ListRow presentation. `common/Text` adapts Reusables Text using the native type scale, current foregrounds and caller-owned line limits; recovery and legal copy wrap. Loading is a native 32 dp progress indicator with the current foreground, Divider uses the theme border, and MarkdownDisplay keeps themed body and separator roles with underlined foreground links.
+
+`ConfirmDialog` owns a native Modal and named PortalHost with Reusables AlertDialog, a scrollable body and stacked full-width brand actions. Cancel and Android Back preserve the caller's state without a mutation. `SenswaveModal` is the current full-screen native content shell with a growing header and a 48 dp Close target; What's New retains its version lifecycle within that shell. Icon selection always uses the compact four-column BottomSheetSelect, never that shell.
+
+Global RootToast and its keyboard dismissal are retired across next-dev, including initialization, unknown routes and late responses. Home read failures retain cached content and show local Alert/Retry; a confirmed empty account shows onboarding. Other failures stay with their form/list/Result. Dashboard command snackbars and Home tile alerts retain their separate ownership.
+
 ### Device Tiles
 
 - **Grid:** Themed tile fill and outline, a 12 dp content inset, rounded corners and a 112 dp minimum height.
@@ -210,7 +248,7 @@ and Home tile feedback retain their distinct contextual treatment.
   management views.
 - **Icon fields:** Match Create Home's selected-value field and four-column icon
   bottom sheet. Dashboard and Radio offer their historical 16/15 contextual keys,
-  without global search. Preserve stored historical keys outside the choices.
+  without global search. Home/Device use their API catalogs; Automation uses its complete 318-key global palette in a virtualized four-column sheet. Preserve stored historical keys outside the choices.
 - **Creation forms:** Keep one keyboard-aware scroll and growing bottom action;
   fields, errors and the action remain reachable on short windows and with IME.
 - **Operation configuration:** Apply the design system to every conditional field,

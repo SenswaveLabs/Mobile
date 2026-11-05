@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { useToast } from "../ToastProvider";
 
 export type OptionInfo = {
     name: string;
@@ -7,6 +6,7 @@ export type OptionInfo = {
 };
 
 interface OperationFormState {
+    error: string;
     addOption: (name: string, value: string | number | boolean) => void;
     removeOption: (name: string) => void;
     getOptions: () => OptionInfo[];
@@ -14,6 +14,7 @@ interface OperationFormState {
 }
 
 const OperationFormContext = createContext<OperationFormState>({
+    error: "",
     addOption: () => {},
     removeOption: () => {},
     getOptions: () => [],
@@ -21,11 +22,11 @@ const OperationFormContext = createContext<OperationFormState>({
 });
 
 export const OperationFormProvider = ({ children }: { children: ReactNode }) => {
-    const toast = useToast();
-
+    const [error, setError] = useState("");
     const [options, setOptions] = useState<OptionInfo[]>([]);
 
     const addOption = (name: string, value: string | number | boolean) => {
+        setError("");
         const existingIndex = options.findIndex((opt) => opt.name === name);
 
         if (existingIndex !== -1) {
@@ -36,7 +37,7 @@ export const OperationFormProvider = ({ children }: { children: ReactNode }) => 
         } else {
             // Check limit before adding
             if (options.length >= 10) {
-                toast.error("Max options reached.");
+                setError("Max options reached.");
                 return;
             }
             setOptions([...options, { name, value }]);
@@ -44,6 +45,7 @@ export const OperationFormProvider = ({ children }: { children: ReactNode }) => 
     };
 
     const removeOption = (name: string) => {
+        setError("");
         setOptions((prev) => prev.filter((opt) => opt.name !== name));
     };
 
@@ -51,10 +53,11 @@ export const OperationFormProvider = ({ children }: { children: ReactNode }) => 
 
     const setConfiguration = (configuration: any) => {
         if (!configuration || !Array.isArray(configuration.options)) {
-            toast.error("Invalid configuration format.");
+            setError("Invalid configuration format.");
             return false;
         }
 
+        setError("");
         setOptions(configuration.options);
         return true;
     };
@@ -62,6 +65,7 @@ export const OperationFormProvider = ({ children }: { children: ReactNode }) => 
     return (
         <OperationFormContext.Provider
             value={{
+                error,
                 addOption,
                 removeOption,
                 getOptions,

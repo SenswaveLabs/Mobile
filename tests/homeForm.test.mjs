@@ -1074,7 +1074,7 @@ test("initialization discards a removed home but preserves a different current s
         statusCode: 200,
         response: { json: async () => ({ id: "home-4" }) },
     });
-    assert.equal(await pending, true);
+    assert.equal(await pending, false);
     provider.render();
     assert.equal(context().current.id, "home-3");
 });

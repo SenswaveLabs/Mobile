@@ -245,8 +245,6 @@ export function mountNativeComponent(
                 };
             if (name.includes("ThemeProvider"))
                 return { useTheme: () => ({ current: { colors: {} } }) };
-            if (name.includes("ToastProvider"))
-                return { useToast: () => ({ error: () => {}, info: () => {} }) };
             if (name.endsWith("/ui/alert"))
                 return {
                     Alert: "Alert",

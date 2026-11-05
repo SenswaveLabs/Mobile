@@ -295,12 +295,6 @@ importers:
       react-native-reanimated:
         specifier: 4.1.6
         version: 4.1.6(@babel/core@7.28.6(supports-color@8.1.1))(react-native-worklets@0.5.1(@babel/core@7.28.6(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
-      react-native-root-siblings:
-        specifier: 4.1.1
-        version: 4.1.1
-      react-native-root-toast:
-        specifier: 3.6.0
-        version: 3.6.0(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))
       react-native-safe-area-context:
         specifier: 5.6.2
         version: 5.6.2(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
@@ -2005,9 +1999,6 @@ packages:
     resolution: {integrity: sha512-fB7M1CMOCIUudTRuj7kzxIBTVw2KXnsgbQ6+4cbqSxo8NmRRhA0Ul4ZUzZj3rFd3VznTL4Brmocv1oiN0bWZ8w==}
     engines: {node: '>= 20.19.4'}
 
-  '@react-native/normalize-color@2.1.0':
-    resolution: {integrity: sha512-Z1jQI2NpdFJCVgpY+8Dq/Bt3d+YUi1928Q+/CZm/oh66fzM0RUl54vvuXlPJKybH4pdCZey1eDTPaLHkMPNgWA==}
-
   '@react-native/normalize-colors@0.74.89':
     resolution: {integrity: sha512-qoMMXddVKVhZ8PA1AbUCk83trpd6N+1nF2A6k1i6LsQObyS92fELuk8kU/lQs6M7BsMHwqyLCpQJ1uFgNvIQXg==}
 
@@ -2790,9 +2781,6 @@ packages:
   depd@2.0.0:
     resolution: {integrity: sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw==}
     engines: {node: '>= 0.8'}
-
-  deprecated-react-native-prop-types@2.3.0:
-    resolution: {integrity: sha512-pWD0voFtNYxrVqvBMYf5gq3NA2GCpfodS1yNynTPc93AYA/KEMGeWDqqeUB6R2Z9ZofVhks2aeJXiuQqKNpesA==}
 
   destroy@1.2.0:
     resolution: {integrity: sha512-2sJGJTaXIIaR1w4iJSNoN0hnMY7Gpc/n8D4qSCJw8QqFWXf7cuAgnEHxBpweaVcPevC2l3KpjYCx3NypQQgaJg==}
@@ -4336,14 +4324,6 @@ packages:
       react: '*'
       react-native: '*'
       react-native-worklets: '>=0.5.0'
-
-  react-native-root-siblings@4.1.1:
-    resolution: {integrity: sha512-sdmLElNs5PDWqmZmj4/aNH4anyxreaPm61c4ZkRiR8SO/GzLg6KjAbb0e17RmMdnBdD0AIQbS38h/l55YKN4ZA==}
-
-  react-native-root-toast@3.6.0:
-    resolution: {integrity: sha512-HgZ2OS84ZbInJGuejGghBCPmBwoSBuJFO/bAJoR/NS6rCl9eiXSRegIG/gLEo7lH9BijeA63is1noUqR8Y1DpQ==}
-    peerDependencies:
-      react-native: '>=0.47.0'
 
   react-native-safe-area-context@5.6.2:
     resolution: {integrity: sha512-4XGqMNj5qjUTYywJqpdWZ9IG8jgkS3h06sfVjfw5yZQZfWnRFXczi0GnYyFyCc2EBps/qFmoCH8fez//WumdVg==}
@@ -7026,8 +7006,6 @@ snapshots:
 
   '@react-native/js-polyfills@0.81.5': {}
 
-  '@react-native/normalize-color@2.1.0': {}
-
   '@react-native/normalize-colors@0.74.89': {}
 
   '@react-native/normalize-colors@0.81.5': {}
@@ -7907,12 +7885,6 @@ snapshots:
   define-lazy-prop@2.0.0: {}
 
   depd@2.0.0: {}
-
-  deprecated-react-native-prop-types@2.3.0:
-    dependencies:
-      '@react-native/normalize-color': 2.1.0
-      invariant: 2.2.4
-      prop-types: 15.8.1
 
   destroy@1.2.0: {}
 
@@ -9521,15 +9493,6 @@ snapshots:
       react-native-is-edge-to-edge: 1.2.1(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
       react-native-worklets: 0.5.1(@babel/core@7.28.6(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1)
       semver: 7.7.2
-
-  react-native-root-siblings@4.1.1: {}
-
-  react-native-root-toast@3.6.0(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1)):
-    dependencies:
-      deprecated-react-native-prop-types: 2.3.0
-      prop-types: 15.8.1
-      react-native: 0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1)
-      react-native-root-siblings: 4.1.1
 
   react-native-safe-area-context@5.6.2(react-native@0.81.5(@babel/core@7.28.6(supports-color@8.1.1))(@react-native-community/cli@14.1.2(supports-color@8.1.1)(typescript@5.9.3))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0):
     dependencies:

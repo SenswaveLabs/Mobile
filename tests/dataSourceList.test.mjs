@@ -375,21 +375,16 @@ test("row status ignores completion after blur, source change, and authenticated
     assert.equal(statusUnavailable(unmounted.component), undefined);
 });
 
-test("other status reader callers keep legacy toast feedback by default", async () => {
+test("status readers expose local recovery by default", async () => {
     const status = mountStatusReader({
         inlineRecovery: false,
         get: async () => ({ isSuccess: false, statusCode: 503, response: null }),
     });
     status.start();
     await settle(status.component);
-    assert.deepEqual(
-        status.toastCalls.map(([name]) => name),
-        ["httpError"],
-    );
-    assert.equal(
-        status.component.elements().some((node) => node.type === "Button"),
-        false,
-    );
+    assert.deepEqual(status.toastCalls, []);
+    assert.ok(statusUnavailable(status.component));
+    assert.ok(status.component.elements().some((node) => node.props.name === "Retry"));
 });
 
 test("account source Add action stays available in list header", () => {

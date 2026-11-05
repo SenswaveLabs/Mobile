@@ -65,6 +65,11 @@ const OptionOperationForm: FC<OptionOperationFormProps> = ({
             <Text style={[styles.support, { color: colors.authMuted }]}>
                 Choose 2–10 unique names and values.
             </Text>
+            {!!operationForm.error && (
+                <Text accessibilityRole="alert" style={[styles.support, { color: colors.error }]}>
+                    {operationForm.error}
+                </Text>
+            )}
             {options.length === 0 && (
                 <Text style={[styles.support, { color: colors.authMuted }]}>
                     No options configured.

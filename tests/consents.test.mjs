@@ -43,7 +43,7 @@ const failureResponse = (statusCode = 500) => ({
     statusCode,
     response: {
         url: "/v1/users",
-        text: async () => JSON.stringify({ statusCode, title: "Failure", type: "", errors: [] }),
+        text: () => assert.fail("Failed reads return Result without consuming the error body"),
     },
 });
 
@@ -57,10 +57,7 @@ function mountRuntime({ pathname = "/consents" } = {}) {
     };
     const runtime = { provider: undefined, router: undefined };
     let logoutCalls = 0;
-    let keyboardDismissals = 0;
     let replaceFailures = 0;
-    const toasts = [];
-    const hiddenToasts = [];
     const requests = { get: [], post: [] };
     const themeCalls = [];
     const colors = {
@@ -81,25 +78,6 @@ function mountRuntime({ pathname = "/consents" } = {}) {
         lightTheme: async () => themeCalls.push(ThemeMode.Light),
         darkTheme: async () => themeCalls.push(ThemeMode.Dark),
     };
-    const toastProvider = mountNativeComponent("src/contexts/ToastProvider.tsx", {
-        exportName: "ToastProvider",
-        modules: {
-            "expo-router": { usePathname: () => currentPath },
-            "react-native": { Keyboard: { dismiss: () => keyboardDismissals++ } },
-            "react-native-root-toast": {
-                positions: { BOTTOM: -20 },
-                show: (message) => {
-                    const toast = { message };
-                    toasts.push(toast);
-                    return toast;
-                },
-                hide: (toast) => hiddenToasts.push(toast),
-            },
-            "./ThemeProvider": { useTheme: () => theme },
-        },
-    });
-    toastProvider.flushEffects();
-
     const httpClient = {
         get: (path) => {
             const request = deferred();
@@ -135,7 +113,6 @@ function mountRuntime({ pathname = "/consents" } = {}) {
         props: { children: "Consent test" },
         modules: {
             "../HttpClientProvider": { useHttpClient: () => httpClient },
-            "../ToastProvider": { useToast: () => toastProvider.elements()[0].props.value },
             "../ThemeProvider": { useTheme: () => theme },
             "../SessionProvider": { useSession: () => session },
         },
@@ -145,8 +122,6 @@ function mountRuntime({ pathname = "/consents" } = {}) {
     const replacements = [];
     const navigate = (path) => {
         currentPath = typeof path === "string" ? path : path.pathname;
-        toastProvider.render();
-        toastProvider.flushEffects();
     };
     runtime.router = {
         canGoBack: () => history.length > 0,
@@ -180,10 +155,6 @@ function mountRuntime({ pathname = "/consents" } = {}) {
         requests,
         themeCalls,
         theme: () => theme,
-        toastProvider,
-        toasts,
-        hiddenToasts,
-        keyboardDismissals: () => keyboardDismissals,
         logoutCalls: () => logoutCalls,
         path: () => currentPath,
         history,
@@ -206,7 +177,7 @@ function mountConsent(options) {
         ScrollView: "ScrollView",
         Platform: { select: (values) => values.default },
         StyleSheet: { create: (styles) => styles },
-        Keyboard: { dismiss: () => runtime.keyboardDismissals() },
+        Keyboard: { dismiss() {} },
         BackHandler: {
             addEventListener: (_event, handler) => {
                 backHandlers.add(handler);
@@ -297,7 +268,6 @@ test("accepted consent retries only account verification", async () => {
     assert.equal(app.requests.post.length, 1);
     assert.equal(homeReturns.length, 0);
     assert.equal(acceptButton?.props.disabled, true);
-    assert.equal(app.toasts.length, 0);
     assert.match(app.screen.text(), /Consent submitted\. Check account status to continue\./);
 });
 
@@ -319,7 +289,6 @@ test("initial account read error blocks acceptance until Retry succeeds", async 
     app.render();
 
     assert.equal(app.button("Accept")?.props.disabled, false);
-    assert.equal(app.toasts.length, 0);
 });
 
 test("already-active consent returns to the app after account verification", async () => {
@@ -331,7 +300,6 @@ test("already-active consent returns to the app after account verification", asy
 
     assert.deepEqual(app.replacements, ["/"]);
     assert.deepEqual(app.requests.post, []);
-    assert.equal(app.toasts.length, 0);
 });
 
 test("failed and thrown consent writes stay local and allow another attempt", async () => {
@@ -358,7 +326,6 @@ test("failed and thrown consent writes stay local and allow another attempt", as
     app.render();
     assert.match(app.screen.text(), /Could not submit consent/);
     assert.equal(app.requests.post.length, 2);
-    assert.equal(app.toasts.length, 0);
 });
 
 test("same-tick double press sends only one consent request", async () => {
@@ -503,7 +470,6 @@ test("UserProvider rejects malformed consumed account fields before state or the
         assert.equal(app.user().data.email, "", label);
         assert.equal(app.user().data.theme, ThemeMode.Light, label);
         assert.deepEqual(app.themeCalls, [], label);
-        assert.equal(app.toasts.length, 0, label);
     }
 });
 
@@ -517,7 +483,6 @@ test("UserProvider resolves malformed JSON and thrown account reads as failures"
     assert.equal((await jsonRead).isSuccess, false);
     assert.equal(malformedJson.user().data.email, "");
     assert.deepEqual(malformedJson.themeCalls, []);
-    assert.equal(malformedJson.toasts.length, 0);
 
     const thrownRequest = mountRuntime();
     const transportRead = thrownRequest.user().getUserData({ silent: true });
@@ -525,7 +490,6 @@ test("UserProvider resolves malformed JSON and thrown account reads as failures"
     assert.equal((await transportRead).isSuccess, false);
     assert.equal(thrownRequest.user().data.email, "");
     assert.deepEqual(thrownRequest.themeCalls, []);
-    assert.equal(thrownRequest.toasts.length, 0);
 
     const silentInitialization = mountRuntime();
     silentInitialization.provider.flushEffects();
@@ -533,7 +497,6 @@ test("UserProvider resolves malformed JSON and thrown account reads as failures"
     silentInitialization.requests.get[0].reject(new Error("offline"));
     await flush();
     assert.equal(silentInitialization.user().data.email, "");
-    assert.equal(silentInitialization.toasts.length, 0);
 });
 
 test("theme persistence rejection does not reject valid account reads", async () => {
@@ -618,7 +581,6 @@ test("default theme reset cannot overwrite a newer session theme after storage r
                     },
                 }),
             },
-            "../ToastProvider": { useToast: () => ({ httpError: () => {} }) },
             "../ThemeProvider": { useTheme: themeValue },
             "../SessionProvider": { useSession: () => session },
         },
@@ -769,7 +731,6 @@ test("cancelled account read cannot restore session data", async () => {
     assert.equal(app.user().data.email, "");
     assert.deepEqual(app.themeCalls, []);
     assert.deepEqual(app.replacements, ["/start"]);
-    assert.equal(app.toasts.length, 0);
 });
 
 test("consent Back signs out while legal Back returns to gate", () => {
@@ -869,7 +830,7 @@ test("consent links stay separate, named, and at least 48 dp high", () => {
     }
 });
 
-test("consent flow shows no global toast after failed account checks", async () => {
+test("failed account checks keep the recovery action local to the consent gate", async () => {
     const app = mountConsent();
     app.focus();
     app.screen.flushEffects();
@@ -877,17 +838,16 @@ test("consent flow shows no global toast after failed account checks", async () 
     await flush();
     app.render();
     assert.ok(app.button("Retry account check"));
-    assert.equal(app.toasts.length, 0);
 });
 
-test("UserProvider keeps silent reads silent after route changes and rejects stale failures", async () => {
+test("retained account reads return local Result failures after route and session changes", async () => {
     const app = mountRuntime({ pathname: "/user/info" });
     const silent = app.user().getUserData({ silent: true });
     app.navigate("/profile-archive");
     app.requests.get[0].resolve(failureResponse());
     const silentResult = await silent;
     assert.equal(silentResult.isSuccess, false);
-    assert.equal(app.toasts.length, 0);
+    assert.equal(silentResult.errorMessage, "Failed to load account details.");
 
     const staleFailure = app.user().getUserData();
     app.setSession({
@@ -901,10 +861,10 @@ test("UserProvider keeps silent reads silent after route changes and rejects sta
     const staleResult = await staleFailure;
     await flush();
     assert.equal(staleResult.isSuccess, false);
-    assert.equal(app.toasts.length, 0);
+    assert.equal(staleResult.errorMessage, "Failed to load account details.");
 });
 
-test("UserProvider consent failures do not emit a global toast", async () => {
+test("consent write failures return Result to the owning flow", async () => {
     const app = mountRuntime({ pathname: "/user/info" });
     const submit = app.user().makeConsents();
     assert.equal(app.requests.post.length, 1);
@@ -915,7 +875,7 @@ test("UserProvider consent failures do not emit a global toast", async () => {
     await flush();
 
     assert.equal(result.isSuccess, false);
-    assert.equal(app.toasts.length, 0);
+    assert.equal(result.errorMessage, "Failed to make consents.");
 });
 
 function mountHeader(props, router) {

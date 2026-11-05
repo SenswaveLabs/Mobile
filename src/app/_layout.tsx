@@ -6,8 +6,6 @@ import { ThemeProvider, useTheme } from "@/contexts/ThemeProvider";
 import { Stack } from "expo-router";
 import React, { FC, useEffect } from "react";
 import { StyleSheet, View } from "react-native";
-import { RootSiblingParent } from "react-native-root-siblings";
-import { ToastProvider } from "@/contexts/ToastProvider";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -81,29 +79,25 @@ const RootLayoutInner: FC = () => {
 const RootLayout: FC = () => {
     return (
         <GestureHandlerRootView style={styles.container}>
-            <RootSiblingParent>
-                <SafeAreaProvider>
-                    <KeyboardProvider>
-                        <ToastProvider>
-                            <ConfigurationProvider>
-                                <LegalProvider>
-                                    <SessionProvider>
-                                        <ThemeProvider>
-                                            <HttpClientProvider>
-                                                <SignalRProvider>
-                                                    <UserProvider>
-                                                        <RootLayoutInner />
-                                                    </UserProvider>
-                                                </SignalRProvider>
-                                            </HttpClientProvider>
-                                        </ThemeProvider>
-                                    </SessionProvider>
-                                </LegalProvider>
-                            </ConfigurationProvider>
-                        </ToastProvider>
-                    </KeyboardProvider>
-                </SafeAreaProvider>
-            </RootSiblingParent>
+            <SafeAreaProvider>
+                <KeyboardProvider>
+                    <ConfigurationProvider>
+                        <LegalProvider>
+                            <SessionProvider>
+                                <ThemeProvider>
+                                    <HttpClientProvider>
+                                        <SignalRProvider>
+                                            <UserProvider>
+                                                <RootLayoutInner />
+                                            </UserProvider>
+                                        </SignalRProvider>
+                                    </HttpClientProvider>
+                                </ThemeProvider>
+                            </SessionProvider>
+                        </LegalProvider>
+                    </ConfigurationProvider>
+                </KeyboardProvider>
+            </SafeAreaProvider>
         </GestureHandlerRootView>
     );
 };

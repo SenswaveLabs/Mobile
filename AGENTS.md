@@ -34,6 +34,8 @@ Read the relevant guide before acting; do not load the whole guide for a small, 
 
 ## UI direction
 
+All active next-dev screens, subforms, overlays and recovery states use the current native design system. Legacy render branches are retired; an existing wrapper/export never authorizes old UI. Every icon field uses the compact four-column BottomSheetSelect: Home/Device API catalogs, Dashboard16/Radio15 and the complete Automation318 palette. Preserve exact and historical keys and cancellation. Global RootToast/RootSiblingParent and automatic error-driven Keyboard.dismiss are retired on all routes, including unknown routes and delayed responses. Errors have a local Result/state/Alert/Retry owner; keep dashboard command snackbars and Home tile alerts. See [UI policy](docs/agent-guide/interface.md).
+
 Material Design 3 guides UX and interaction; Senswave's shadcn-based product defines the visual language.
 Use `next-frontend/apps/web` as a brand reference; choose hierarchy and behavior for mobile tasks. Use React Native Reusables primitives for auth, home selection, creation and settings.
 App components use `FC` and interface props; copied React Native Reusables primitives keep upstream signatures.
