@@ -312,7 +312,6 @@ td {
     gap: 12px;
 }
 .viewer-toolbar {
-    position: relative;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -335,26 +334,16 @@ td {
 .viewer-identity p {
     font-size: 12px;
 }
-.viewer-more summary {
-    min-height: 40px;
-    padding: 8px 12px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--surface);
+.viewer-version {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    max-width: 100%;
 }
-.viewer-more-panel {
-    position: absolute;
-    z-index: 20;
-    top: calc(100% + 8px);
-    right: 0;
-    width: min(400px, calc(100vw - 32px));
-    padding: 16px;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--surface);
-}
-.viewer-more-panel .button {
-    display: block;
+.viewer-version select {
+    width: 280px;
+    min-width: 0;
 }
 .reviewing .editor,
 .reviewing .comparison {

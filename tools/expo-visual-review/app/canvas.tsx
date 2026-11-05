@@ -43,7 +43,7 @@ const ScreenshotCanvas: FC<CanvasProps> = ({
         setError("");
         img.onload = () => setImage(img);
         img.onerror = () =>
-            setError("Screenshot could not load. Open the original or recapture this screen.");
+            setError("Screenshot could not load. Refresh the gallery or recapture this screen.");
         img.src = `/api/image/${capture.id}`;
         return () => {
             img.onload = null;

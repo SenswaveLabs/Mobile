@@ -57,6 +57,7 @@ const errors = [];
 page.on("pageerror", (error) => errors.push(error.message));
 const checkZoom = async (screenshots) => {
     assert.ok((await screenshots.count()) > 0);
+    await expect(page.getByLabel("Screenshot version", { exact: true })).toBeVisible();
     const fitsViewport = () =>
         screenshots.evaluateAll((elements) =>
             elements.every((element) => {
@@ -95,8 +96,10 @@ const checkZoom = async (screenshots) => {
         bounds.y + bounds.height <= (await page.viewportSize()).height + 1,
         "Whole screenshot viewport must fit on screen.",
     );
+    // The visible version picker needs an extra toolbar row on phones.
+    const toolbarBudget = page.viewportSize().width <= 700 ? 0.35 : 0.3;
     assert.ok(
-        bounds.y < (await page.viewportSize()).height * 0.3,
+        bounds.y < (await page.viewportSize()).height * toolbarBudget,
         "Toolbar must leave most height for the screenshot.",
     );
     await page.getByRole("button", { name: "Fit to width", exact: true }).click();
@@ -205,6 +208,12 @@ try {
     assert.deepEqual(readFileSync(join(directory, before.file)), png);
     updated.close();
     await page.getByRole("button", { name: "Refresh", exact: true }).click();
+    const version = page.getByLabel("Screenshot version", { exact: true });
+    await expect(version).toBeVisible();
+    await version.selectOption(after.id);
+    await page.getByRole("heading", { name: "Findings (0)", exact: true }).waitFor();
+    await version.selectOption(before.id);
+    await page.getByRole("heading", { name: "Findings (2)", exact: true }).waitFor();
     await page.getByRole("button", { name: "Before / after", exact: true }).click();
     await page.getByAltText(`After: ${native.routeId}`, { exact: true }).waitFor();
     await checkZoom(page.locator(".comparison img"));
@@ -233,16 +242,6 @@ try {
     await page.getByRole("button", { name: "Point", exact: true }).click();
     await checkZoom(canvas);
     await page.screenshot({ path: join(directory, "mobile-fit-height.png"), fullPage: false });
-    await page.locator(".viewer-more summary").click();
-    await expect(page.getByLabel("Screenshot version", { exact: true })).toBeVisible();
-    assert.ok(
-        await page.locator(".viewer-more-panel").evaluate((element) => {
-            const bounds = element.getBoundingClientRect();
-            return bounds.left >= 0 && bounds.right <= window.innerWidth;
-        }),
-    );
-    await page.keyboard.press("Escape");
-    await expect(page.getByLabel("Screenshot version", { exact: true })).toBeHidden();
     await page.getByRole("button", { name: "Fit to width", exact: true }).click();
     const scrollableCanvas = page.locator(".canvas-wrap");
     await scrollableCanvas.scrollIntoViewIfNeeded();
@@ -324,7 +323,7 @@ try {
                     "comparison",
                     "fit/full-resolution zoom in editor and comparison on desktop/mobile",
                     "2K/4K fit fills viewport and 100% preserves image pixels",
-                    "whole-image height fit, compact toolbar and keyboard-dismissed details",
+                    "whole-image height fit, compact toolbar and directly accessible version selection",
                     "cancelled and confirmed deletion, persistence and export removal",
                     "pending approval",
                     "desktop/mobile layout",

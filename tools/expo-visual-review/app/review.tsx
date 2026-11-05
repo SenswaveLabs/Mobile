@@ -425,64 +425,30 @@ const Review: FC<ReviewData> = ({ manifest, annotations, directory }) => {
                                         </button>
                                     ))}
                                 </div>
-                                <details
-                                    className="viewer-more"
-                                    onKeyDown={(event) => {
-                                        if (event.key === "Escape") {
-                                            event.currentTarget.open = false;
-                                            event.currentTarget.querySelector("summary")?.focus();
-                                        }
-                                    }}
-                                    onBlur={(event) => {
-                                        if (
-                                            !event.currentTarget.contains(
-                                                event.relatedTarget as Node | null,
+                                <label className="viewer-version">
+                                    Version
+                                    <select
+                                        aria-label="Screenshot version"
+                                        value={selected.id}
+                                        onChange={(event) => {
+                                            const capture = manifest.captures.find(
+                                                (item) => item.id === event.target.value,
+                                            );
+                                            if (capture) pick(capture);
+                                        }}>
+                                        {manifest.captures
+                                            .filter((capture) =>
+                                                sameCaptureContext(capture, selected),
                                             )
-                                        )
-                                            event.currentTarget.open = false;
-                                    }}>
-                                    <summary>More</summary>
-                                    <div className="viewer-more-panel space-y-3">
-                                        <label>
-                                            Version
-                                            <select
-                                                aria-label="Screenshot version"
-                                                value={selected.id}
-                                                onChange={(event) => {
-                                                    const capture = manifest.captures.find(
-                                                        (item) => item.id === event.target.value,
-                                                    );
-                                                    if (capture) pick(capture);
-                                                }}>
-                                                {manifest.captures
-                                                    .filter((capture) =>
-                                                        sameCaptureContext(capture, selected),
-                                                    )
-                                                    .map((capture) => (
-                                                        <option key={capture.id} value={capture.id}>
-                                                            {new Date(
-                                                                capture.createdAt,
-                                                            ).toLocaleString()}{" "}
-                                                            · {capture.commit.slice(0, 8)} ·{" "}
-                                                            {capture.platform}
-                                                        </option>
-                                                    ))}
-                                            </select>
-                                        </label>
-                                        <p className="muted">
-                                            {new Date(selected.createdAt).toLocaleString()} ·{" "}
-                                            {selected.commit.slice(0, 10)}
-                                            {selected.dirty ? " + working changes" : ""}
-                                        </p>
-                                        <a
-                                            className="button"
-                                            href={imageUrl(selected)}
-                                            target="_blank"
-                                            rel="noreferrer">
-                                            Open original
-                                        </a>
-                                    </div>
-                                </details>
+                                            .map((capture) => (
+                                                <option key={capture.id} value={capture.id}>
+                                                    {new Date(capture.createdAt).toLocaleString()} ·{" "}
+                                                    {capture.commit.slice(0, 8)} ·{" "}
+                                                    {capture.platform}
+                                                </option>
+                                            ))}
+                                    </select>
+                                </label>
                                 {workflowActions}
                             </div>
                             {error && (

@@ -83,9 +83,11 @@ The optional nested `review:fix --run` command was not executed.
   even when it is wider than the original screenshot. Height fit shows the whole
   image below the compact toolbar; screenshot coordinates remain original pixels.
   Desktop notes scroll beside the preview, mobile notes remain reachable below it,
-  and capture details close with Escape. The regressions reproduced
+  and the version picker stays directly on the toolbar. Switching versions updates
+  the displayed capture and its findings; the original-image action is removed.
+  The regressions reproduced
   before fixing viewport measurement, comparison zoom and the 100% fit-scale cap.
-  Latest browser evidence: `browser-checks/5befa2c2-42b6-443c-adbf-05e5b84b71ac`.
+  Latest browser evidence: `browser-checks/87c966a5-82b3-4107-b8b6-1aebf1582b29`.
   Its comparison fixture deliberately uses two copies of the same PNG; the native
   correction above separately proves real recapture.
 - Gallery TypeScript and optimized Next.js build passed.
