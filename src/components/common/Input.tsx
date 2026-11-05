@@ -4,7 +4,6 @@ import { Input as ReusableInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Text as NativeText } from "@/components/ui/text";
 import { TextInput, TextInputProps, View, StyleSheet, StyleProp, ViewStyle } from "react-native";
-import { shadowStyles } from "@/styles/shadowStyles";
 
 export interface InputProps extends Omit<TextInputProps, "value" | "onChangeText" | "style"> {
     value: string | number;
@@ -15,7 +14,7 @@ export interface InputProps extends Omit<TextInputProps, "value" | "onChangeText
     style?: StyleProp<ViewStyle>;
     password?: boolean;
     trim?: boolean;
-    variant?: "default" | "auth";
+    variant?: "auth";
     inputRef?: React.Ref<TextInput>;
     endAdornment?: React.ReactNode;
 }
@@ -32,7 +31,7 @@ const Input: FC<InputProps> = ({
     keyboardType = "default",
     editable = true,
     trim = false,
-    variant = "default",
+    variant: _variant,
     inputRef,
     endAdornment,
     onFocus,
@@ -42,8 +41,7 @@ const Input: FC<InputProps> = ({
     const { colors } = useTheme().current;
     const labelId = useId();
     const [focused, setFocused] = useState(false);
-    const auth = variant === "auth";
-    const foreground = auth ? colors.authForeground : colors.textOnPrimary;
+    const foreground = colors.authForeground;
 
     return (
         <View style={[styles.container, style]}>
@@ -53,32 +51,24 @@ const Input: FC<InputProps> = ({
                     onPress={() => {
                         if (inputRef && typeof inputRef !== "function") inputRef.current?.focus();
                     }}
-                    style={[
-                        styles.label,
-                        auth && styles.authLabel,
-                        { color: auth ? colors.authForeground : colors.textOnBackground },
-                    ]}>
+                    style={[styles.label, { color: colors.authForeground }]}>
                     {title}
                 </Label>
             )}
             <View
                 style={[
                     styles.field,
-                    auth && styles.authField,
-                    !auth && shadowStyles.default,
                     {
-                        backgroundColor: auth ? colors.authFieldBackground : colors.primary,
+                        backgroundColor: colors.authFieldBackground,
                         borderColor: error
                             ? colors.error
                             : focused
                               ? colors.authFocus
-                              : auth
-                                ? colors.authBorder
-                                : "transparent",
+                              : colors.authBorder,
                     },
                 ]}>
                 <ReusableInput
-                    className={`h-auto w-auto rounded-none border-0 bg-transparent p-0 shadow-none dark:bg-transparent ${auth ? "placeholder:text-muted-foreground" : ""}`}
+                    className="h-auto w-auto rounded-none border-0 bg-transparent p-0 shadow-none dark:bg-transparent placeholder:text-muted-foreground"
                     {...inputProps}
                     ref={inputRef}
                     accessibilityLabel={inputProps.accessibilityLabel ?? (title || placeholder)}
@@ -87,9 +77,9 @@ const Input: FC<InputProps> = ({
                     accessibilityState={{ ...inputProps.accessibilityState, disabled: !editable }}
                     keyboardType={keyboardType}
                     secureTextEntry={password}
-                    style={[styles.input, auth && styles.authInput, { color: foreground }]}
+                    style={[styles.input, { color: foreground }]}
                     placeholder={placeholder}
-                    placeholderTextColor={auth ? colors.authMuted : foreground + "99"}
+                    placeholderTextColor={colors.authMuted}
                     onChangeText={(text) => setValue(trim ? text.trim() : text)}
                     onFocus={(event) => {
                         setFocused(true);
@@ -112,8 +102,8 @@ const Input: FC<InputProps> = ({
                         styles.error,
                         {
                             color: colors.error,
-                            fontSize: auth ? 14 : 12,
-                            lineHeight: auth ? 20 : 16,
+                            fontSize: 14,
+                            lineHeight: 20,
                         },
                     ]}
                     accessibilityLiveRegion="polite">
@@ -128,17 +118,14 @@ export default Input;
 
 const styles = StyleSheet.create({
     container: { width: "100%" },
-    label: { fontSize: 16, fontWeight: "bold", marginBottom: 5 },
-    authLabel: { fontSize: 14, lineHeight: 20, fontWeight: "500", marginBottom: 8 },
+    label: { fontSize: 14, lineHeight: 20, fontWeight: "500", marginBottom: 8 },
     field: {
-        minHeight: 48,
-        borderRadius: 12,
-        borderWidth: 2,
+        minHeight: 52,
+        borderRadius: 8,
+        borderWidth: 1,
         flexDirection: "row",
         alignItems: "center",
     },
-    input: { flex: 1, minHeight: 48, padding: 10, fontSize: 14 },
-    authField: { minHeight: 52, borderRadius: 8, borderWidth: 1 },
-    authInput: { minHeight: 50, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
+    input: { flex: 1, minHeight: 50, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
     error: { marginTop: 6 },
 });

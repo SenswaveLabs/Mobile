@@ -10,11 +10,7 @@ interface PasswordInputProps extends Omit<InputProps, "password" | "endAdornment
     autoCorrect?: false;
 }
 
-const PasswordInput: FC<PasswordInputProps> = ({
-    editable = true,
-    variant = "default",
-    ...props
-}) => {
+const PasswordInput: FC<PasswordInputProps> = ({ editable = true, variant = "auth", ...props }) => {
     const { colors } = useTheme().current;
     const [secure, setSecure] = useState(true);
 
@@ -39,8 +35,8 @@ const PasswordInput: FC<PasswordInputProps> = ({
                     style={styles.eyeButton}>
                     <Ionicons
                         name={secure ? "eye-outline" : "eye-off-outline"}
-                        size={variant === "auth" ? 16 : 20}
-                        color={variant === "auth" ? colors.authForeground : colors.textOnPrimary}
+                        size={16}
+                        color={colors.authForeground}
                     />
                 </Button>
             }

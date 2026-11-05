@@ -10,7 +10,6 @@ import React, {
 import { useSession } from "./SessionProvider";
 import { executeTimeout, HttpResponse } from "@/utils/httpClient";
 import { useConfiguration } from "./ConfigurationProvider";
-import { useToast } from "./ToastProvider";
 
 interface HttpClientProviderProps {
     get: (path: string) => Promise<HttpResponse>;
@@ -60,18 +59,12 @@ export const useHttpClient = () => useContext(HttpClientContext);
 export const HttpClientProvider: FC<PropsWithChildren> = ({ children }) => {
     const session = useSession();
     const configuration = useConfiguration();
-    const toast = useToast();
 
     // Refs keep latest values accessible inside stable callbacks without triggering re-renders
     const sessionRef = useRef(session);
     sessionRef.current = session;
     const configurationRef = useRef(configuration);
     configurationRef.current = configuration;
-    const toastRef = useRef(toast);
-    toastRef.current = toast;
-
-    const refreshFailureCountRef = useRef(0);
-
     const executeRequest = useCallback(
         async (
             path: string,
@@ -102,7 +95,6 @@ export const HttpClientProvider: FC<PropsWithChildren> = ({ children }) => {
             const response = await executeTimeout(url, options, timeoutMs);
 
             if (response.isSuccess) {
-                refreshFailureCountRef.current = 0;
                 return response;
             }
 
@@ -111,15 +103,8 @@ export const HttpClientProvider: FC<PropsWithChildren> = ({ children }) => {
 
                 if (!newToken) {
                     console.error("[HttpClient] Failed to refresh auth token");
-                    refreshFailureCountRef.current++;
-                    if (refreshFailureCountRef.current >= 10) {
-                        refreshFailureCountRef.current = 0;
-                        toastRef.current.error("Please check your internet connection.");
-                    }
                     return unauthorized;
                 }
-
-                refreshFailureCountRef.current = 0;
 
                 const retryOptions: RequestInit = {
                     method,
@@ -137,7 +122,6 @@ export const HttpClientProvider: FC<PropsWithChildren> = ({ children }) => {
             if (response.statusCode === 403) {
                 s.logout();
                 console.warn("[HttpClient] Logged out due to 403 Forbidden.");
-                toastRef.current.httpError(response);
                 return unauthorized;
             }
 

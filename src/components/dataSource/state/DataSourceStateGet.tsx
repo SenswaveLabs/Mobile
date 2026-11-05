@@ -2,7 +2,6 @@ import React, { useCallback, useRef, useState } from "react";
 import { View, StyleSheet } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
-import { useToast } from "@/contexts/ToastProvider";
 import Loading from "@/components/common/Loading";
 import Text from "@/components/common/Text";
 import Button from "@/components/common/Button";
@@ -31,11 +30,8 @@ const isBrokerClientState = (value: unknown): value is BrokerClientStateResponse
     return typeof body.connectionStatus === "string" && typeof body.latestSessionId === "string";
 };
 
-function BrokerClientStateGet({ id, inlineRecovery = false }: BrokerClientStateGetProperties) {
+function BrokerClientStateGet({ id }: BrokerClientStateGetProperties) {
     const httpClient = useHttpClient();
-    const toast = useToast();
-    const toastRef = useRef(toast);
-    toastRef.current = toast;
     const idRef = useRef(id);
     idRef.current = id;
     const focusGeneration = useRef(0);
@@ -63,18 +59,13 @@ function BrokerClientStateGet({ id, inlineRecovery = false }: BrokerClientStateG
                         const result = await httpClient.get(`v1/datasources/brokers/${id}/clients`);
                         if (!current(requestId)) return;
                         if (!result.isSuccess || !result.response) {
-                            if (inlineRecovery) setLoadState({ id, loading: false, error: true });
-                            else {
-                                setLoadState({ id, loading: false });
-                                if (!result.isSuccess) toastRef.current.httpError(result);
-                                else toastRef.current.error("Failed to fetch broker client state.");
-                            }
+                            setLoadState({ id, loading: false, error: true });
                             return;
                         }
 
                         const body: unknown = await result.response.json();
                         if (!current(requestId)) return;
-                        if (!isBrokerClientState(body) && inlineRecovery)
+                        if (!isBrokerClientState(body))
                             throw new Error("Invalid broker client state");
                         setLoadState({
                             id,
@@ -84,11 +75,7 @@ function BrokerClientStateGet({ id, inlineRecovery = false }: BrokerClientStateG
                     } catch (error) {
                         if (!current(requestId)) return;
                         console.error("Failed to fetch broker client state", error);
-                        if (inlineRecovery) setLoadState({ id, loading: false, error: true });
-                        else {
-                            setLoadState({ id, loading: false });
-                            toastRef.current.error("Failed to fetch broker client state.");
-                        }
+                        setLoadState({ id, loading: false, error: true });
                     }
                 })();
             };
@@ -105,7 +92,7 @@ function BrokerClientStateGet({ id, inlineRecovery = false }: BrokerClientStateG
                 }
                 if (retryRef.current === fetchBrokerClientState) retryRef.current = () => {};
             };
-        }, [httpClient, id, inlineRecovery]),
+        }, [httpClient, id]),
     );
 
     return (
@@ -115,11 +102,11 @@ function BrokerClientStateGet({ id, inlineRecovery = false }: BrokerClientStateG
                     <View style={styles.loadingIcon}>
                         <Loading size={28} useBackgroundColor={false} />
                     </View>
-                    <Text size="medium" color="onPrimary">
+                    <Text size="medium" color="onBackground">
                         Loading...
                     </Text>
                 </>
-            ) : inlineRecovery && visibleState.error ? (
+            ) : visibleState.error ? (
                 <View style={styles.recovery}>
                     <Text
                         accessibilityRole="alert"

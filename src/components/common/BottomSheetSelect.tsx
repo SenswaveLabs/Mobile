@@ -49,6 +49,7 @@ export interface BottomSheetSelectProps {
     busy?: boolean;
     dismissDisabled?: boolean | (() => boolean);
     keyboardAware?: boolean;
+    scrollable?: boolean;
     triggerProps?: Pick<
         PressableProps,
         "onLongPress" | "accessibilityActions" | "onAccessibilityAction"
@@ -74,6 +75,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
     busy = false,
     dismissDisabled = false,
     keyboardAware = false,
+    scrollable = true,
     triggerProps,
 }) => {
     const { colors } = useTheme().current;
@@ -145,7 +147,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
         return true;
     };
 
-    const SheetScroll = keyboardAware ? KeyboardAwareScrollView : ScrollView;
+    const SheetScroll = !scrollable ? View : keyboardAware ? KeyboardAwareScrollView : ScrollView;
     const compactLeading = variant === "tile" && !!leading && triggerWidth < 96;
 
     return (
@@ -283,7 +285,9 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                         </View>
                         <SheetScroll
                             style={[styles.options, { maxHeight: height * 0.68 }]}
-                            contentContainerStyle={styles.optionsContent}
+                            {...(scrollable
+                                ? { contentContainerStyle: styles.optionsContent }
+                                : {})}
                             keyboardShouldPersistTaps="handled">
                             {renderOptions
                                 ? renderOptions(close)

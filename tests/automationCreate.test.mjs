@@ -1,23 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { mountNativeComponent } from "./nativeComponentHarness.mjs";
 
-const icons = [
-    "flash-outline",
-    "timer-outline",
-    "time-outline",
-    "calendar-outline",
-    "alarm-outline",
-    "sync-outline",
-    "shuffle-outline",
-    "pulse-outline",
-    "swap-horizontal-outline",
-    "notifications-outline",
-    "cog-outline",
-    "moon-outline",
-    "sunny-outline",
-    "thermometer-outline",
-];
+const icons = JSON.parse(
+    readFileSync("src/components/common/Icon.tsx", "utf8")
+        .match(/export const AllIcons = (\[[\s\S]*?\]);/)[1]
+        .replace(/,\s*\]/, "]"),
+);
 const theme = {
     current: {
         colors: {
@@ -138,6 +128,7 @@ function mountForm({
             "@/components/common/FormSection": "FormSection",
             "@/components/common/Icon": "Icon",
             "@/components/common/IconSelector": "IconSelector",
+            "@/components/common/Icon": { __esModule: true, default: "Icon", AllIcons: icons },
             "@/components//common/IconSelector": "IconSelector",
             "@/components/common/Input": "Input",
             "@/components/common/Divider": "Divider",
@@ -373,7 +364,7 @@ test("create form keeps latest draft, exact global icon key, and failed-submit d
     });
     const originalSelector = form.elements().find((node) => node.type === "IconSelector");
     assert.deepEqual(Array.from(originalSelector.props.iconList), icons);
-    assert.notEqual(originalSelector.props.variant, "brand");
+    assert.equal(originalSelector.props.variant, "brand");
     assert.equal(originalSelector.props.defaultIcon, "flash-outline");
     const originalAction = form.button("Create automation");
     form.change("Name", "  Night routine  ");
@@ -387,7 +378,7 @@ test("create form keeps latest draft, exact global icon key, and failed-submit d
 
     const selector = form.elements().find((node) => node.type === "IconSelector");
     assert.deepEqual(Array.from(selector.props.iconList), icons);
-    assert.notEqual(selector.props.variant, "brand");
+    assert.equal(selector.props.variant, "brand");
     assert.equal(selector.props.defaultIcon, "plugin:stored-icon");
 
     await form.submit("Create automation");
@@ -646,7 +637,7 @@ test("create actions grow to the scroll bottom while details keep normal action 
     assert.equal(detailsRootChildren.at(-1), footer, "details footer stays after the form");
 });
 
-test("global icon browser cancellation preserves an unknown stored key", () => {
+test("global icon sheet cancellation preserves an unknown stored key", () => {
     const selected = [];
     const pickerTheme = {
         current: {
@@ -680,20 +671,15 @@ test("global icon browser cancellation preserves an unknown stored key", () => {
             "./BottomSheetSelect": "BottomSheetSelect",
         },
     });
-    const browse = selector
-        .elements()
-        .find(
-            (node) =>
-                node.type === "TouchableOpacity" &&
-                node.props.accessibilityLabel === "Browse all icons",
-        );
-    assert.ok(browse);
-    browse.props.onPress();
+    const sheet = selector.elements().find((node) => node.type === "BottomSheetSelect");
+    assert.equal(sheet.props.value, "Legacy icon key");
+    const list = selector
+        .elements(sheet.props.renderOptions(() => false))
+        .find((node) => node.type === "FlatList");
+    assert.equal(list.props.data.length, 318);
+    list.props.renderItem({ item: "airplane-outline" }).props.onPress();
     selector.render();
-    const modal = selector.elements().find((node) => node.type === "SenswaveModal");
-    assert.equal(modal.props.visible, true);
-    modal.props.onClose();
-    selector.render();
+
     assert.deepEqual(selected, []);
 });
 

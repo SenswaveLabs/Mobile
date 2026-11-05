@@ -1,8 +1,5 @@
-import { useTheme } from "@/contexts/ThemeProvider";
 import React, { FC, useEffect, useRef, useState } from "react";
-import Text from "@/components/common/Text";
-import { TextInput, View, StyleSheet, StyleProp, ViewStyle } from "react-native";
-import { shadowStyles } from "@/styles/shadowStyles";
+import { StyleProp, ViewStyle } from "react-native";
 import Input from "./Input";
 
 interface InputNumberProps {
@@ -18,7 +15,7 @@ interface InputNumberProps {
     editable?: boolean;
     disabled?: boolean;
     style?: StyleProp<ViewStyle>;
-    variant?: "default" | "auth";
+    variant?: "auth";
 }
 
 const FLOAT_RE = /^-?\d+\.?\d*$|^-?\d*\.?\d+$/;
@@ -37,9 +34,8 @@ const InputNumber: FC<InputNumberProps> = ({
     editable = true,
     disabled = false,
     style,
-    variant = "default",
+    variant: _variant,
 }) => {
-    const theme = useTheme();
     const focused = useRef(false);
 
     const [text, setText] = useState<string>(value !== undefined ? String(value) : "");
@@ -106,75 +102,22 @@ const InputNumber: FC<InputNumberProps> = ({
 
     const displayError = localError || externalError;
 
-    if (variant === "auth") {
-        return (
-            <Input
-                variant="auth"
-                title={title}
-                value={text}
-                setValue={onChangeText}
-                error={displayError}
-                placeholder={placeholder}
-                keyboardType="numeric"
-                editable={editable}
-                accessibilityState={{ busy: disabled }}
-                onFocus={onFocus}
-                onBlur={onBlur}
-                style={style}
-            />
-        );
-    }
-
     return (
-        <View style={[styles.container, style]}>
-            {title !== "" && (
-                <Text size="medium" bold={true} color="onBackground" style={styles.label}>
-                    {title}
-                </Text>
-            )}
-            <View
-                style={[
-                    {
-                        marginBottom: 5,
-                        borderRadius: 12,
-                        backgroundColor: theme.current.colors.primary,
-                    },
-                    shadowStyles.default,
-                ]}>
-                <TextInput
-                    keyboardType="numeric"
-                    style={{
-                        padding: 10,
-                        color: theme.current.colors.textOnPrimary,
-                    }}
-                    placeholder={placeholder}
-                    placeholderTextColor={theme.current.colors.textOnPrimary + "99"}
-                    onChangeText={onChangeText}
-                    onFocus={onFocus}
-                    onBlur={onBlur}
-                    value={text}
-                    editable={editable}
-                />
-            </View>
-            {displayError !== "" && (
-                <Text style={styles.error} size="small" color="error">
-                    {displayError}
-                </Text>
-            )}
-        </View>
+        <Input
+            variant="auth"
+            title={title}
+            value={text}
+            setValue={onChangeText}
+            error={displayError}
+            placeholder={placeholder}
+            keyboardType="numeric"
+            editable={editable}
+            accessibilityState={{ busy: disabled }}
+            onFocus={onFocus}
+            onBlur={onBlur}
+            style={style}
+        />
     );
 };
 
 export default InputNumber;
-
-const styles = StyleSheet.create({
-    container: {
-        width: "100%",
-    },
-    label: {
-        marginBottom: 5,
-    },
-    error: {
-        marginBottom: 5,
-    },
-});

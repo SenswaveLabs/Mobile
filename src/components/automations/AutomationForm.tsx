@@ -1,6 +1,7 @@
 import Button from "@/components/common/Button";
 import FormSection from "@/components/common/FormSection";
 import IconSelector from "@/components/common/IconSelector";
+import { AllIcons } from "@/components/common/Icon";
 import Input from "@/components/common/Input";
 import AutomationConditions from "@/components/automations/conditions/AutomationConditions";
 import AutomationResults from "@/components/automations/results/AutomationResults";
@@ -16,23 +17,6 @@ import { Check, CircleAlert } from "lucide-react-native";
 import React, { FC, ReactNode, useEffect, useRef, useState } from "react";
 import { StyleSheet, TextInput, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-
-const AutomationIcons = [
-    "flash-outline",
-    "timer-outline",
-    "time-outline",
-    "calendar-outline",
-    "alarm-outline",
-    "sync-outline",
-    "shuffle-outline",
-    "pulse-outline",
-    "swap-horizontal-outline",
-    "notifications-outline",
-    "cog-outline",
-    "moon-outline",
-    "sunny-outline",
-    "thermometer-outline",
-] as string[];
 
 export interface AutomationFormProps {
     mode: "create" | "details";
@@ -252,7 +236,8 @@ const AutomationForm: FC<AutomationFormProps> = ({
                     />
                     <IconSelector
                         defaultIcon={icon}
-                        iconList={AutomationIcons}
+                        iconList={AllIcons}
+                        variant="brand"
                         disabled={readOnly || pending || accepted}
                         onIconSelected={(value) => change("icon", value)}
                     />

@@ -2,7 +2,6 @@ import React from "react";
 import { Result, SimpleResult } from "@/utils/result";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useHttpClient } from "../HttpClientProvider";
-import { useToast } from "../ToastProvider";
 import { useTheme } from "../ThemeProvider";
 import { useSession } from "../SessionProvider";
 
@@ -74,7 +73,6 @@ export const useUser = () => useContext(UserContext);
 
 export const UserProvider = ({ children }: any) => {
     const httpClient = useHttpClient();
-    const toast = useToast();
     const theme = useTheme();
     const session = useSession();
     const sessionRef = useRef(session.session);
@@ -126,7 +124,6 @@ export const UserProvider = ({ children }: any) => {
             setUserData({ ...userData, language: language });
             return SimpleResult.success();
         } else {
-            toast.httpError(result);
             return SimpleResult.failure("Failed to update language.");
         }
     };
@@ -144,7 +141,7 @@ export const UserProvider = ({ children }: any) => {
         }
     };
 
-    const getUserData = async ({ silent = false }: GetUserDataOptions = {}) => {
+    const getUserData = async (_options: GetUserDataOptions = {}) => {
         const requestAuthenticated = sessionRef.current.authenticated;
         const requestAccessToken = sessionRef.current.accessToken;
         const isCurrentSession = () =>
@@ -153,7 +150,6 @@ export const UserProvider = ({ children }: any) => {
         try {
             const response = await httpClient.get("v1/users");
             if (!response.isSuccess) {
-                if (!silent && isCurrentSession()) toast.httpError(response);
                 return Result.failure<UserData>("Failed to load account details.");
             }
             if (!response.response)

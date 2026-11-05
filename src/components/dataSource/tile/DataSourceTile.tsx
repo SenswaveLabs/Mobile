@@ -1,7 +1,6 @@
 import React, { FC } from "react";
-import { ActivityIndicator, StyleProp, TouchableOpacity, View, ViewStyle } from "react-native";
+import { ActivityIndicator, StyleProp, View, ViewStyle } from "react-native";
 import { useTheme } from "@/contexts/ThemeProvider";
-import { shadowStyles } from "@/styles/shadowStyles";
 import { useRouter } from "expo-router";
 import Text from "@/components/common/Text";
 import ListRow from "@/components/common/ListRow";
@@ -13,7 +12,7 @@ export interface DataSourceTileProps {
     server: string;
     onClicked?: (id: string) => void;
     onClickDisabled?: boolean;
-    variant?: "preview" | "list";
+    variant?: "list";
     separator?: boolean;
     selected?: boolean;
     loading?: boolean;
@@ -26,7 +25,6 @@ const DataSourceTile: FC<DataSourceTileProps> = ({
     name,
     onClicked,
     onClickDisabled = false,
-    variant = "preview",
     separator = false,
     selected = false,
     loading = false,
@@ -49,79 +47,41 @@ const DataSourceTile: FC<DataSourceTileProps> = ({
         router.push({ pathname: "dataSource/details", params: { id: id } });
     };
 
-    if (variant === "list") {
-        return (
-            <View style={[{ width: "100%" }, style]}>
-                <ListRow
-                    title={name}
-                    separator={separator}
-                    description={`Server: ${server || "?"}`}
-                    trailing={
-                        <View
-                            style={{
-                                maxWidth: 120,
-                                flexDirection: "row",
-                                alignItems: "center",
-                                gap: 6,
-                            }}>
-                            {loading && (
-                                <ActivityIndicator
-                                    accessible={false}
-                                    size="small"
-                                    color={theme.current.colors.authMuted}
-                                />
-                            )}
-                            <DataSourceStateGet id={id} inlineRecovery />
-                        </View>
-                    }
-                    onPress={dataSourceClicked}
-                    disabled={onClickDisabled}
-                    selected={selected}
-                    loading={loading}
-                    accessibilityLabel={loading ? `Linking ${name}` : undefined}>
-                    {loading && (
-                        <Text size="small" color="onBackground">
-                            Linking {name}…
-                        </Text>
-                    )}
-                </ListRow>
-            </View>
-        );
-    }
-
     return (
-        <View
-            style={{
-                backgroundColor: theme.current.colors.primary,
-                borderRadius: 12,
-                marginTop: 5,
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                ...shadowStyles.default,
-                ...((style as ViewStyle) || {}),
-            }}>
-            <TouchableOpacity onPress={dataSourceClicked}>
-                <View
-                    style={{
-                        flexDirection: "row",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: 5,
-                    }}>
-                    <View style={{ width: "70%", padding: 5 }}>
-                        <Text size={"large"} bold={true} color={"onPrimary"}>
-                            {name}
-                        </Text>
-
-                        <Text size={"small"} color={"onPrimary"}>
-                            Server: {server ? server : "?"}
-                        </Text>
+        <View style={[{ width: "100%" }, style]}>
+            <ListRow
+                title={name}
+                separator={separator}
+                description={`Server: ${server || "?"}`}
+                trailing={
+                    <View
+                        style={{
+                            maxWidth: 120,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 6,
+                        }}>
+                        {loading && (
+                            <ActivityIndicator
+                                accessible={false}
+                                size="small"
+                                color={theme.current.colors.authMuted}
+                            />
+                        )}
+                        <DataSourceStateGet id={id} inlineRecovery />
                     </View>
-                    <View style={{ width: "30%" }}>
-                        <DataSourceStateGet id={id} />
-                    </View>
-                </View>
-            </TouchableOpacity>
+                }
+                onPress={dataSourceClicked}
+                disabled={onClickDisabled}
+                selected={selected}
+                loading={loading}
+                accessibilityLabel={loading ? `Linking ${name}` : undefined}>
+                {loading && (
+                    <Text size="small" color="onBackground">
+                        Linking {name}…
+                    </Text>
+                )}
+            </ListRow>
         </View>
     );
 };

@@ -134,7 +134,6 @@ function mountRemoveAccountDialog(props) {
     return mountNativeComponent("src/components/user/RemoveAccountDialog.tsx", {
         props,
         modules: {
-            "@/components/common/Dialog": defaultExport("Dialog"),
             "@/components/common/Icon": defaultExport("Icon"),
             "@/components/common/Button": defaultExport("Button"),
             "@/contexts/ThemeProvider": {
