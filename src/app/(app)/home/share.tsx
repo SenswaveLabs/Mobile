@@ -188,13 +188,20 @@ const ShareHomePage: FC = () => {
             currentBinding.current !== binding
         )
             return;
+        const copyGeneration = generation.current;
+        const isCurrent = () =>
+            focused.current &&
+            currentBinding.current === binding &&
+            generation.current === copyGeneration;
         setCopied(false);
         try {
             await Clipboard.setStringAsync(invitation.password);
+            if (!isCurrent()) return;
             setCopied(true);
             setActionError("");
         } catch {
-            announceError("Couldn't copy the code. Select it above and copy it manually.");
+            if (isCurrent())
+                announceError("Couldn't copy the code. Select it above and copy it manually.");
         }
     };
 

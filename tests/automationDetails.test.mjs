@@ -697,6 +697,113 @@ test("owner delete uses its named native modal; Cancel and Android Back issue no
     ]);
 });
 
+test("retained read Retry cannot release a pending automation write", async () => {
+    for (const kind of ["metadata", "state", "delete"]) {
+        let reads = 0;
+        const response = deferred();
+        const route = mountDetails({
+            get: async () =>
+                ++reads === 1
+                    ? { isSuccess: false, statusCode: 503 }
+                    : { isSuccess: true, response: { json: async () => saved() } },
+            patch: () => response.promise,
+            put: () => response.promise,
+            remove: () => response.promise,
+        });
+        await route.load();
+        const retryRead = route.button("Retry").props.onPress;
+        retryRead();
+        await settle(route);
+        const token = route.form().props.sessionToken;
+        const save = route.form().props.onSubmit;
+        const values = {
+            name: kind === "metadata" ? "New name" : "Old name",
+            icon: "legacy-icon-key",
+            conditionConnector: "And",
+            isEnabled: kind !== "state",
+        };
+        route.button("Delete automation").props.onPress();
+        route.render();
+        const confirm = route.confirmButton().props.onPress;
+        const writing = kind === "delete" ? confirm() : save(values);
+        route.render();
+        assert.equal(route.form().props.pending, true);
+
+        retryRead();
+        await settle(route);
+        assert.equal(route.requests.get.length, 2, `${kind}: Retry cannot reread during a write`);
+        assert.equal(route.form().props.sessionToken, token);
+        assert.equal(route.form().props.pending, true);
+        await save(values);
+        await confirm();
+        assert.equal(
+            route.requests.patch.length + route.requests.put.length + route.requests.delete.length,
+            1,
+            `${kind}: Retry cannot unlock another write`,
+        );
+
+        response.resolve({ isSuccess: true });
+        await writing;
+        route.render();
+        assert.equal(route.form().props.pending, false);
+    }
+});
+
+test("retained read Retry preserves accepted automation deletion and return-only recovery", async () => {
+    for (const automationId of ["automation-1", "automation-2"]) {
+        let reads = 0;
+        let returnAvailable = false;
+        const route = mountDetails({
+            get: async (path) =>
+                ++reads === 1
+                    ? { isSuccess: false, statusCode: 503 }
+                    : {
+                          isSuccess: true,
+                          response: {
+                              json: async () =>
+                                  path.endsWith("automation-2")
+                                      ? saved({ id: "automation-2" })
+                                      : saved(),
+                          },
+                      },
+            back: () => {
+                if (!returnAvailable) throw new Error("router unavailable");
+            },
+        });
+        await route.load();
+        const retryRead = route.button("Retry").props.onPress;
+        retryRead();
+        await settle(route);
+        if (automationId === "automation-2") {
+            route.retarget({ automationId });
+            await route.load();
+        }
+
+        route.button("Delete automation").props.onPress();
+        route.render();
+        const confirm = route.confirmButton().props.onPress;
+        await confirm();
+        route.render();
+        assert.equal(route.form().props.accepted, true);
+        const acceptedToken = route.form().props.sessionToken;
+        const readsBeforeRetry = route.requests.get.length;
+
+        retryRead();
+        await settle(route);
+        assert.equal(route.requests.get.length, readsBeforeRetry, "Retry cannot reread deletion");
+        assert.equal(route.form().props.accepted, true);
+        assert.equal(route.form().props.sessionToken, acceptedToken);
+        await confirm();
+        returnAvailable = true;
+        route.blur();
+        route.focus();
+        await settle(route);
+        assert.deepEqual(route.requests.delete, [`v1/automations/${automationId}`]);
+        assert.equal(route.requests.get.length, readsBeforeRetry);
+        assert.equal(route.navigation.length, 3, "retained confirm and refocus retry only return");
+    }
+});
+
 test("stale automation A confirmation cannot delete automation B after route retarget", async () => {
     const route = mountDetails({
         get: async (path) => ({

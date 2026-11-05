@@ -11,7 +11,7 @@ const settle = async (component) => {
     component.render();
 };
 
-function mountShare(overrides = {}) {
+function mountShare(overrides = {}, setClipboard) {
     let focus;
     let resolvePost;
     const requests = [];
@@ -26,7 +26,9 @@ function mountShare(overrides = {}) {
                     useLocalSearchParams: () => state.params,
                     useFocusEffect: focus.useFocusEffect,
                 },
-                "expo-clipboard": { setStringAsync: async (value) => copied.push(value) },
+                "expo-clipboard": {
+                    setStringAsync: setClipboard ?? (async (value) => copied.push(value)),
+                },
                 "@/styles/defaultStyles": { keyboardOffset: 0 },
                 "@/contexts/domain/HomeProvider": { useHomes: () => state.homes },
                 "@/contexts/HttpClientProvider": {
@@ -86,8 +88,58 @@ test("invitation keeps the submitted home identity, email and role through renam
     share.button("Copy invitation code").props.onPress();
     await settle(share);
     assert.deepEqual(share.copied, ["123456"]);
+    assert.ok(share.button("Code copied"));
     submit();
     assert.equal(share.requests.length, 1);
+});
+
+test("late invitation copy feedback cannot update another home or visit", async () => {
+    for (const succeeds of [false, true]) {
+        for (const change of [
+            (share) => {
+                share.state.homes.current = home("home-b");
+            },
+            (share) => {
+                share.state.params = { id: "home-b" };
+            },
+            (share) => {
+                share.state.homes.current = { ...home(), isOwner: false };
+            },
+            (share) => share.focus.blur(),
+            (share) => {
+                share.focus.blur();
+                share.focus.focus();
+            },
+        ]) {
+            let finishCopy;
+            const share = mountShare(
+                {},
+                () =>
+                    new Promise((resolve, reject) => {
+                        finishCopy = () =>
+                            succeeds ? resolve() : reject(new Error("copy failed"));
+                    }),
+            );
+            share.email();
+            share.button("Create invitation").props.onPress();
+            share.accept();
+            await settle(share);
+            share.button("Copy invitation code").props.onPress();
+            change(share);
+            share.render();
+            share.flushEffects();
+            finishCopy();
+            await settle(share);
+            share.state.homes.current = home();
+            share.state.params = { id: "home-a" };
+            share.render();
+            share.flushEffects();
+            share.focus.focus();
+            share.render();
+            assert.doesNotMatch(share.text(), /Couldn't copy the code/);
+            assert.ok(share.button("Copy invitation code"));
+        }
+    }
 });
 
 test("sharing rejects missing, repeated, mismatched and non-owner home identities", () => {
