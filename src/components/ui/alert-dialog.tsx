@@ -7,6 +7,7 @@ import * as React from "react";
 import { Platform, View, type ViewProps } from "react-native";
 import { FadeIn, FadeOut, ReduceMotion } from "react-native-reanimated";
 import { FullWindowOverlay as RNFullWindowOverlay } from "react-native-screens";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const AlertDialog = AlertDialogPrimitive.Root;
 
@@ -19,10 +20,12 @@ const FullWindowOverlay = Platform.OS === "ios" ? RNFullWindowOverlay : React.Fr
 function AlertDialogOverlay({
     className,
     children,
+    style,
     ...props
 }: Omit<React.ComponentProps<typeof AlertDialogPrimitive.Overlay>, "asChild"> & {
     children?: React.ReactNode;
 }) {
+    const insets = useSafeAreaInsets();
     return (
         <FullWindowOverlay>
             <AlertDialogPrimitive.Overlay
@@ -33,6 +36,15 @@ function AlertDialogOverlay({
                     }),
                     className,
                 )}
+                style={[
+                    Platform.OS !== "web" && {
+                        paddingTop: insets.top + 16,
+                        paddingBottom: insets.bottom + 16,
+                        paddingLeft: insets.left + 16,
+                        paddingRight: insets.right + 16,
+                    },
+                    style,
+                ]}
                 {...props}
                 asChild={Platform.OS !== "web"}>
                 <NativeOnlyAnimatedView
@@ -49,6 +61,7 @@ function AlertDialogOverlay({
 function AlertDialogContent({
     className,
     portalHost,
+    style,
     ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
     portalHost?: string;
@@ -64,6 +77,7 @@ function AlertDialogContent({
                         }),
                         className,
                     )}
+                    style={[{ maxHeight: "100%" }, style]}
                     {...props}
                 />
             </AlertDialogOverlay>
@@ -82,7 +96,11 @@ function AlertDialogHeader({ className, ...props }: ViewProps) {
 function AlertDialogFooter({ className, ...props }: ViewProps) {
     return (
         <View
-            className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}
+            className={cn(
+                "flex flex-col gap-2",
+                Platform.select({ web: "flex-col-reverse sm:flex-row sm:justify-end" }),
+                className,
+            )}
             {...props}
         />
     );

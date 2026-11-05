@@ -78,6 +78,10 @@ Global RootToast, RootSiblingParent and automatic error-driven Keyboard.dismiss 
   long translations and larger system text without clipping essential content.
 - Respect safe areas, cutouts, gesture regions and system bars. Match their surfaces
   to the screen and keep system-bar icons legible in light and dark mode.
+- `AlertDialogOverlay` owns dialog insets on all four edges and bounds the content
+  to that viewport. Native dialog actions stay vertical at every window width;
+  callers keep their scrollable body and mutation handlers. Do not pad the same
+  native modal host with a second set of insets.
 - Touch targets must have at least a 48 × 48 dp effective area. A smaller visible
   icon is fine inside that target; padded or expanded targets must not overlap.
 - The keyboard must not cover the focused input or required action. Use the
@@ -516,7 +520,7 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
   caller's permissions, loading states and navigation.
 - Re-fetch trigger: increment a numeric state counter.
 - Every icon field uses the compact selected-value field and four-column `BottomSheetSelect`, matching Create Home, without search or a quick strip. Home/Device choices come exclusively from their matching API catalogs with English server label keys. Dashboard/Radio keep their historical 16/15 palettes. Automation create/details keep the complete global 318-key `AllIcons` list; do not substitute the former 14-key quick list. Its sheet virtualizes the full list without nesting it in a vertical ScrollView. Preserve exact opaque keys, historical selections, disabled/read-only guards, Cancel/Back and focus return. Catalog loading/errors and Retry icons stay local; unchanged historical keys remain valid for unrelated partial saves.
-- `ConfirmDialog` owns its native Modal, named PortalHost and Reusables AlertDialog root. Its body scrolls and its full-width brand actions stack vertically. Preserve caller-owned identity, permissions, confirmation cancellation and mutation locks. `SenswaveModal` is the current full-screen native shell for content/option forms, with a growing title and a 48 dp Close target; it is never an icon browser. What's New uses this shell, current typography and its existing version/dismissal lifecycle.
+- `ConfirmDialog` owns its native Modal, named PortalHost and Reusables AlertDialog root. Its body scrolls and its full-width brand actions stack vertically. Preserve caller-owned identity, permissions, confirmation cancellation and mutation locks. `SenswaveModal` is the current full-screen native shell for content/option forms, with a growing title and a 48 dp Close target; it is never an icon browser. It applies all four safe-area insets and leaves keyboard avoidance to the option form's single `KeyboardAwareScrollView`, without an outer `KeyboardAvoidingView`. What's New uses this shell, current typography and its existing version/dismissal lifecycle.
 - `common/Text` adapts Reusables Text with current semantic foregrounds and a 14/20, 16/24, 20/28, 24/32, 30/36 dp scale. It has no implicit line clamp; meaningful list/compact limits belong to callers, while errors and legal content wrap. Explicit styles override defaults. `Divider` uses authBorder, `Loading` uses the native 32 dp progress indicator and authForeground by default, and `Markdown` keeps MarkdownDisplay with themed 16/24 dp body, underlined foreground links and themed separators.
 
 ## Automations
