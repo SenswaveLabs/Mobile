@@ -1,0 +1,62 @@
+import React, { FC, useEffect, useState } from "react";
+import { LogBox, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
+import Button from "@/components/common/Button";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import IconSelector from "@/components/common/IconSelector";
+import Input from "@/components/common/Input";
+import Markdown from "@/components/common/Markdown";
+import { useTheme } from "@/contexts/ThemeProvider";
+import { HomesContext, useHomes } from "@/contexts/domain/HomeProvider";
+import { WhatsNewModal } from "@/verification/WhatsNewPreview";
+import Index from "./(app)/index";
+
+const Preview: FC = () => {
+    const theme = useTheme();
+    const homes = useHomes();
+    const { scene, mode } = useLocalSearchParams<{ scene?: string; mode?: string }>();
+    const [confirm, setConfirm] = useState<string | null>(scene === "subscription" ? "subscription" : scene === "device" ? "device" : null);
+    const [draft, setDraft] = useState("");
+    const [icon, setIcon] = useState("stored:historical");
+    const [retries, setRetries] = useState(0);
+    const [showNews, setShowNews] = useState(scene === "news");
+    useEffect(() => {
+        LogBox.ignoreLogs(["[Location] Failed to get current location"]);
+        if (mode === "dark") void theme.darkTheme();
+        if (mode === "light") void theme.lightTheme();
+    }, [mode]);
+    useEffect(() => {
+        setConfirm(scene === "subscription" ? "subscription" : scene === "device" ? "device" : null);
+        setShowNews(scene === "news");
+    }, [scene]);
+    const colors = theme.current.colors;
+    if (scene === "home-error" || scene === "cached-error" || scene === "empty") {
+        const fixture = {
+            ...homes, loading: false, error: scene === "empty" ? "" : "Couldn't load your home. Please try again.",
+            current: scene === "cached-error" ? { id: "sample", name: "Sample home", icon: "home-outline", isOwner: false, rooms: [] } : undefined,
+            initializeCurrentHome: async () => { setRetries((n) => n + 1); return false; },
+        };
+        return <HomesContext.Provider value={fixture}><View style={{ flex: 1 }}><Text style={{ color: colors.authForeground }}>Sample data · Retry attempts: {retries}</Text><Index /></View></HomesContext.Provider>;
+    }
+    return (
+        <View style={[styles.page, { backgroundColor: colors.background }]}>
+            <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+                <Text style={[styles.title, { color: colors.authForeground }]}>Sample data · UI audit 32</Text>
+                <Button name="Set Light" type="brand-outline" loading={false} onPress={() => void theme.lightTheme()} />
+                <Button name="Set Dark" type="brand-outline" loading={false} onPress={() => void theme.darkTheme()} />
+                <IconSelector defaultIcon={icon} onIconSelected={setIcon} />
+                <Input title="Sample draft" placeholder="Type a local draft" value={draft} setValue={setDraft} error="" />
+                <Button name="Preview device confirmation" loading={false} onPress={() => setConfirm("device")} />
+                <Button name="Preview subscription confirmation" loading={false} onPress={() => setConfirm("subscription")} />
+                <Button name="Preview What's New" loading={false} onPress={() => setShowNews(true)} />
+                <Markdown>{"# Sample legal document\n\nLocal preview of **MarkdownDisplay** with a [link](https://example.test), Unicode żółć and a long paragraph that wraps across the narrow native viewport."}</Markdown>
+            </ScrollView>
+            <ConfirmDialog visible={confirm !== null} title={confirm === "subscription" ? "Remove subscription" : "Delete Device"}
+                content={confirm === "subscription" ? "Sample data. Broker will stop listening to this topic. This action cannot be undone." : "Sample data. The device and all its dashboards, widgets, and operations will be permanently deleted. This action cannot be undone."}
+                confirmLabel={confirm === "subscription" ? "Remove" : "Delete"} onCancel={() => setConfirm(null)} onConfirm={() => setConfirm(null)} />
+            {showNews && <WhatsNewModal />}
+        </View>
+    );
+};
+export default Preview;
+const styles = StyleSheet.create({ page: { flex: 1 }, content: { padding: 24, gap: 16 }, title: { fontSize: 20, lineHeight: 28, fontWeight: "600" } });

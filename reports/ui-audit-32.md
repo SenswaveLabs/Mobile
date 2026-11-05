@@ -13,6 +13,8 @@ Issue: [SenswaveLabs/Mobile#32](https://github.com/SenswaveLabs/Mobile/issues/32
 
 Shared backend payloads, opaque keys, permissions and accepted-once mutation handling are unchanged. The `silent` context options remain accepted for caller compatibility and never re-enable global feedback. The installed MarkdownDisplay remains; links use an underlined foreground role rather than an insufficient-contrast focus color.
 
+Implementation commit: [4aca036](https://github.com/SenswaveLabs/Mobile/commit/4aca036a872a7a649773f04a1e84431cc54cb8a2). The evidence-only follow-up records that source revision and the capture hashes.
+
 ## Automated checks
 
 Final implementation checks:
@@ -36,6 +38,17 @@ The actual Automation create route was opened and its full palette scrolled thro
 The native dialog experiment found the decorative animated Pressable intercepted drags inside the body. Replacing it with a passive animated View preserves the native modal barrier and restores scrolling. Temporary measurements showed a 316 dp content body in a 178 dp viewport, followed by actual nonzero scroll offsets above 100 dp. The final screenshot shows the complete trailing warning, with Cancel/Delete still visible. Measurement callbacks, context export and fixture routes were removed before final checks.
 
 Evidence is recorded in [the capture manifest](ui-audit-32/manifest.json). Numbered PNG/XML pairs preserve original captures. The fixture source and gesture measurements are included for reproducibility. Some development captures contain a SignalR LogBox message; LogBox is separate from the retired production RootToast. It was not reclassified as production feedback or hidden in production code.
+
+Selected captures:
+
+| State | Capture |
+| --- | --- |
+| Compact icon sheet, 448 dp Light | [01](ui-audit-32/01-icon-sheet-448-light.png) |
+| Dialog before/after the gesture fix, 320 dp Dark/200% | [05 before](ui-audit-32/05-dialog-before-scroll-fix-320-dark-200.png), [06 scrolled after](ui-audit-32/06-dialog-scrolled-320-dark-200.png) |
+| What's New, 320 dp Dark/200% | [07](ui-audit-32/07-whats-new-320-dark-200.png) |
+| Home Retry, 320 dp Dark/200% | [08](ui-audit-32/08-home-retry-320-dark-200.png) |
+| Dialog and palette, 800 dp/200% | [09 Light](ui-audit-32/09-dialog-800-light-200.png), [10 Dark](ui-audit-32/10-icon-sheet-800-dark-200.png) |
+| Native input with IME, 448 dp Light | [13](ui-audit-32/13-native-input-ime-448-light.png) |
 
 Restored emulator configuration: physical 1344 × 2992, density 480, no size/density override, font scale 1.0, night mode No, and Light theme. Keyboard and transient overlays were dismissed. No server-side device, subscription, home, automation or account-preference writes were made during native verification.
 

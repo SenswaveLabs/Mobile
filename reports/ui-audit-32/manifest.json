@@ -1,0 +1,403 @@
+{
+  "issue": 32,
+  "implementation_commit": "4aca036a872a7a649773f04a1e84431cc54cb8a2",
+  "base_commit": "2a1653d2156f80ccbff043c37f589f104e422be0",
+  "device": "emulator-5554",
+  "runtime": "Native Android development client + Metro",
+  "captures_from": "Implementation working tree on fix/ui-audit-32-legacy-ui; fixture seam only exports HomesContext temporarily. Capture 05 precedes the one-line passive backdrop fix.",
+  "source_sha256": {
+    "src/components/common/IconSelector.tsx": "d1321451fc5b65d71badd9854ca8a6f4a0ce531d95901f6e69f68bd7bb1b487b",
+    "src/components/automations/AutomationForm.tsx": "d1e802d16a60684fbb26a06f1d2efb70feea7c1f178a3b5aa6d66c09ad2c415e",
+    "src/components/common/ConfirmDialog.tsx": "fe55b27d97a2472b8da9371183bdc11fb17aa95bcafee1bbb23e43fd512539b3",
+    "src/components/ui/alert-dialog.tsx": "205cde941566d05c34c738374723e7a4dffc155c1b18e19cfbf614875d26da8a",
+    "src/components/common/SenswaveModal.tsx": "522abc4c066817a1ac8be707897a066d032e53491c0efff839580fa8b72de7f0",
+    "src/components/common/WhatsNewModal.tsx": "dc23c046adb1ee73bec4b648b48b326a0601cc68bb60c7685f5d57a3abf6276f",
+    "src/components/common/Markdown.tsx": "0203f1e80d92b1ad684aa892bd572b188ab13f9ebc69a7011f2125f30856fa7b",
+    "src/app/(app)/index.tsx": "e91750f6a560be14cf4d4214fc676ade29e68ab79916ada1d9eed94384e7b72a",
+    "src/contexts/domain/HomeProvider.tsx": "5b6395470bd0562871dac59422bdaa634c60ec3466c461da5d8557a1864a40f1"
+  },
+  "restored_emulator": {
+    "size_px": [
+      1344,
+      2992
+    ],
+    "density": 480,
+    "font_scale": 1,
+    "night_mode": "no",
+    "size_override": false,
+    "density_override": false,
+    "theme": "light"
+  },
+  "unverified": [
+    "TalkBack announcements and focus restoration",
+    "physical-device performance",
+    "native destructive acceptance and MQTT delivery",
+    "local APK/ABI and release builds"
+  ],
+  "artifacts": [
+    {
+      "file": "01-icon-sheet-448-light.png",
+      "sha256": "d3fb94e77a298e42ec78fcbf4a73fc12142ff7cf55b16bbb8da58dc562e9d0cf",
+      "captured_at_utc": "2026-11-05T10:15:41.237049+00:00",
+      "viewport_dp": [
+        448,
+        997.333
+      ],
+      "density": 3,
+      "font_scale": 1,
+      "theme": "light",
+      "state": "Shared global palette, historical selection; development SignalR LogBox visible.",
+      "capture_name": "35-icon-sheet-448-light-final"
+    },
+    {
+      "file": "01-icon-sheet-448-light.xml",
+      "sha256": "9631ee85895b86e24202f03f7e8a200cb95b6e04ef923fbd602760a73f0bc0a9",
+      "captured_at_utc": "2026-11-05T10:15:40.971817+00:00",
+      "viewport_dp": [
+        448,
+        997.333
+      ],
+      "density": 3,
+      "font_scale": 1,
+      "theme": "light",
+      "state": "Shared global palette, historical selection; development SignalR LogBox visible.",
+      "capture_name": "35-icon-sheet-448-light-final"
+    },
+    {
+      "file": "02-selected-icon-448-light.png",
+      "sha256": "b0a0a0a5be4ce853cb4e1e24e5c64a5b612ae0787be689df1e25a72942753029",
+      "captured_at_utc": "2026-11-05T10:15:50.848240+00:00",
+      "viewport_dp": [
+        448,
+        997.333
+      ],
+      "density": 3,
+      "font_scale": 1,
+      "theme": "light",
+      "state": "Airplane selected as a local draft; no write request.",
+      "capture_name": "36-selected-icon-448-light-final"
+    },
+    {
+      "file": "02-selected-icon-448-light.xml",
+      "sha256": "06c0e212a01017770d23e4d2b06aec511a76486d15e93af7e23e8f2eafb57e03",
+      "captured_at_utc": "2026-11-05T10:15:50.544397+00:00",
+      "viewport_dp": [
+        448,
+        997.333
+      ],
+      "density": 3,
+      "font_scale": 1,
+      "theme": "light",
+      "state": "Airplane selected as a local draft; no write request.",
+      "capture_name": "36-selected-icon-448-light-final"
+    },
+    {
+      "file": "03-whats-new-448-light.png",
+      "sha256": "8cff7ae392cf6059e2a398f612da5c7a120b47067ccf823f68f7b46b783fec6d",
+      "captured_at_utc": "2026-11-05T10:15:55.521542+00:00",
+      "viewport_dp": [
+        448,
+        997.333
+      ],
+      "density": 3,
+      "font_scale": 1,
+      "theme": "light",
+      "state": "Production JSX with local visibility hook; development SignalR LogBox visible.",
+      "capture_name": "37-whats-new-448-light-final"
+    },
+    {
+      "file": "03-whats-new-448-light.xml",
+      "sha256": "d9642104712a4b637ce66fd5bc713e77d86c373b1c091741df25c958557599cf",
+      "captured_at_utc": "2026-11-05T10:15:55.238315+00:00",
+      "viewport_dp": [
+        448,
+        997.333
+      ],
+      "density": 3,
+      "font_scale": 1,
+      "theme": "light",
+      "state": "Production JSX with local visibility hook; development SignalR LogBox visible.",
+      "capture_name": "37-whats-new-448-light-final"
+    },
+    {
+      "file": "04-automation-sheet-320-dark-200.png",
+      "sha256": "a5b243cc073ebe6a97f1509529126b0fde4ca4db7b27cbcccb881d7a78a56635",
+      "captured_at_utc": "2026-11-05T09:52:13.692544+00:00",
+      "viewport_dp": [
+        320,
+        480
+      ],
+      "density": 3,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "Actual Automation create route: four columns and complete accessible labels.",
+      "capture_name": "06-automation-sheet-320-200"
+    },
+    {
+      "file": "04-automation-sheet-320-dark-200.xml",
+      "sha256": "ead302d057ecafcaa397623930767c520647d5f9babf96522178f2d1b48ff2ff",
+      "captured_at_utc": "2026-11-05T09:52:13.521119+00:00",
+      "viewport_dp": [
+        320,
+        480
+      ],
+      "density": 3,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "Actual Automation create route: four columns and complete accessible labels.",
+      "capture_name": "06-automation-sheet-320-200"
+    },
+    {
+      "file": "05-dialog-before-scroll-fix-320-dark-200.png",
+      "sha256": "61dfc483606becc2e4ee1c53ea09dbf111ab2cdb1a5ebc2d8831166633a607a7",
+      "captured_at_utc": "2026-11-05T10:04:02.255012+00:00",
+      "viewport_dp": [
+        320,
+        480
+      ],
+      "density": 3,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "Before the passive backdrop change: actions fit, but the backdrop captures body drags.",
+      "capture_name": "20-confirm-320-dark-200-restarted"
+    },
+    {
+      "file": "05-dialog-before-scroll-fix-320-dark-200.xml",
+      "sha256": "7f673207db0467e47d00cc091700409edef1d35637a8f57ecda7b8c305c30a95",
+      "captured_at_utc": "2026-11-05T10:04:02.080842+00:00",
+      "viewport_dp": [
+        320,
+        480
+      ],
+      "density": 3,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "Before the passive backdrop change: actions fit, but the backdrop captures body drags.",
+      "capture_name": "20-confirm-320-dark-200-restarted"
+    },
+    {
+      "file": "06-dialog-scrolled-320-dark-200.png",
+      "sha256": "99a85b05d476fbe833747e1dd40a842c07c7355d32b1d4f36ddedb45d0ac1547",
+      "captured_at_utc": "2026-11-05T10:07:31.081626+00:00",
+      "viewport_dp": [
+        320,
+        480
+      ],
+      "density": 3,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "After the passive backdrop change and a drag: trailing warning is readable; actions keep their bounds.",
+      "capture_name": "22-confirm-body-scrolled-320-dark-200-final"
+    },
+    {
+      "file": "06-dialog-scrolled-320-dark-200.xml",
+      "sha256": "874bc54739daae6d68af24bea29dff2d95063739c16f77292e37ecf72e684c66",
+      "captured_at_utc": "2026-11-05T10:07:30.889246+00:00",
+      "viewport_dp": [
+        320,
+        480
+      ],
+      "density": 3,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "After the passive backdrop change and a drag: trailing warning is readable; actions keep their bounds.",
+      "capture_name": "22-confirm-body-scrolled-320-dark-200-final"
+    },
+    {
+      "file": "07-whats-new-320-dark-200.png",
+      "sha256": "9f95920dd955b3d543959b6a3b9725da97883b68d14153e134be9e0095f2f66f",
+      "captured_at_utc": "2026-11-05T10:07:37.164569+00:00",
+      "viewport_dp": [
+        320,
+        480
+      ],
+      "density": 3,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "Full-screen current shell; growing title, full text and Close target.",
+      "capture_name": "23-whats-new-320-dark-200"
+    },
+    {
+      "file": "07-whats-new-320-dark-200.xml",
+      "sha256": "5a438765dfd180182c70afe735bf9d2b897c94df37f230c5fab1380b316967ec",
+      "captured_at_utc": "2026-11-05T10:07:36.989328+00:00",
+      "viewport_dp": [
+        320,
+        480
+      ],
+      "density": 3,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "Full-screen current shell; growing title, full text and Close target.",
+      "capture_name": "23-whats-new-320-dark-200"
+    },
+    {
+      "file": "08-home-retry-320-dark-200.png",
+      "sha256": "5be9bfe8c1b6a46872ee18ed1bbf105f96a729fb50694b890a72345c928e424a",
+      "captured_at_utc": "2026-11-05T10:07:46.608527+00:00",
+      "viewport_dp": [
+        320,
+        480
+      ],
+      "density": 3,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "Real Home screen with failed-read fixture; native Retry increments the local counter to 1.",
+      "capture_name": "25-home-retry-320-dark-200"
+    },
+    {
+      "file": "08-home-retry-320-dark-200.xml",
+      "sha256": "86568f4179f60f4442c99a1700c6e3de5263d50d27b75235b204c50954676e39",
+      "captured_at_utc": "2026-11-05T10:07:46.439248+00:00",
+      "viewport_dp": [
+        320,
+        480
+      ],
+      "density": 3,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "Real Home screen with failed-read fixture; native Retry increments the local counter to 1.",
+      "capture_name": "25-home-retry-320-dark-200"
+    },
+    {
+      "file": "09-dialog-800-light-200.png",
+      "sha256": "1d02f7c37b5a7c21b99892acc67f3646a7e873c5644a27696a873b27f9ec1717",
+      "captured_at_utc": "2026-11-05T10:10:01.035609+00:00",
+      "viewport_dp": [
+        800,
+        900
+      ],
+      "density": 2,
+      "font_scale": 2,
+      "theme": "light",
+      "state": "Shared dialog at expanded width; actions remain stacked.",
+      "capture_name": "26-confirm-device-800-light-200"
+    },
+    {
+      "file": "09-dialog-800-light-200.xml",
+      "sha256": "c9fc534f5480e8f50d43aeaab3927289deac11f92330e1d3cee59c16dd7681ca",
+      "captured_at_utc": "2026-11-05T10:10:00.809855+00:00",
+      "viewport_dp": [
+        800,
+        900
+      ],
+      "density": 2,
+      "font_scale": 2,
+      "theme": "light",
+      "state": "Shared dialog at expanded width; actions remain stacked.",
+      "capture_name": "26-confirm-device-800-light-200"
+    },
+    {
+      "file": "10-icon-sheet-800-dark-200.png",
+      "sha256": "7f075b49b5b99e7e0f1cf09076fdcb305fcb9d51e95fb1400a2bb4e8a6d55a43",
+      "captured_at_utc": "2026-11-05T10:10:11.617416+00:00",
+      "viewport_dp": [
+        800,
+        900
+      ],
+      "density": 2,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "Virtualized four-column global palette at expanded width.",
+      "capture_name": "27-icon-sheet-800-dark-200"
+    },
+    {
+      "file": "10-icon-sheet-800-dark-200.xml",
+      "sha256": "def1d1a894ab7d6c7827c85eba9b8f56b710f5207f184817d5e08191a996e523",
+      "captured_at_utc": "2026-11-05T10:10:11.396036+00:00",
+      "viewport_dp": [
+        800,
+        900
+      ],
+      "density": 2,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "Virtualized four-column global palette at expanded width.",
+      "capture_name": "27-icon-sheet-800-dark-200"
+    },
+    {
+      "file": "11-cached-home-800-dark-200.png",
+      "sha256": "c921c3842d398b09fd146516425f135323f4765e795a9a685c84ca9e84cf4367",
+      "captured_at_utc": "2026-11-05T10:10:53.475868+00:00",
+      "viewport_dp": [
+        800,
+        900
+      ],
+      "density": 2,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "Home error is local while cached-home content remains mounted.",
+      "capture_name": "28-cached-home-error-800-dark-200"
+    },
+    {
+      "file": "11-cached-home-800-dark-200.xml",
+      "sha256": "412e81ecf362cfbbfdef8e4599948d3b0a31eb0141c2305ad60e95221300e426",
+      "captured_at_utc": "2026-11-05T10:10:53.214855+00:00",
+      "viewport_dp": [
+        800,
+        900
+      ],
+      "density": 2,
+      "font_scale": 2,
+      "theme": "dark",
+      "state": "Home error is local while cached-home content remains mounted.",
+      "capture_name": "28-cached-home-error-800-dark-200"
+    },
+    {
+      "file": "12-confirmed-empty-800-light-200.png",
+      "sha256": "9dfb5a5b2491ecb0e4b49b60c049c0bce6369e2f92ff646d338ef516fc99c63c",
+      "captured_at_utc": "2026-11-05T10:10:57.272830+00:00",
+      "viewport_dp": [
+        800,
+        900
+      ],
+      "density": 2,
+      "font_scale": 2,
+      "theme": "light",
+      "state": "Confirmed-empty fixture uses onboarding rather than a read-error state.",
+      "capture_name": "29-confirmed-empty-800-light-200"
+    },
+    {
+      "file": "12-confirmed-empty-800-light-200.xml",
+      "sha256": "49d0d01773205e139d259f157bc5aa01b498b3baa786fe69ca8640a19c53edd9",
+      "captured_at_utc": "2026-11-05T10:10:57.044466+00:00",
+      "viewport_dp": [
+        800,
+        900
+      ],
+      "density": 2,
+      "font_scale": 2,
+      "theme": "light",
+      "state": "Confirmed-empty fixture uses onboarding rather than a read-error state.",
+      "capture_name": "29-confirmed-empty-800-light-200"
+    },
+    {
+      "file": "13-native-input-ime-448-light.png",
+      "sha256": "0ed74c26c58818e97338e10eb715fe5e36eecdd5769d4995cb2c04542815a2ed",
+      "captured_at_utc": "2026-11-05T10:15:15.510909+00:00",
+      "viewport_dp": [
+        448,
+        997.333
+      ],
+      "density": 3,
+      "font_scale": 1,
+      "theme": "light",
+      "state": "Native field accepts Local-draft, retains focus and shows the keyboard.",
+      "capture_name": "34-input-ime-448-light-stable"
+    },
+    {
+      "file": "13-native-input-ime-448-light.xml",
+      "sha256": "13e270f3499019251ad98bf507aced32983a8cbf16308f9579ad308e36cdfecb",
+      "captured_at_utc": "2026-11-05T10:15:15.272884+00:00",
+      "viewport_dp": [
+        448,
+        997.333
+      ],
+      "density": 3,
+      "font_scale": 1,
+      "theme": "light",
+      "state": "Native field accepts Local-draft, retains focus and shows the keyboard.",
+      "capture_name": "34-input-ime-448-light-stable"
+    }
+  ]
+}

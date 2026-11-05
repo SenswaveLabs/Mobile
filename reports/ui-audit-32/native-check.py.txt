@@ -1,0 +1,55 @@
+import re
+import shlex
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+ROOT = Path('/tmp/senswave-issue-32')
+ADB = ['adb', '-s', 'emulator-5554']
+
+def adb(*args):
+    return subprocess.check_output([*ADB, *args])
+
+def dump(name='current'):
+    adb('shell', 'uiautomator', 'dump', '/sdcard/issue32.xml')
+    raw = adb('shell', 'cat', '/sdcard/issue32.xml')
+    (ROOT / (name + '.xml')).write_bytes(raw)
+    return ET.fromstring(raw)
+
+def inspect():
+    for node in dump().iter('node'):
+        text = node.get('content-desc') or node.get('text')
+        if text and not re.fullmatch(r'[\ue000-\uf8ff]+', text):
+            print(text, node.get('bounds'), 'click' if node.get('clickable') == 'true' else '')
+
+def tap(label):
+    candidates = [n for n in dump().iter('node') if any(re.fullmatch(label, n.get(k, ''), re.I) for k in ['content-desc', 'text'])]
+    assert candidates, 'UI target absent: ' + label
+    node = next((n for n in candidates if n.get('clickable') == 'true'), candidates[0])
+    x1, y1, x2, y2 = map(int, re.findall(r'\d+', node.get('bounds')))
+    assert x2 > x1 and y2 > y1, 'UI target has no area'
+    adb('shell', 'input', 'tap', str((x1+x2)//2), str((y1+y2)//2))
+    print('Tapped:', label, node.get('bounds'))
+
+def capture(name):
+    tree = dump(name)
+    (ROOT / (name + '.png')).write_bytes(adb('exec-out', 'screencap', '-p'))
+    print('Captured:', name)
+    return tree
+
+def open_route(route):
+    adb('shell', 'am start -a android.intent.action.VIEW -d ' + shlex.quote('com.develite.senswave:///' + route))
+
+def swipe(start_y, end_y):
+    width = int(re.findall(r'\d+', adb('shell', 'wm', 'size').decode())[-2])
+    adb('shell', 'input', 'swipe', str(width//2), str(start_y), str(width//2), str(end_y), '450')
+
+if __name__ == '__main__':
+    cmd = sys.argv[1]
+    if cmd == 'inspect': inspect()
+    elif cmd == 'tap': tap(sys.argv[2])
+    elif cmd == 'capture': capture(sys.argv[2])
+    elif cmd == 'open': open_route(sys.argv[2])
+    elif cmd == 'back': adb('shell', 'input', 'keyevent', '4')
+    elif cmd == 'swipe': swipe(int(sys.argv[2]), int(sys.argv[3]))
