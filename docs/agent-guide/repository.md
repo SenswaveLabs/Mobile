@@ -66,6 +66,7 @@ src/
     httpClient.tsx          # executeTimeout, HttpResponse — ONLY place fetch is called
     result.tsx              # Result<T>, SimpleResult
     authValidation.ts       # shared email/login/register/reset/server validation
+    operationLabels.ts      # collision-aware display labels for automation operation choices
     resourceIcons.ts        # Home/Device Lucide symbols and safe fallbacks, not an allowed list
     location.tsx
   lib/utils.ts              # class merging for React Native Reusables

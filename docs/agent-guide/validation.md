@@ -7,7 +7,11 @@ or rerun an expensive build for an unrelated documentation edit.
 
 Automation details regressions cover the native modal/host binding, cancellation, captured confirmation identity and accepted-once deletion. Both child forms distinguish device loading, error/retry and true empty state while preserving drafts. Final Android evidence and remaining limits are recorded in the [automation validation report](../superpowers/validation/2026-10-31-automations.md).
 
-- Automation flows run through `pnpm test:automations` (`automationList`, `automationCreate`, `automationDetails`, `automationChildren`, `automationState`). The child suite uses real form/route handlers to cover full operation reads, eleventh-item selection, duplicate operation names/IDs, supported condition types, finite numeric bounds, exact values, stale device reads, session and owner checks, local draft append, awaited existing-child PUTs, retry and accepted-once return. Run `pnpm exec node --test tests/bottomSheetSelect.test.mjs tests/iconSelector.test.mjs` when changing shared selection/icon controls. These harness checks do not establish native layout, keyboard reachability, touch ordering or TalkBack behavior; record Android verification separately.
+The [UI audit 37 summary](../../reports/ui-audit-37.md) records the creation-action
+layout, duplicate operation labels, What's New text and scrollable read recovery
+checks, including their native keyboard and large-text limits.
+
+- Automation flows run through `pnpm test:automations` (`automationList`, `automationCreate`, `automationDetails`, `automationChildren`, `automationState`). The child suite uses real form/route handlers to cover full operation reads, eleventh-item selection, distinct duplicate-name/type labels with colliding ID prefixes and matching selected values in both forms, exact raw names/IDs, supported condition types, finite numeric bounds, exact values, stale device reads, session and owner checks, local draft append, awaited existing-child PUTs, retry and accepted-once return. Run `pnpm exec node --test tests/bottomSheetSelect.test.mjs tests/iconSelector.test.mjs` when changing shared selection/icon controls. These harness checks do not establish native layout, keyboard reachability, touch ordering or TalkBack behavior; record Android verification separately.
 - Documentation-only changes: check relative links, preserved instructions and
   `git diff --check`.
 - Non-trivial source changes: run `pnpm typecheck` and `pnpm lint`.

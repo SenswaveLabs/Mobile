@@ -674,23 +674,39 @@ test("both forms refuse an operation after its device disappears from the curren
     }
 });
 
-test("condition form keeps exact operation identity when two operations share a name", async () => {
-    const submitted = [];
-    const { form } = mountForm("condition", {
-        operationItems: [
-            operation("operation-first", "Boolean", "Same name"),
-            operation("operation-second", "Boolean", "Same name"),
-        ],
-        onSubmit: async (value) => submitted.push(value),
-    });
-    choose(form, "Device", "Device A");
-    await settle(form);
-    const operationField = selector(form, "Operation");
-    assert.equal(operationField.props.options.length, 2);
-    operationField.props.options[1].onPress();
-    form.render();
-    await submitForm(form, "condition");
-    assert.equal(submitted[0].operationId, "operation-second");
+test("child forms distinguish duplicate operation names and retain exact submitted identity", async () => {
+    for (const kind of ["condition", "result"]) {
+        const submitted = [];
+        const { form } = mountForm(kind, {
+            operationItems: [
+                operation("12345678-first", "Boolean", "Same name"),
+                operation("12345678-second", "Boolean", "Same name"),
+                operation("87654321-third", "Text", "Same name"),
+                operation("unique", "Text", "Unique name"),
+            ],
+            onSubmit: async (value) => submitted.push(value),
+        });
+        choose(form, "Device", "Device A");
+        await settle(form);
+        const operationField = selector(form, "Operation");
+        const labels = operationField.props.options.map((item) => item.label);
+        assert.equal(new Set(labels).size, 4, "same-name/same-type choices stay distinct");
+        assert.match(labels[0], /Same name.*Boolean.*12345678-first/);
+        assert.match(labels[1], /Same name.*Boolean.*12345678-second/);
+        assert.match(labels[2], /Same name.*Text.*87654321/);
+        assert.equal(labels[3], "Unique name", "unique names need no disambiguation");
+
+        operationField.props.options[1].onPress();
+        form.render();
+        assert.equal(selector(form, "Operation").props.value, labels[1]);
+        assert.equal(selector(form, "Operation").props.multiline, true);
+        if (kind === "result") change(form, "Value to send", " exact result ");
+        await submitForm(form, kind);
+        assert.equal(submitted[0].operationId, "12345678-second");
+        assert.equal(submitted[0].operationName, "Same name");
+        if (kind === "condition") assert.equal(submitted[0].conditionConfiguration.isOn, true);
+        else assert.equal(submitted[0].valueToSend, " exact result ");
+    }
 });
 
 test("result form rejects missing operation and empty value, then preserves exact result text", async () => {

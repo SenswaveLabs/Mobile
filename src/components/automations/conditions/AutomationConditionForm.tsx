@@ -1,4 +1,5 @@
 import BottomSheetSelect from "@/components/common/BottomSheetSelect";
+import { getOperationLabel } from "@/utils/operationLabels";
 import Button from "@/components/common/Button";
 import FormSection from "@/components/common/FormSection";
 import Input from "@/components/common/Input";
@@ -300,13 +301,13 @@ const AutomationConditionForm: FC<AutomationConditionFormProps> = ({
         onPress: () => selectDevice(device.id),
     }));
     const operationOptions = operations.map((operation) => ({
-        label: operation.name,
+        label: getOperationLabel(operation, operations),
         selected: operation.id === operationId,
         onPress: () => selectOperation(operation.id),
     }));
     const deviceName = devices.find((device) => device.id === deviceId)?.name ?? "Select a device";
     const operationName =
-        operations.find((operation) => operation.id === operationId)?.name ?? "Select an operation";
+        operationOptions.find((option) => option.selected)?.label ?? "Select an operation";
     const choiceStyle = (selected: boolean) => [
         styles.choice,
         {
@@ -397,6 +398,7 @@ const AutomationConditionForm: FC<AutomationConditionFormProps> = ({
                             <BottomSheetSelect
                                 title="Operation"
                                 value={operationName}
+                                multiline
                                 options={operationOptions}
                                 disabled={effectivePending || accepted}
                                 error={operationError}

@@ -561,7 +561,9 @@ const Details: FC = () => {
             ? "This automation belongs to a different selected home. Return to automations and choose it from that home's list."
             : loadError || "Automation details are unavailable.";
         return (
-            <View style={[styles.recovery, { backgroundColor: colors.background }]}>
+            <ScrollView
+                style={[styles.screen, { backgroundColor: colors.background }]}
+                contentContainerStyle={styles.recovery}>
                 <Alert
                     icon={CircleAlert}
                     variant="destructive"
@@ -574,14 +576,14 @@ const Details: FC = () => {
                 )}
                 <Button
                     name="Return to automations"
-                    type="auth"
+                    type={automationId && !invalidHome.current ? "brand-outline" : "auth"}
                     loading={false}
                     onPress={() => {
                         if (router.canGoBack()) router.back();
                         else router.replace("/automation/list");
                     }}
                 />
-            </View>
+            </ScrollView>
         );
     }
 
@@ -663,7 +665,7 @@ const Details: FC = () => {
 export default Details;
 
 const styles = StyleSheet.create({
-    recovery: { flex: 1, gap: 16, justifyContent: "center", padding: 24 },
+    recovery: { flexGrow: 1, gap: 16, justifyContent: "center", padding: 24 },
     screen: { flex: 1 },
     actionSlot: { minHeight: 72, justifyContent: "center" },
     dialogContent: { maxHeight: "90%" },

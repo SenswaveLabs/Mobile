@@ -39,9 +39,9 @@ const CHANGES: ChangeEntry[] = [
         description: "Add rooms and assign devices to rooms directly from the device screen.",
     },
     {
-        icon: "ellipsis-vertical",
-        title: "Floating Action Button",
-        description: "Quick-access FAB button for common actions is now available on main screens.",
+        icon: "add-circle-outline",
+        title: "Section Actions",
+        description: "Add devices and operations using the actions beside their section headings.",
     },
     {
         icon: "home-outline",

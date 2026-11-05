@@ -141,37 +141,7 @@ const AddSubscriptionForm: FC<AddSubscriptionFormProps> = ({ brokerId }) => {
             <View style={styles.content}>
                 <FormSection
                     title="Add subscription"
-                    helper="Enter the MQTT topic this broker client should listen to."
-                    actions={[
-                        actionFeedback ? (
-                            <Alert
-                                key="feedback"
-                                icon={actionFeedback.variant === "destructive" ? CircleAlert : Info}
-                                variant={actionFeedback.variant}>
-                                <AlertDescription>{actionFeedback.message}</AlertDescription>
-                            </Alert>
-                        ) : null,
-                        actionFeedback?.variant === "default" ? (
-                            <Button
-                                key="return"
-                                name="Return to data source"
-                                type="brand-outline"
-                                loading={false}
-                                onPress={returnAfterNavigationFailure}
-                                style={styles.actionButton}
-                            />
-                        ) : (
-                            <Button
-                                key="submit"
-                                name="Add subscription"
-                                type="auth"
-                                loading={pending}
-                                disabled={pending || accepted.current}
-                                onPress={submit}
-                                style={styles.actionButton}
-                            />
-                        ),
-                    ]}>
+                    helper="Enter the MQTT topic this broker client should listen to.">
                     <Input
                         title="Topic"
                         placeholder="home/sensor"
@@ -190,6 +160,33 @@ const AddSubscriptionForm: FC<AddSubscriptionFormProps> = ({ brokerId }) => {
                         onSubmitEditing={submit}
                     />
                 </FormSection>
+                <View style={styles.actions}>
+                    {actionFeedback && (
+                        <Alert
+                            icon={actionFeedback.variant === "destructive" ? CircleAlert : Info}
+                            variant={actionFeedback.variant}>
+                            <AlertDescription>{actionFeedback.message}</AlertDescription>
+                        </Alert>
+                    )}
+                    {actionFeedback?.variant === "default" ? (
+                        <Button
+                            name="Return to data source"
+                            type="brand-outline"
+                            loading={false}
+                            onPress={returnAfterNavigationFailure}
+                            style={styles.actionButton}
+                        />
+                    ) : (
+                        <Button
+                            name="Add subscription"
+                            type="auth"
+                            loading={pending}
+                            disabled={pending || accepted.current}
+                            onPress={submit}
+                            style={styles.actionButton}
+                        />
+                    )}
+                </View>
             </View>
         </KeyboardAwareScrollView>
     );
@@ -205,9 +202,11 @@ const styles = StyleSheet.create({
         paddingBottom: 16,
     },
     content: {
+        flexGrow: 1,
         width: "100%",
         maxWidth: 448,
         alignSelf: "center",
     },
+    actions: { marginTop: "auto", paddingTop: 24, gap: 12 },
     actionButton: { width: "100%" },
 });

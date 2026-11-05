@@ -53,7 +53,9 @@ Global RootToast, RootSiblingParent and automatic error-driven Keyboard.dismiss 
 - Every screen has one clear purpose. Identify essential information, the primary
   action, secondary actions and navigation before choosing a layout.
 - Keep the primary action obvious; give equal emphasis only to equally important
-  actions. Place actions next to the object or content they affect.
+  actions. Place actions next to the object or content they affect. In read recovery,
+  Retry is primary and Return is outlined; Return stays primary when it is the only action.
+  Let long recovery content scroll within the available window.
 - Use progressive disclosure for advanced controls. Group related content by
   proximity and consistent spacing before adding cards, borders or separators.
 - Space between groups should make their hierarchy clear. Auth, reset and invitation
@@ -62,6 +64,8 @@ Global RootToast, RootSiblingParent and automatic error-driven Keyboard.dismiss 
   Actions stay reachable on short windows and with large text. Do not measure a shared
   footer, nest keyboard-avoiding containers or hide submit actions while editing.
   Back stays beside the header; password visibility stays beside the field.
+  Apply gaps to visible form groups, not the keyboard-aware scroll content itself:
+  the keyboard library appends a technical spacer that must not receive a group gap.
 - Distinguish destructive actions through wording, semantics and styling. Use
   confirmation or undo when needed to prevent irreversible data loss.
 - Ambiguous icons need visible labels; every icon-only action needs an accessible
@@ -577,6 +581,15 @@ polite alert supporting text. A rejected submit scrolls the first invalid trigge
 into the existing keyboard-aware page and gives it accessibility focus without
 calling TextInput focus or dismissing the keyboard. Shared `Expander` keeps one
 48 dp button target with its title and `accessibilityState.expanded`.
+
+Condition and result operation selectors keep unique names unchanged. Repeated
+names add the operation type and an eight-character ID prefix, falling back to
+the full ID when that prefix collides within the same-name catalog. Options and
+the selected field use the same label and accessible identity; operation fields
+opt into `BottomSheetSelect.multiline` so the distinction stays visible on narrow
+windows and with large text. Draft and request names, IDs and values stay exact.
+What's New titles and descriptions grow in its existing scroll without line caps;
+release notes describe reachable actions and preserve the seen-version lifecycle.
 
 ## Profile and account settings
 
