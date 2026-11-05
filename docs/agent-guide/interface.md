@@ -96,12 +96,22 @@ Global RootToast, RootSiblingParent and automatic error-driven Keyboard.dismiss 
   by the app, and iOS back gestures.
 - Back closes a transient overlay before leaving its underlying screen. Dismissal,
   outside taps and unsaved-input handling must be predictable.
+- Home keeps its shared exit confirmation mounted while loading, empty, failed
+  or populated. Android Back opens it in each state; Cancel/Back closes it, Exit
+  calls the platform exit handler, and blur dismisses the confirmation.
 - Use a dialog for a focused decision, a sheet/drawer for temporary contextual
   content, and a separate screen or inline flow for a complex or multi-step task.
 - Avoid stacked modals. Manage focus on open/close and expose a usable dismiss action.
   Use existing native modal/menu providers or appropriate native primitives.
 
 ## Forms, feedback and state
+
+Validate consumed read fields before mounting previews, widget forms or broker
+settings. Invalid tile/command reads retain reported values and the shared device
+cache. Unavailable operation previews use a local Alert and Retry preview; never
+pass malformed ranges or option entries to native controls. Subscription read
+failures keep the current broker's validated rows beside Alert/Retry; Retry performs
+only the failed read, and rows from another broker stay hidden.
 
 - Ask only for data needed by the task. Use explicit labels, useful hints, suitable
   controls, and errors next to the affected field that explain how to recover.
@@ -496,6 +506,12 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
   pressed feedback and the existing confirmation. Loading has a visible label and
   accessible busy state; errors stay beside the affected action and recovery keeps
   Retry available.
+  The invitation route accepts exactly one nonempty home ID matching the current
+  owned home. Bind submission and delayed responses to that visit and permission;
+  retain the submitted home ID/name alongside the accepted code, email and role.
+  The success view and clipboard use this captured invitation. Latch accepted POSTs
+  before parsing their code; malformed or missing codes offer local guidance back
+  to home settings and cannot cause another POST in the same visit.
 - Rooms keep a compact Add action in the section header in empty and populated
   states. Owners and managers use `ListRow` with named 48 dp Edit and Remove actions;
   confirm removal and explain that devices become unassigned.

@@ -10,6 +10,7 @@ import React, {
     PropsWithChildren,
 } from "react";
 import { useHttpClient } from "../HttpClientProvider";
+import { isConsumedOperation } from "@/utils/operationValidation";
 
 export interface AddWidgetDto {
     operationId: string;
@@ -59,8 +60,39 @@ const WidgetDetailsContext = createContext<WidgetDetailsContextProps>({
     setAdditionalValidation: () => {},
 });
 
-const isConfiguration = (value: unknown) =>
+const isConfiguration = (value: unknown): value is Record<string, unknown> =>
     value !== null && typeof value === "object" && !Array.isArray(value);
+
+const isWidgetConfiguration = (value: unknown, type: string) => {
+    if (!isConfiguration(value)) return false;
+    if (type === "Radio" && value.options != null) {
+        if (
+            !Array.isArray(value.options) ||
+            !value.options.every(
+                (option) =>
+                    isConfiguration(option) &&
+                    typeof option.optionName === "string" &&
+                    typeof option.displayName === "string" &&
+                    typeof option.icon === "string",
+            )
+        )
+            return false;
+    }
+    if (type === "Display" && value.unit != null && typeof value.unit !== "string") return false;
+    if (
+        type === "Slider" &&
+        value.step != null &&
+        (typeof value.step !== "number" || !Number.isFinite(value.step))
+    )
+        return false;
+    return (
+        type !== "Button" ||
+        value.value == null ||
+        typeof value.value === "string" ||
+        typeof value.value === "boolean" ||
+        (typeof value.value === "number" && Number.isFinite(value.value))
+    );
+};
 
 export const WidgetDetailsProvider: FC<PropsWithChildren> = ({ children }) => {
     const httpClient = useHttpClient();
@@ -90,14 +122,8 @@ export const WidgetDetailsProvider: FC<PropsWithChildren> = ({ children }) => {
         async (operationId: string) => {
             const result = await httpClient.get(`v1/devices/operations/${operationId}`);
             if (!result.isSuccess || !result.response) throw new Error("Operation read failed");
-            const content = (await result.response.json()) as OperationDto;
-            if (
-                !content ||
-                content.id !== operationId ||
-                typeof content.name !== "string" ||
-                !Object.prototype.hasOwnProperty.call(supportedWidgetTypes, content.type) ||
-                !isConfiguration(content.configuration)
-            ) {
+            const content: unknown = await result.response.json();
+            if (!isConsumedOperation(content, operationId)) {
                 throw new Error("Invalid operation");
             }
             return content;
@@ -134,7 +160,7 @@ export const WidgetDetailsProvider: FC<PropsWithChildren> = ({ children }) => {
                         typeof nextWidget.name !== "string" ||
                         typeof nextWidget.type !== "string" ||
                         typeof nextWidget.enabled !== "boolean" ||
-                        !isConfiguration(nextWidget.configuration)
+                        !isWidgetConfiguration(nextWidget.configuration, nextWidget.type)
                     ) {
                         throw new Error("Invalid widget");
                     }

@@ -7,7 +7,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { SubscriptionDto } from "@/types/DataSourcesTypes";
-import { ListResponse } from "@/utils/httpClient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { CircleAlert, Plus, Trash2 } from "lucide-react-native";
 import React, { FC, useCallback, useEffect, useRef, useState } from "react";
@@ -17,11 +16,25 @@ interface BrokerSubscriptionsProps {
     id: string;
 }
 
+const isSubscription = (value: unknown): value is SubscriptionDto =>
+    !!value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    "id" in value &&
+    typeof value.id === "string" &&
+    value.id.length > 0 &&
+    "topic" in value &&
+    typeof value.topic === "string";
+
 const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
     const httpClient = useHttpClient();
     const theme = useTheme();
     const router = useRouter();
-    const [subscriptions, setSubscriptions] = useState<SubscriptionDto[]>([]);
+    const [collection, setCollection] = useState<{ brokerId: string; items: SubscriptionDto[] }>({
+        brokerId: id,
+        items: [],
+    });
+    const subscriptions = collection.brokerId === id ? collection.items : [];
     const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
     const [loadError, setLoadError] = useState("");
     const [removeError, setRemoveError] = useState("");
@@ -55,9 +68,18 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
                         "Couldn't load subscriptions. Check your connection and try again.",
                     );
                 }
-                const content = (await result.response.json()) as ListResponse<SubscriptionDto>;
+                const content: unknown = await result.response.json();
+                if (
+                    !content ||
+                    typeof content !== "object" ||
+                    Array.isArray(content) ||
+                    !("items" in content) ||
+                    !Array.isArray(content.items) ||
+                    !content.items.every(isSubscription)
+                )
+                    throw new Error("Invalid subscriptions response");
                 if (current && sequence === readSequence.current)
-                    setSubscriptions(content.items ?? []);
+                    setCollection({ brokerId: id, items: content.items });
                 if (current && sequence === readSequence.current) setLoadState("ready");
             } catch (error) {
                 if (current && sequence === readSequence.current) {
@@ -110,7 +132,7 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
     };
 
     const removeSubscription = async (subscriptionId: string) => {
-        if (removePending.current) return;
+        if (removePending.current || requestPending.current) return;
         removePending.current = true;
         setRemoving(true);
         setRemovingId(subscriptionId);
@@ -124,8 +146,21 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
                 throw new Error(
                     "Couldn't remove subscription. Check your connection and try again.",
                 );
-            if (active.current)
-                setSubscriptions((current) => current.filter((item) => item.id !== subscriptionId));
+            if (active.current) {
+                if (requestPending.current) {
+                    readSequence.current++;
+                    requestPending.current = false;
+                    setLoadState("ready");
+                }
+                setCollection((current) =>
+                    current.brokerId === id
+                        ? {
+                              ...current,
+                              items: current.items.filter((item) => item.id !== subscriptionId),
+                          }
+                        : current,
+                );
+            }
         } catch (error) {
             if (active.current)
                 setRemoveError(
@@ -196,7 +231,8 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
                                 Loading subscriptions…
                             </NativeText>
                         </View>
-                    ) : loadState === "error" ? (
+                    ) : null}
+                    {loadState === "error" && (
                         <Button
                             name="Retry"
                             type="brand-outline"
@@ -204,12 +240,14 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
                             disabled={requestPending.current}
                             onPress={retryLoad}
                         />
-                    ) : subscriptions.length === 0 ? (
+                    )}
+                    {loadState === "ready" && subscriptions.length === 0 && (
                         <NativeText
                             style={[styles.empty, { color: theme.current.colors.authMuted }]}>
                             No subscriptions yet.
                         </NativeText>
-                    ) : (
+                    )}
+                    {loadState !== "loading" && subscriptions.length > 0 && (
                         <View style={styles.list}>
                             {subscriptions.map((item, index) => (
                                 <ListRow
@@ -235,7 +273,13 @@ const BrokerSubscriptions: FC<BrokerSubscriptionsProps> = ({ id }) => {
                                                 busy: removingId === item.id,
                                             }}
                                             disabled={removing}
-                                            onPress={() => setPendingDeleteId(item.id)}
+                                            onPress={() => {
+                                                if (
+                                                    !requestPending.current &&
+                                                    !removePending.current
+                                                )
+                                                    setPendingDeleteId(item.id);
+                                            }}
                                             android_ripple={{
                                                 color: theme.current.colors.authBorder,
                                             }}

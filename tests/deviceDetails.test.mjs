@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { makeFocusLifecycle, mountNativeComponent } from "./nativeComponentHarness.mjs";
 
-function mountForm(onSubmit, props = {}) {
+function mountForm(onSubmit, props = {}, get = async () => ({ isSuccess: false })) {
     const ref = { current: null };
     const formProps = {
         deviceId: "device-1",
@@ -30,7 +30,7 @@ function mountForm(onSubmit, props = {}) {
             "../common/Text": "Text",
             "./tile/DeviceTile": "DeviceTile",
             "@/contexts/HttpClientProvider": {
-                useHttpClient: () => ({ get: async () => ({ isSuccess: false }) }),
+                useHttpClient: () => ({ get }),
             },
             "@/contexts/domain/HomeProvider": {
                 useHomes: () => ({ current: { id: "home-1", rooms: [] } }),
@@ -54,6 +54,91 @@ function mountForm(onSubmit, props = {}) {
         update: (changes) => form.render({ ...formProps, ...changes, ref }),
     };
 }
+
+test("tile previews reject malformed, mismatched and incompatible operations, then retry locally", async () => {
+    for (const [tileType, bad] of [
+        ["Slider", null],
+        ["Slider", []],
+        ["Slider", { id: "operation-1", name: "Power", type: "Number", configuration: null }],
+        [
+            "Slider",
+            { id: "wrong", name: "Power", type: "Number", configuration: { min: 0, max: 100 } },
+        ],
+        [
+            "Slider",
+            {
+                id: "operation-1",
+                name: "Power",
+                type: "Number",
+                configuration: { min: "0", max: 100 },
+            },
+        ],
+        ["Slider", { id: "operation-1", name: "Power", type: "Boolean", configuration: {} }],
+        [
+            "Options",
+            {
+                id: "operation-1",
+                name: "Mode",
+                type: "Options",
+                configuration: { options: [null] },
+            },
+        ],
+        [
+            "Options",
+            {
+                id: "operation-1",
+                name: "Mode",
+                type: "Options",
+                configuration: { options: [{ name: {} }] },
+            },
+        ],
+        ["Display", { id: "operation-1", name: "Text", type: "Text", configuration: {} }],
+    ]) {
+        let reads = 0;
+        const valid = {
+            id: "operation-1",
+            name: "Power",
+            type: tileType === "Options" ? "Options" : "Number",
+            configuration:
+                tileType === "Options"
+                    ? { options: [{ name: " exact ", value: false }] }
+                    : { min: 0, max: 100 },
+        };
+        const form = mountForm(
+            async () => true,
+            {
+                initTileType: tileType,
+                initTileDisplayableOperationId: "operation-1",
+            },
+            async () => ({
+                isSuccess: true,
+                response: { json: async () => (++reads === 1 ? bad : valid) },
+            }),
+        );
+        await new Promise((resolve) => setImmediate(resolve));
+        form.render();
+        assert.match(form.text(), /Couldn't load the tile preview/);
+        const retry = form
+            .elements()
+            .find((node) => node.type === "Button" && node.props.name === "Retry preview");
+        assert.ok(retry);
+        assert.equal(
+            form.elements().find((node) => node.type === "DeviceTile").props.device.tile
+                .configuration?.range,
+            undefined,
+        );
+        retry.props.onPress();
+        form.render();
+        form.flushEffects();
+        await new Promise((resolve) => setImmediate(resolve));
+        form.render();
+        assert.doesNotMatch(form.text(), /Couldn't load the tile preview/);
+        assert.equal(reads, 2);
+        const tile = form.elements().find((node) => node.type === "DeviceTile").props.device.tile;
+        if (tileType === "Slider") assert.equal(tile.configuration.range.min, 0);
+        if (tileType === "Options") assert.equal(tile.configuration.options[0], " exact ");
+    }
+});
 
 function mountDeviceDetails(overrides = {}) {
     const device = {

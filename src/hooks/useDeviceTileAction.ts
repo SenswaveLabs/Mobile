@@ -4,6 +4,7 @@ import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useLiveUpdate } from "@/contexts/domain/LiveUpdateProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useOptimisticActions } from "@/contexts/OptimisticActionProvider";
+import { isConsumedDevice } from "@/utils/deviceReadings";
 
 interface DeviceTileActionProps {
     deviceId: string;
@@ -57,18 +58,28 @@ export const useDeviceTileAction = ({
         if (disabled || !deviceId) return;
         let active = true;
         liveUpdate.addDeviceTileCallback(deviceId, async () => {
-            if (!active) return;
+            if (!active || currentIdentity.current !== identity) return;
             const requestedVersion = version.current;
             try {
                 const result = await httpClient.get(`v1/devices/${deviceId}/display`);
                 if (!result.isSuccess || !result.response) throw new Error("Device update failed");
-                const response = (await result.response.json()) as Device;
-                if (!active || requestedVersion !== version.current) return;
+                const response: unknown = await result.response.json();
+                if (
+                    !active ||
+                    currentIdentity.current !== identity ||
+                    requestedVersion !== version.current
+                )
+                    return;
+                if (!isConsumedDevice(response, deviceId)) throw new Error("Invalid device update");
                 setReported(response.tile.value);
                 devices.updateDeviceOperation(response);
                 setError("");
             } catch {
-                if (active && requestedVersion === version.current)
+                if (
+                    active &&
+                    currentIdentity.current === identity &&
+                    requestedVersion === version.current
+                )
                     setError("Couldn't update this device. Pull to refresh.");
             }
         });
@@ -96,12 +107,12 @@ export const useDeviceTileAction = ({
                     value: next,
                 });
                 if (!result.isSuccess) throw new Error("Device action failed");
-                const response = result.response
-                    ? ((await result.response.json()) as Device)
-                    : null;
+                const response: unknown = result.response ? await result.response.json() : null;
                 if (currentIdentity.current !== identity) return;
+                if (result.response && !isConsumedDevice(response, deviceId))
+                    throw new Error("Invalid device update");
                 setReported(next);
-                if (response)
+                if (isConsumedDevice(response, deviceId))
                     devices.updateDeviceOperation({
                         ...response,
                         tile: { ...response.tile, value: next },

@@ -136,7 +136,7 @@ function mountSubscriptions(httpClient) {
     return { ...subscriptions, refocus: () => focus?.() };
 }
 
-function mountDetailsRoute(httpClient) {
+function mountDetailsRoute(httpClient, params = { id: broker.id }) {
     return mountNativeComponent("src/app/(app)/dataSource/details.tsx", {
         modules: {
             "@/contexts/HttpClientProvider": { useHttpClient: () => httpClient },
@@ -155,7 +155,7 @@ function mountDetailsRoute(httpClient) {
                 }),
             },
             "expo-router": {
-                useLocalSearchParams: () => ({ id: broker.id }),
+                useLocalSearchParams: () => params,
                 useRouter: () => ({ back() {}, push() {} }),
             },
             "@/components/common/Button": "Button",
@@ -678,6 +678,205 @@ test("subscription removal can be cancelled, retried after failure, and recover"
     subscriptions.render();
     assert.equal(deletes, 2);
     assert.match(subscriptions.text(), /No subscriptions yet/);
+});
+
+test("broker details reject malformed consumed fields and recover without mounting unsafe panels", async () => {
+    for (const bad of [
+        null,
+        [],
+        { ...broker, id: "other-broker" },
+        ...["name", "url", "clientName", "port", "mqttVersion", "tls"].map((key) => ({
+            ...broker,
+            [key]: {},
+        })),
+        { ...broker, port: 1.5 },
+        { ...broker, mqttVersion: "unknown" },
+    ]) {
+        let body = bad;
+        const details = mountDetailsRoute({
+            get: async () => ({ isSuccess: true, response: { json: async () => body } }),
+        });
+        details.flushEffects();
+        await settle();
+        details.render();
+        assert.match(details.text(), /Couldn't load this data source/);
+        assert.equal(
+            details.elements().some((node) => node.type === "DataSourceDetailsSection"),
+            false,
+        );
+        body = broker;
+        details
+            .elements()
+            .find((node) => node.type === "Button" && node.props.name === "Retry")
+            .props.onPress();
+        details.render();
+        details.flushEffects();
+        await settle();
+        details.render();
+        assert.ok(details.elements().some((node) => node.type === "DataSourceDetailsSection"));
+    }
+});
+
+test("broker details require exactly one routed ID and ignore late responses for another broker", async () => {
+    for (const id of [undefined, "", [broker.id], [broker.id, "other-broker"]]) {
+        const reads = [];
+        const details = mountDetailsRoute(
+            {
+                get: async (path) => {
+                    reads.push(path);
+                    return {};
+                },
+            },
+            { id },
+        );
+        details.flushEffects();
+        await settle();
+        details.render();
+        assert.equal(reads.length, 0);
+        assert.match(details.text(), /Couldn't load this data source/);
+    }
+    let release;
+    const params = { id: broker.id };
+    const details = mountDetailsRoute(
+        {
+            get: async (path) =>
+                path.endsWith(broker.id)
+                    ? new Promise((resolve) => {
+                          release = resolve;
+                      })
+                    : {
+                          isSuccess: true,
+                          response: {
+                              json: async () => ({
+                                  ...broker,
+                                  id: "broker-2",
+                                  name: "Second broker",
+                              }),
+                          },
+                      },
+        },
+        params,
+    );
+    details.flushEffects();
+    params.id = "broker-2";
+    details.render();
+    details.flushEffects();
+    await settle();
+    details.render();
+    release({ isSuccess: true, response: { json: async () => broker } });
+    await settle();
+    details.render();
+    assert.match(details.text(), /Second broker/);
+    assert.equal(
+        details.elements().find((node) => node.type === "BrokerSubscriptions").props.id,
+        "broker-2",
+    );
+});
+
+test("malformed subscription collections keep cached rows and a GET-only Retry", async () => {
+    for (const bad of [
+        null,
+        {},
+        { items: { length: 1 } },
+        { items: [null] },
+        { items: [{ id: "sub-1", topic: {} }] },
+        { items: [{ id: 1, topic: "x" }] },
+    ]) {
+        let body = { items: [{ id: "sub-1", topic: "home/cached" }] };
+        const reads = [];
+        const subscriptions = mountSubscriptions({
+            get: async (path) => {
+                reads.push(path);
+                return { isSuccess: true, response: { json: async () => body } };
+            },
+        });
+        await settle();
+        subscriptions.render();
+        body = bad;
+        subscriptions.refocus();
+        subscriptions.render();
+        subscriptions.flushEffects();
+        await settle();
+        subscriptions.render();
+        assert.match(subscriptions.text(), /Couldn't load subscriptions/);
+        assert.match(subscriptions.text(), /home\/cached/);
+        body = { items: [{ id: "sub-2", topic: "home/recovered" }] };
+        subscriptions
+            .elements()
+            .find((node) => node.type === "Button" && node.props.name === "Retry")
+            .props.onPress();
+        subscriptions.render();
+        subscriptions.flushEffects();
+        await settle();
+        subscriptions.render();
+        assert.match(subscriptions.text(), /home\/recovered/);
+        assert.doesNotMatch(subscriptions.text(), /home\/cached|Couldn't load subscriptions/);
+        assert.equal(reads.length, 3);
+        assert.ok(
+            reads.every((path) => path.startsWith("v1/datasources/brokers/broker-1/subscriptions")),
+        );
+        subscriptions.render({ id: "broker-2" });
+        assert.doesNotMatch(subscriptions.text(), /home\/recovered/);
+    }
+});
+
+test("subscription reads and deletion confirmations cannot restore an accepted removal", async () => {
+    for (const readFirst of [true, false]) {
+        let reads = 0;
+        let deletes = 0;
+        let resolveRead;
+        let resolveDelete;
+        const body = { items: [{ id: "sub-1", topic: "home/removed" }] };
+        const subscriptions = mountSubscriptions({
+            get: async () =>
+                ++reads === 1
+                    ? { isSuccess: true, response: { json: async () => body } }
+                    : new Promise((resolve) => {
+                          resolveRead = resolve;
+                      }),
+            delete: async () => {
+                deletes++;
+                return new Promise((resolve) => {
+                    resolveDelete = resolve;
+                });
+            },
+        });
+        await settle();
+        subscriptions.render();
+        const remove = subscriptions
+            .elements()
+            .find(
+                (node) =>
+                    node.type === "Pressable" &&
+                    node.props.accessibilityLabel === "Remove subscription home/removed",
+            ).props.onPress;
+        remove();
+        subscriptions.render();
+        const confirm = subscriptions.elements().find((node) => node.type === "ConfirmDialog")
+            .props.onConfirm;
+        if (!readFirst) confirm();
+        subscriptions.refocus();
+        subscriptions.render();
+        subscriptions.flushEffects();
+        if (readFirst) {
+            remove();
+            confirm();
+            assert.equal(deletes, 0);
+        } else {
+            resolveDelete({ isSuccess: true });
+            await settle();
+            subscriptions.render();
+            assert.doesNotMatch(subscriptions.text(), /home\/removed/);
+        }
+        resolveRead({ isSuccess: true, response: { json: async () => body } });
+        await settle();
+        subscriptions.render();
+        if (!readFirst) {
+            assert.equal(deletes, 1);
+            assert.doesNotMatch(subscriptions.text(), /home\/removed/);
+            assert.match(subscriptions.text(), /No subscriptions yet/);
+        }
+    }
 });
 
 test("details route shows retry instead of edit fields after a failed broker load", async () => {

@@ -1,8 +1,8 @@
-import React, { FC, useRef, useState } from "react";
+import React, { FC, useCallback, useRef, useState } from "react";
 import { AccessibilityInfo, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { CircleAlert, Info } from "lucide-react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
@@ -33,6 +33,8 @@ interface ShareHomeResponse {
 }
 
 interface Invitation {
+    homeId: string;
+    homeName: string;
     password: string;
     email: string;
     role: SharingType;
@@ -40,12 +42,23 @@ interface Invitation {
 
 const sharingNotice =
     "When sharing access to your home, advise all users that the app displays device states on all pages for information purposes only. These values may differ from the real device state and should not be treated as confirmed or guaranteed.";
+const invitationCodeError =
+    "Invitation was created, but its code couldn't be loaded. Return to home settings to review access.";
 
 const ShareHomePage: FC = () => {
     const httpClient = useHttpClient();
     const router = useRouter();
     const { colors } = useTheme().current;
     const currentHome = useHomes().current;
+    const params = useLocalSearchParams();
+    const homeId = typeof params.id === "string" && params.id.trim() ? params.id : undefined;
+    const canInvite = !!homeId && currentHome?.id === homeId && currentHome.isOwner;
+    const binding = `${homeId}:${currentHome?.id}:${currentHome?.isOwner}`;
+    const currentBinding = useRef(binding);
+    currentBinding.current = binding;
+    const focused = useRef(false);
+    const generation = useRef(0);
+    const acceptedHomeId = useRef<string | undefined>(undefined);
     const emailInput = useRef<TextInput>(null);
     const pending = useRef(false);
     const [email, setEmail] = useState("");
@@ -55,7 +68,24 @@ const ShareHomePage: FC = () => {
     const [actionError, setActionError] = useState("");
     const [invitation, setInvitation] = useState<Invitation | null>(null);
     const [copied, setCopied] = useState(false);
-    const homeName = currentHome?.name ?? "this home";
+    const homeName = canInvite ? currentHome.name : "this home";
+    const identityError = !canInvite
+        ? "Select the home you want to share and open Invite as its owner."
+        : "";
+    const formError =
+        actionError ||
+        identityError ||
+        (homeId && acceptedHomeId.current === homeId && !invitation ? invitationCodeError : "");
+
+    useFocusEffect(
+        useCallback(() => {
+            focused.current = currentBinding.current === binding;
+            return () => {
+                focused.current = false;
+                generation.current++;
+            };
+        }, [binding]),
+    );
 
     const announceError = (message: string) => {
         setActionError(message);
@@ -63,7 +93,18 @@ const ShareHomePage: FC = () => {
     };
 
     const submitClicked = async () => {
-        if (pending.current) return;
+        if (
+            pending.current ||
+            (homeId && acceptedHomeId.current === homeId) ||
+            !focused.current ||
+            currentBinding.current !== binding
+        )
+            return;
+
+        if (!canInvite) {
+            announceError(identityError);
+            return;
+        }
 
         const normalizedEmail = email.trim();
         const emailMessage = !normalizedEmail
@@ -79,13 +120,11 @@ const ShareHomePage: FC = () => {
             return;
         }
 
-        if (!currentHome?.id || !currentHome.isOwner) {
-            announceError(
-                currentHome ? "Only the home owner can invite people." : "Select a home first.",
-            );
-            return;
-        }
-
+        const requestGeneration = generation.current;
+        const isCurrent = () =>
+            focused.current &&
+            currentBinding.current === binding &&
+            generation.current === requestGeneration;
         pending.current = true;
         setLoading(true);
         setEmailError("");
@@ -93,12 +132,14 @@ const ShareHomePage: FC = () => {
 
         try {
             const result = await httpClient.post("v1/homes/sharings", {
-                homeId: currentHome.id,
+                homeId,
                 friendEmail: normalizedEmail,
                 sharingType: role,
             });
+            if (result.isSuccess) acceptedHomeId.current = homeId;
+            if (!isCurrent()) return;
 
-            if (!result.isSuccess || !result.response) {
+            if (!result.isSuccess) {
                 announceError(
                     !result.response
                         ? "Couldn't connect. Check your connection and try again."
@@ -106,20 +147,33 @@ const ShareHomePage: FC = () => {
                 );
                 return;
             }
-
-            const data = (await result.response.json()) as ShareHomeResponse;
-            if (typeof data?.password !== "string" || !data.password) {
-                announceError(
-                    "Invitation was created, but its code couldn't be loaded. Go back and create a new invitation.",
-                );
+            if (!result.response) {
+                announceError(invitationCodeError);
                 return;
             }
 
-            setInvitation({ password: data.password, email: normalizedEmail, role });
+            const data = (await result.response.json()) as ShareHomeResponse;
+            if (!isCurrent()) return;
+            if (typeof data?.password !== "string" || !data.password) {
+                announceError(invitationCodeError);
+                return;
+            }
+
+            setInvitation({
+                homeId,
+                homeName,
+                password: data.password,
+                email: normalizedEmail,
+                role,
+            });
             AccessibilityInfo.announceForAccessibility("Invitation created.");
-        } catch (error) {
-            console.error("Failed to share home", error);
-            announceError("Couldn't create the invitation. Check your connection and try again.");
+        } catch {
+            if (isCurrent())
+                announceError(
+                    acceptedHomeId.current === homeId
+                        ? invitationCodeError
+                        : "Couldn't create the invitation. Check your connection and try again.",
+                );
         } finally {
             pending.current = false;
             setLoading(false);
@@ -127,7 +181,13 @@ const ShareHomePage: FC = () => {
     };
 
     const copyToClipboard = async () => {
-        if (!invitation) return;
+        if (
+            !invitation ||
+            invitation.homeId !== homeId ||
+            !focused.current ||
+            currentBinding.current !== binding
+        )
+            return;
         setCopied(false);
         try {
             await Clipboard.setStringAsync(invitation.password);
@@ -144,7 +204,7 @@ const ShareHomePage: FC = () => {
             keyboardShouldPersistTaps="handled"
             style={styles.screen}
             contentContainerStyle={styles.content}>
-            {invitation ? (
+            {invitation && invitation.homeId === homeId ? (
                 <>
                     <View style={styles.fields}>
                         <View style={styles.intro}>
@@ -154,7 +214,8 @@ const ShareHomePage: FC = () => {
                                 Invitation created
                             </Text>
                             <Text style={[styles.description, { color: colors.authMuted }]}>
-                                Share this code with {invitation.email} to join {homeName}.
+                                Share this code with {invitation.email} to join{" "}
+                                {invitation.homeName}.
                             </Text>
                             <Text style={[styles.invitationRole, { color: colors.authMuted }]}>
                                 Access:{" "}
@@ -330,13 +391,13 @@ const ShareHomePage: FC = () => {
                         </View>
                     </View>
                     <View style={styles.actions}>
-                        {!!actionError && (
+                        {!!formError && (
                             <Alert
                                 icon={CircleAlert}
                                 variant="destructive"
                                 accessibilityRole="alert"
                                 accessibilityLiveRegion="polite">
-                                <AlertDescription>{actionError}</AlertDescription>
+                                <AlertDescription>{formError}</AlertDescription>
                             </Alert>
                         )}
                         <Button
@@ -344,6 +405,7 @@ const ShareHomePage: FC = () => {
                             onPress={() => void submitClicked()}
                             type="auth"
                             loading={loading}
+                            disabled={!canInvite || acceptedHomeId.current === homeId}
                         />
                     </View>
                 </>
