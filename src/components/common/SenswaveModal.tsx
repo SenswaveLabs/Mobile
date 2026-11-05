@@ -1,14 +1,7 @@
 import { useModal } from "@/contexts/ModalProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import React, { FC, ReactNode } from "react";
-import {
-    KeyboardAvoidingView,
-    Modal as NativeModal,
-    Platform,
-    Pressable,
-    StyleSheet,
-    View,
-} from "react-native";
+import { Modal as NativeModal, Pressable, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from "./Icon";
@@ -65,54 +58,52 @@ const SenswaveModal: FC<SenswaveModalProps> = ({ children, title, visible, onClo
             accessibilityViewIsModal>
             <GestureHandlerRootView
                 style={{ flex: 1, backgroundColor: theme.current.colors.background }}>
-                <KeyboardAvoidingView
-                    style={{ flex: 1 }}
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}>
-                    <View
-                        style={[
-                            styles.container,
-                            {
-                                backgroundColor: theme.current.colors.background,
-                                paddingTop: insets.top,
-                                paddingBottom: insets.bottom,
-                            },
-                        ]}>
-                        {/* Header — mirrors DefaultHeader layout */}
-                        <View style={styles.header}>
-                            <View style={styles.left}>
-                                <Pressable
-                                    cssInterop={false}
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Close dialog"
-                                    onPress={handleClose}
-                                    style={({ pressed }) => [
-                                        styles.iconButton,
-                                        pressed && styles.pressed,
-                                    ]}>
-                                    <Icon icon="close-outline" size={20} color="brand" />
-                                </Pressable>
-                            </View>
-
-                            <View style={styles.center}>
-                                {typeof title === "string" ? (
-                                    <Text
-                                        accessibilityRole="header"
-                                        style={[
-                                            styles.title,
-                                            { color: theme.current.colors.authForeground },
-                                        ]}>
-                                        {title}
-                                    </Text>
-                                ) : (
-                                    (title ?? null)
-                                )}
-                            </View>
+                <View
+                    style={[
+                        styles.container,
+                        {
+                            backgroundColor: theme.current.colors.background,
+                            paddingTop: insets.top,
+                            paddingBottom: insets.bottom,
+                            paddingLeft: insets.left + 24,
+                            paddingRight: insets.right + 24,
+                        },
+                    ]}>
+                    {/* Header — mirrors DefaultHeader layout */}
+                    <View style={styles.header}>
+                        <View style={styles.left}>
+                            <Pressable
+                                cssInterop={false}
+                                accessibilityRole="button"
+                                accessibilityLabel="Close dialog"
+                                onPress={handleClose}
+                                style={({ pressed }) => [
+                                    styles.iconButton,
+                                    pressed && styles.pressed,
+                                ]}>
+                                <Icon icon="close-outline" size={20} color="brand" />
+                            </Pressable>
                         </View>
 
-                        {/* Content */}
-                        {children}
+                        <View style={styles.center}>
+                            {typeof title === "string" ? (
+                                <Text
+                                    accessibilityRole="header"
+                                    style={[
+                                        styles.title,
+                                        { color: theme.current.colors.authForeground },
+                                    ]}>
+                                    {title}
+                                </Text>
+                            ) : (
+                                (title ?? null)
+                            )}
+                        </View>
                     </View>
-                </KeyboardAvoidingView>
+
+                    {/* Content */}
+                    {children}
+                </View>
             </GestureHandlerRootView>
         </NativeModal>
     );

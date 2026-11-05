@@ -1,13 +1,6 @@
 import React, { FC, useId } from "react";
-import {
-    Modal as NativeModal,
-    ScrollView,
-    StyleSheet,
-    View,
-    useWindowDimensions,
-} from "react-native";
+import { Modal as NativeModal, ScrollView, StyleSheet } from "react-native";
 import { PortalHost } from "@rn-primitives/portal";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Button from "./Button";
 import Icon from "./Icon";
 import {
@@ -43,8 +36,6 @@ const ConfirmDialog: FC<ConfirmDialogProps> = ({
     onCancel,
 }) => {
     const host = useId();
-    const insets = useSafeAreaInsets();
-    const { height } = useWindowDimensions();
     return (
         <AlertDialog
             open={visible}
@@ -58,21 +49,9 @@ const ConfirmDialog: FC<ConfirmDialogProps> = ({
                 navigationBarTranslucent
                 accessibilityViewIsModal
                 onRequestClose={onCancel}>
-                <View
-                    style={[
-                        styles.viewport,
-                        { paddingTop: insets.top, paddingBottom: insets.bottom },
-                    ]}>
-                    <View style={styles.viewport}>
-                        <PortalHost name={host} />
-                    </View>
-                </View>
+                <PortalHost name={host} />
             </NativeModal>
-            <AlertDialogContent
-                portalHost={host}
-                accessibilityViewIsModal
-                className="max-w-md"
-                style={{ maxHeight: Math.max(0, height - insets.top - insets.bottom - 32) }}>
+            <AlertDialogContent portalHost={host} accessibilityViewIsModal className="max-w-md">
                 <ScrollView style={styles.body}>
                     <AlertDialogHeader>
                         <Icon icon={iconName} size={24} color={destructive ? "error" : "brand"} />
@@ -80,7 +59,7 @@ const ConfirmDialog: FC<ConfirmDialogProps> = ({
                         <AlertDialogDescription>{content}</AlertDialogDescription>
                     </AlertDialogHeader>
                 </ScrollView>
-                <AlertDialogFooter style={styles.actions}>
+                <AlertDialogFooter>
                     <AlertDialogCancel asChild>
                         <Button
                             name="Cancel"
@@ -106,7 +85,5 @@ const ConfirmDialog: FC<ConfirmDialogProps> = ({
 export default ConfirmDialog;
 
 const styles = StyleSheet.create({
-    viewport: { flex: 1 },
     body: { flexShrink: 1 },
-    actions: { flexDirection: "column" },
 });
