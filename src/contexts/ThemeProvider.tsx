@@ -3,6 +3,7 @@ import React, {
     useState,
     useEffect,
     useContext,
+    useRef,
     FC,
     PropsWithChildren,
 } from "react";
@@ -139,55 +140,59 @@ const ThemeName: string = "theme";
 export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider: FC<PropsWithChildren> = ({ children }) => {
-    const [theme, setTheme] = useState<Theme>(Default);
+    const [themeOverride, setTheme] = useState<Theme | null>(null);
+    const selectionVersion = useRef(0);
     const colorScheme = useColorScheme();
+    const theme: Theme =
+        themeOverride ?? (colorScheme === "dark" ? { type: "dark", colors: DarkMode } : Default);
 
     const lightTheme = async () => {
+        selectionVersion.current++;
         setTheme({ type: "light", colors: LightMode });
         await SecureStore.setItemAsync(ThemeName, "light");
         console.debug("[Theme Provider] Light mode enabled.");
     };
 
     const darkTheme = async () => {
+        selectionVersion.current++;
         setTheme({ type: "dark", colors: DarkMode });
         await SecureStore.setItemAsync(ThemeName, "dark");
         console.debug("[Theme Provider] Dark mode enabled.");
     };
 
     const resetTheme = async (isCurrent: () => boolean = () => true) => {
+        const version = ++selectionVersion.current;
         await SecureStore.deleteItemAsync(ThemeName);
         console.debug("[Theme Provider] Theme reset.");
-        if (!isCurrent()) return;
-
-        if (colorScheme === "dark") {
-            setTheme({ type: "dark", colors: DarkMode });
-            console.debug("[Theme Provider] Dark mode enabled.");
-            return;
-        }
-
-        setTheme({ type: "light", colors: LightMode });
-        console.debug("[Theme Provider] Light mode enabled.");
+        if (!isCurrent() || version !== selectionVersion.current) return;
+        setTheme(null);
     };
 
     const updateTheme = (newTheme: Theme) => {
+        selectionVersion.current++;
         setTheme(newTheme);
         console.debug("[Theme Provider] Theme updated.");
     };
 
     useEffect(() => {
-        const initialize: () => Promise<void> = async () => {
-            const theme = await SecureStore.getItemAsync(ThemeName);
-
-            if (theme === "dark" || colorScheme === "dark") {
+        let active = true;
+        const version = selectionVersion.current;
+        const initialize = async () => {
+            const savedTheme = await SecureStore.getItemAsync(ThemeName);
+            if (!active || version !== selectionVersion.current) return;
+            if (savedTheme === "dark") {
                 setTheme({ type: "dark", colors: DarkMode });
-                console.debug("[Theme Provider] Dark mode enabled.");
-            } else {
+            } else if (savedTheme === "light") {
                 setTheme({ type: "light", colors: LightMode });
-                console.debug("[Theme Provider] Light mode enabled.");
             }
         };
-        initialize();
-    }, [colorScheme]);
+        void initialize().catch((error) =>
+            console.error("[Theme Provider] Failed to load saved theme.", error),
+        );
+        return () => {
+            active = false;
+        };
+    }, []);
 
     return (
         <ThemeContext.Provider

@@ -261,6 +261,101 @@ export const OperationFormInternal = React.forwardRef<OperationFormHandle, Opera
                 </Text>
             );
 
+        if (edit) {
+            const field = (label: string, value: string | number | boolean, helper?: string) => (
+                <View key={label} style={styles.summary}>
+                    <Text style={[styles.label, { color: colors.authForeground }]}>{label}</Text>
+                    <Text selectable style={[styles.value, { color: colors.authForeground }]}>
+                        {String(value)}
+                    </Text>
+                    {!!helper && (
+                        <Text style={[styles.helper, { color: colors.authMuted }]}>{helper}</Text>
+                    )}
+                </View>
+            );
+            return (
+                <KeyboardAwareScrollView
+                    bottomOffset={keyboardOffset}
+                    keyboardShouldPersistTaps="handled"
+                    style={styles.screen}
+                    contentContainerStyle={styles.content}>
+                    <FormSection
+                        title="Operation details"
+                        helper="View this operation's configuration.">
+                        {field("Name", name)}
+                        {field("Topic", topic)}
+                        {field(
+                            "Operation type",
+                            typeOptions.find((option) => option.value === type)?.label ?? type,
+                        )}
+                        {field(
+                            "Save on user action",
+                            saveOnUserAction ? "Enabled" : "Disabled",
+                            saveOnUserAction
+                                ? "Changes sync to all users immediately."
+                                : "The device must retransmit before changes sync.",
+                        )}
+                        {field("Data mapping", mapping === "json" ? "JSON" : "Plain text")}
+                        {mapping === "json" &&
+                            jsonNames.map((segment, index) =>
+                                field(`Segment ${index + 1}`, segment),
+                            )}
+                        {type === "Boolean" && (
+                            <>
+                                {field(
+                                    "True value",
+                                    booleanOverride === "default"
+                                        ? true
+                                        : booleanOverride === "inversed"
+                                          ? false
+                                          : boolTrueValue,
+                                )}
+                                {field(
+                                    "False value",
+                                    booleanOverride === "default"
+                                        ? false
+                                        : booleanOverride === "inversed"
+                                          ? true
+                                          : boolFalseValue,
+                                )}
+                            </>
+                        )}
+                        {(type === "Number" || type === "Integer") && (
+                            <>
+                                {type === "Number" &&
+                                    mapping === "text" &&
+                                    field(
+                                        "Decimal separator",
+                                        separator === "," ? "Comma (,)" : "Dot (.)",
+                                    )}
+                                {field(
+                                    "Value range",
+                                    numericTypeCheck === "check" ? "Limited" : "Unlimited",
+                                )}
+                                {numericTypeCheck === "check" && (
+                                    <>
+                                        {field("Minimum", minValue ?? "—")}
+                                        {field("Maximum", maxValue ?? "—")}
+                                    </>
+                                )}
+                            </>
+                        )}
+                        {type === "Options" && (
+                            <View style={styles.field}>
+                                <Text
+                                    accessibilityRole="header"
+                                    style={[styles.label, { color: colors.authForeground }]}>
+                                    Options
+                                </Text>
+                                {options.map((option) => field(option.name, option.value))}
+                            </View>
+                        )}
+                    </FormSection>
+                    {children}
+                </KeyboardAwareScrollView>
+            );
+        }
+
         return (
             <KeyboardAwareScrollView
                 bottomOffset={keyboardOffset}
@@ -471,5 +566,8 @@ const styles = StyleSheet.create({
     actions: { marginTop: "auto", paddingTop: 32, gap: 12 },
     field: { gap: 6 },
     helper: { fontSize: 14, lineHeight: 20 },
+    summary: { gap: 4 },
+    label: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
+    value: { fontSize: 16, lineHeight: 24 },
     error: { fontSize: 14, lineHeight: 20 },
 });
