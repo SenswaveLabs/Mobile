@@ -39,6 +39,7 @@ export interface BottomSheetSelectProps {
     title: string;
     sheetTitle?: string;
     value: string;
+    multiline?: boolean;
     options: BottomSheetSelectOption[];
     leading?: React.ReactNode;
     renderOptions?: (close: () => boolean) => React.ReactNode;
@@ -67,6 +68,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
     title,
     sheetTitle,
     value,
+    multiline = false,
     options,
     leading,
     renderOptions,
@@ -196,7 +198,9 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                 {!(compactLeading && busy) && leading}
                 {!compactLeading && (
                     <Text
-                        numberOfLines={variant === "tile" && !leading ? undefined : 1}
+                        numberOfLines={
+                            multiline || (variant === "tile" && !leading) ? undefined : 1
+                        }
                         style={[
                             styles.value,
                             variant === "tile" && styles.tileValue,

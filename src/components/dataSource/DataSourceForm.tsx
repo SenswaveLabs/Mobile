@@ -428,7 +428,7 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
                         {children}
                     </View>
                 ) : (
-                    <>
+                    <View style={styles.createLayout}>
                         <View style={styles.createIntro}>
                             <Text
                                 accessibilityRole="header"
@@ -470,7 +470,7 @@ export const DataSourceForm: FC<DataSourceFormProps> = ({
                                 onPress={triggerSave}
                             />
                         </View>
-                    </>
+                    </View>
                 )}
             </KeyboardAwareScrollView>
         </View>
@@ -490,8 +490,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         paddingTop: 24,
         paddingBottom: 24,
-        gap: 24,
     },
+    createLayout: { flexGrow: 1, gap: 24 },
     createIntro: { gap: 8 },
     createHeading: { fontSize: 30, lineHeight: 36, fontWeight: "600" },
     createDescription: { fontSize: 16, lineHeight: 24 },
