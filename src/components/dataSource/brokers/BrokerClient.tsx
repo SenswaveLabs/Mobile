@@ -147,14 +147,15 @@ const BrokerClient: FC<BrokerClientProps> = ({ id }) => {
     );
 
     const retryLoad = () => {
-        if (request.current || mutation.current) return;
+        if (!active.current || request.current || mutation.current) return;
         readSequence.current++;
         request.current = true;
         setRefresh((value) => value + 1);
     };
 
     const start = () => {
-        if (!client || !canStart(client.connectionStatus) || navigating.current) return;
+        if (!active.current || !client || !canStart(client.connectionStatus) || navigating.current)
+            return;
         navigating.current = true;
         setActionError("");
         try {
@@ -169,7 +170,7 @@ const BrokerClient: FC<BrokerClientProps> = ({ id }) => {
     };
 
     const runAction = async (action: "stop" | "restart") => {
-        if (!client || mutation.current || busy) return;
+        if (!active.current || !client || mutation.current || busy) return;
         const status = client.connectionStatus;
         if (action === "stop" && !isActive(status)) return;
         if (action === "restart" && !canRestart(status)) return;

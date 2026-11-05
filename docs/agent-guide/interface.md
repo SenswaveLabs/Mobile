@@ -113,6 +113,22 @@ pass malformed ranges or option entries to native controls. Subscription read
 failures keep the current broker's validated rows beside Alert/Retry; Retry performs
 only the failed read, and rows from another broker stay hidden.
 
+Broker settings show required Name/Server/Client name errors after a save attempt
+in edit mode as well as creation. Keep untouched required errors quiet on entry.
+One synchronous broker lock excludes Save and Delete, including retained callbacks;
+fields and selectors reject changes while blocked. The destructive trigger uses
+`AlertDialogTrigger asChild` with the shared Button for native focus restoration.
+After accepted DELETE/404, remove both broker tabs and show only scrollable
+navigation recovery if returning fails. Retry cannot resend DELETE or remount
+client/subscription actions. Unknown list-row states use Status unavailable/Retry.
+
+An initial Home read failure offers local Retry and Choose home without showing
+empty-account onboarding. Confirmed empty accounts retain Create/Join.
+Create device mounts only for a ready Owner/Manage home and binds its draft to
+that home. Retained submissions recheck home, role, loading, focus and payload
+identity. After acceptance, a failed return shows Device created and Return;
+return recovery is scrollable and cannot repeat POST or list refresh.
+
 - Ask only for data needed by the task. Use explicit labels, useful hints, suitable
   controls, and errors next to the affected field that explain how to recover.
 - Preserve valid input after errors. Never communicate validation only through color.
@@ -553,6 +569,14 @@ hardware Back. Follow [Validation](validation.md) and report unverified behavior
 Details deletion uses the existing controlled native Modal and named PortalHost pattern, with a scrollable dialog body and stacked 48 dp actions. Cancel and Android Back dismiss without a write. Bind confirmation to the captured automation, home and session token; dismiss it on route, home, role or focus changes so a retained confirmation cannot delete another automation.
 
 Automation routes use the brand header. The list belongs to the selected home; owners and managers may create, while only owners add conditions/results to saved automations. Parent forms preserve metadata and child collections in one token-bound session. Child forms use one keyboard-aware `FormSection`, device/operation `BottomSheetSelect` fields, auth-style inputs, inline validation and a bottom-growing Add action. Distinguish device-catalog loading, failure with local Retry, and a successfully empty catalog; Retry schedules the provider refresh and respects pending/accepted locks. Load all operations with `size=2147483647`, distinguish zero operations from failed reads, and ignore stale reads after device changes. Boolean choices stay named and expose selected state. Number bounds must be finite with `min < max`; preserve negative and zero values, and preserve exact Text, HexColor, Options and result strings without trimming or coercion. Draft children append locally; saved-child PUTs await acceptance before appending or returning. Keep mutation locks, live identity/permission checks, inline Retry and navigation-only accepted-write recovery. Do not add persisted child deletion or global-toast feedback.
+
+Automation row accessible names include the visible Enabled/Disabled status in
+their single details target. Required Device/Operation errors belong to
+`BottomSheetSelect`: error outline, invalid-selection name, explanatory hint and
+polite alert supporting text. A rejected submit scrolls the first invalid trigger
+into the existing keyboard-aware page and gives it accessibility focus without
+calling TextInput focus or dismissing the keyboard. Shared `Expander` keeps one
+48 dp button target with its title and `accessibilityState.expanded`.
 
 ## Profile and account settings
 

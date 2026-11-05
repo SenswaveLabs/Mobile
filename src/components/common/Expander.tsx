@@ -62,6 +62,9 @@ const Expander: React.FC<ExpanderProps> = ({
             ]}>
             <TouchableOpacity
                 onPress={toggleExpand}
+                accessibilityRole="button"
+                accessibilityLabel={summary ? `${title}, ${summary}` : title}
+                accessibilityState={{ expanded }}
                 style={[
                     styles.header,
                     {

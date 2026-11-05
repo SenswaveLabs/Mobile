@@ -164,7 +164,9 @@ rotation retains it for the same account. If the app later switches authenticate
 accounts without remounting the provider, add an account-generation guard.
 
 `DataSourceStateGet` reads `GET v1/datasources/brokers/{id}/clients`; the response
-uses string `connectionStatus` and `latestSessionId` fields. List tiles enable
+uses a known `connectionStatus` and string `latestSessionId`. Known states are
+NotStarted, Working, Restarting, Stopped, Connecting, Connected, Disconnected and
+Error. Unknown strings are unavailable, not Disconnected. List tiles enable
 inline recovery: failed, malformed and thrown reads keep the status unavailable
 with Retry for that same GET. Focus and request generations bind results to the
 current broker row, and the authenticated app teardown invalidates late work.
@@ -226,7 +228,13 @@ client-consumed fields without changing payloads or imposing creation rules on
 historical values.
 
 Broker details accept one routed ID and validate every consumed settings field
-against the matching response before mounting either panel. Subscription reads
+against the matching response before mounting either panel. V1 detail reads use
+`protocolVersion` (`MqttV5`, `MqttV311`, `MqttV310`) and Boolean `useTls`, matching
+create/PATCH; `mqttVersion` and `tls` are not response aliases. Save updates this
+same validated baseline. Accepted DELETE, including a 404, removes the entire
+Overview/Settings tree before return navigation. Retained overview callbacks
+cannot start actions after unmount; failed returns retry navigation only, with
+`/dataSource/list` as the direct-entry fallback. Subscription reads
 require an array of string-ID/string-topic rows; failed reads retain the last valid
 collection for that broker and expose a GET-only Retry. Previous-broker rows stay
 hidden immediately after an ID change. These are client validation boundaries,

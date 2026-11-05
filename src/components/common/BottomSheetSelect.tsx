@@ -43,6 +43,8 @@ export interface BottomSheetSelectProps {
     leading?: React.ReactNode;
     renderOptions?: (close: () => boolean) => React.ReactNode;
     initialFocusRef?: React.RefObject<View | null>;
+    triggerRef?: React.RefObject<View | null>;
+    error?: string;
     disabled?: boolean;
     onClosed?: () => void;
     variant?: "field" | "tile";
@@ -69,6 +71,8 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
     leading,
     renderOptions,
     initialFocusRef,
+    triggerRef: externalTriggerRef,
+    error,
     disabled = false,
     onClosed,
     variant = "field",
@@ -88,7 +92,8 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
     const sheetHeight = useSharedValue(height);
     const dismissing = useRef(false);
     const wasVisible = useRef(false);
-    const triggerRef = useRef<View>(null);
+    const internalTriggerRef = useRef<View>(null);
+    const triggerRef = externalTriggerRef ?? internalTriggerRef;
     const titleRef = useRef<Text>(null);
     const selectedOptionRef = useRef<View>(null);
     const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
@@ -103,7 +108,7 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
             InteractionManager.runAfterInteractions(() => focusNativeElement(triggerRef.current));
         }
         wasVisible.current = visible;
-    }, [visible]);
+    }, [visible, triggerRef]);
 
     const open = () => {
         if (disabled) return;
@@ -167,15 +172,21 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                     if (variant === "tile" && leading) setTriggerWidth(nativeEvent.layout.width);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={`${title}, ${value}`}
-                accessibilityHint={`Opens ${title} options`}
+                accessibilityLabel={`${title}, ${value}${error ? ", invalid selection" : ""}`}
+                accessibilityHint={
+                    error ? `${error} Opens ${title} options` : `Opens ${title} options`
+                }
                 accessibilityState={{ disabled, busy, expanded: visible }}
                 style={({ pressed }) => [
                     styles.trigger,
                     leading ? styles.triggerLeading : undefined,
                     {
                         backgroundColor: colors.authFieldBackground,
-                        borderColor: focused ? colors.authFocus : colors.authBorder,
+                        borderColor: error
+                            ? colors.error
+                            : focused
+                              ? colors.authFocus
+                              : colors.authBorder,
                         opacity: disabled ? 0.55 : 1,
                     },
                     variant === "tile" && styles.tileTrigger,
@@ -222,6 +233,14 @@ const BottomSheetSelect: FC<BottomSheetSelectProps> = ({
                     <ChevronDown size={20} color={colors.authMuted} accessible={false} />
                 )}
             </Pressable>
+            {!!error && (
+                <Text
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite"
+                    style={[styles.error, { color: colors.error }]}>
+                    {error}
+                </Text>
+            )}
 
             <NativeModal
                 visible={visible}
@@ -364,6 +383,7 @@ export default BottomSheetSelect;
 const styles = StyleSheet.create({
     container: { width: "100%" },
     label: { fontSize: 14, lineHeight: 20, fontWeight: "500", marginBottom: 8 },
+    error: { fontSize: 14, lineHeight: 20, marginTop: 6 },
     trigger: {
         minHeight: 52,
         borderWidth: 1,

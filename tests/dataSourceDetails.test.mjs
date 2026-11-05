@@ -8,8 +8,8 @@ const broker = {
     url: "mqtt.example.com",
     clientName: "mobile-client",
     port: 1883,
-    mqttVersion: "MqttV5",
-    tls: false,
+    protocolVersion: "MqttV5",
+    useTls: false,
 };
 
 function mountSettingsForm(onClick) {
@@ -22,8 +22,8 @@ function mountSettingsForm(onClick) {
             initServer: broker.url,
             initClientName: broker.clientName,
             initPort: broker.port,
-            initMqttVersion: broker.mqttVersion,
-            initTls: broker.tls,
+            initMqttVersion: broker.protocolVersion,
+            initTls: broker.useTls,
             onClick,
         },
         modules: {
@@ -97,7 +97,7 @@ function mountClient(httpClient, push = () => {}) {
     return { ...client, refocus: () => focus?.() };
 }
 
-function mountSubscriptions(httpClient) {
+function mountSubscriptions(httpClient, push = () => {}) {
     let focus;
     const subscriptions = mountNativeComponent(
         "src/components/dataSource/subscriptions/BrokerSubscriptions.tsx",
@@ -110,7 +110,7 @@ function mountSubscriptions(httpClient) {
                 },
                 "expo-router": {
                     useLocalSearchParams: () => ({ id: broker.id }),
-                    useRouter: () => ({ push() {} }),
+                    useRouter: () => ({ push }),
                     useFocusEffect: (callback) => {
                         focus = callback;
                     },
@@ -136,7 +136,11 @@ function mountSubscriptions(httpClient) {
     return { ...subscriptions, refocus: () => focus?.() };
 }
 
-function mountDetailsRoute(httpClient, params = { id: broker.id }) {
+function mountDetailsRoute(
+    httpClient,
+    params = { id: broker.id },
+    router = { back() {}, push() {} },
+) {
     return mountNativeComponent("src/app/(app)/dataSource/details.tsx", {
         modules: {
             "@/contexts/HttpClientProvider": { useHttpClient: () => httpClient },
@@ -156,7 +160,8 @@ function mountDetailsRoute(httpClient, params = { id: broker.id }) {
             },
             "expo-router": {
                 useLocalSearchParams: () => params,
-                useRouter: () => ({ back() {}, push() {} }),
+                useRouter: () => router,
+                useFocusEffect: (callback) => callback(),
             },
             "@/components/common/Button": "Button",
             "@/components/common/Loading": "Loading",
@@ -685,12 +690,12 @@ test("broker details reject malformed consumed fields and recover without mounti
         null,
         [],
         { ...broker, id: "other-broker" },
-        ...["name", "url", "clientName", "port", "mqttVersion", "tls"].map((key) => ({
+        ...["name", "url", "clientName", "port", "protocolVersion", "useTls"].map((key) => ({
             ...broker,
             [key]: {},
         })),
         { ...broker, port: 1.5 },
-        { ...broker, mqttVersion: "unknown" },
+        { ...broker, protocolVersion: "unknown" },
     ]) {
         let body = bad;
         const details = mountDetailsRoute({
@@ -934,4 +939,430 @@ test("details route keeps the settings panel mounted while switching tabs", asyn
     details.render();
     assert.equal(tabs().props.value, "Overview");
     assert.ok(details.elements().some((node) => node.type === "DataSourceDetailsSection"));
+});
+
+function mountSettingsSection(
+    httpClient,
+    onDeleted = () => {},
+    onSaved = () => {},
+    dataSource = broker,
+) {
+    let focus;
+    const component = mountNativeComponent(
+        "src/components/dataSource/sections/DataSourceDetailsSection.tsx",
+        {
+            props: { dataSource, onSaved, onDeleted },
+            modules: {
+                "@/contexts/HttpClientProvider": { useHttpClient: () => httpClient },
+                "expo-router": { useFocusEffect: (callback) => (focus = callback) },
+                "@/components/dataSource/DataSourceForm": { DataSourceForm: "DataSourceForm" },
+                "@/components/common/ContentSection": "ContentSection",
+                "@/components/ui/alert-dialog": Object.fromEntries(
+                    [
+                        "AlertDialog",
+                        "AlertDialogTrigger",
+                        "AlertDialogContent",
+                        "AlertDialogHeader",
+                        "AlertDialogFooter",
+                        "AlertDialogTitle",
+                        "AlertDialogDescription",
+                        "AlertDialogCancel",
+                        "AlertDialogAction",
+                    ].map((name) => [name, name]),
+                ),
+                "@rn-primitives/portal": { PortalHost: "PortalHost" },
+            },
+        },
+    );
+    component.flushEffects();
+    const blur = focus?.();
+    return {
+        ...component,
+        blur: () => blur?.(),
+        form: () => component.elements().find((node) => node.type === "DataSourceForm"),
+        button: (name) =>
+            component.elements().find((node) => node.type === "Button" && node.props.name === name),
+        dialog: () => component.elements().find((node) => node.type === "AlertDialog"),
+    };
+}
+
+const settingsValues = {
+    name: "Updated broker",
+    url: broker.url,
+    clientName: broker.clientName,
+    port: broker.port,
+    protocolVersion: broker.protocolVersion,
+    useTls: broker.useTls,
+    username: "broker-user",
+    password: "secret-123",
+};
+
+test("cleared required broker settings explain why Save cannot proceed", async () => {
+    for (const [title, expected] of [
+        ["Name", "Name is required."],
+        ["Server", "Server is required."],
+        ["Client name", "Client name is required."],
+    ]) {
+        let saves = 0;
+        const form = mountSettingsForm(async () => saves++);
+        assert.equal(
+            form.input(title).props.error,
+            "",
+            "Opening settings does not mark untouched fields invalid",
+        );
+        form.change(title, "");
+        form.change("Username", "broker-user");
+        form.change("Password", "secret-123");
+        await form.button("Save changes").props.onPress();
+        form.render();
+        assert.equal(form.input(title).props.error, expected);
+        assert.equal(saves, 0);
+        assert.equal(form.button("Save changes").props.loading, false);
+    }
+});
+
+test("broker Save excludes Delete and duplicate retained saves until the write settles", async () => {
+    let finish;
+    let patches = 0;
+    let deletes = 0;
+    const section = mountSettingsSection({
+        patch: () => {
+            patches++;
+            return new Promise((resolve) => (finish = resolve));
+        },
+        delete: async () => {
+            deletes++;
+            return { isSuccess: true };
+        },
+    });
+    const save = section.form().props.onClick;
+    const open = section.button("Delete data source").props.onPress;
+    const confirm = section.button("Delete").props.onPress;
+    const request = save(settingsValues);
+    open();
+    await confirm();
+    const duplicate = save(settingsValues).catch(() => {});
+    section.render();
+    assert.equal(patches, 1);
+    assert.equal(deletes, 0);
+    assert.equal(section.dialog().props.open, false);
+    assert.equal(section.button("Delete data source").props.disabled, true);
+    finish({ isSuccess: true });
+    await Promise.all([request, duplicate]);
+    section.render();
+    assert.equal(section.button("Delete data source").props.disabled, false);
+});
+
+test("broker Delete excludes retained Save and latches acceptance before navigation recovery", async () => {
+    for (const response of [{ isSuccess: true }, { isSuccess: false, response: { status: 404 } }]) {
+        let finish;
+        let deletes = 0;
+        let patches = 0;
+        let returns = 0;
+        const section = mountSettingsSection(
+            {
+                patch: async () => {
+                    patches++;
+                    return { isSuccess: true };
+                },
+                delete: () => {
+                    deletes++;
+                    return new Promise((resolve) => (finish = resolve));
+                },
+            },
+            () => {
+                returns++;
+            },
+        );
+        const save = section.form().props.onClick;
+        section.button("Delete data source").props.onPress();
+        section.render();
+        const confirm = section.button("Delete").props.onPress;
+        const removal = confirm();
+        await assert.rejects(() => save(settingsValues));
+        await confirm();
+        section.render();
+        assert.equal(section.form().props.disabled, true);
+        assert.equal(patches, 0);
+        assert.equal(deletes, 1);
+        finish(response);
+        await removal;
+        section.render();
+        assert.equal(
+            section.form().props.disabled,
+            true,
+            "Accepted deletion keeps settings disabled",
+        );
+        await confirm();
+        await assert.rejects(() => save(settingsValues));
+        assert.equal(deletes, 1);
+        assert.equal(returns, 1);
+        assert.equal(deletes, 1);
+    }
+});
+
+test("broker confirmation belongs to its trigger and Cancel/Back never deletes", async () => {
+    let deletes = 0;
+    const section = mountSettingsSection({
+        delete: async () => {
+            deletes++;
+            return { isSuccess: true };
+        },
+    });
+    const trigger = section.elements().find((node) => node.type === "AlertDialogTrigger");
+    assert.ok(trigger);
+    assert.equal(trigger.props.asChild, true);
+    assert.equal(trigger.props.children[0].props.name, "Delete data source");
+    section.button("Delete data source").props.onPress();
+    section.render();
+    assert.equal(section.dialog().props.open, true);
+    section.button("Cancel").props.onPress();
+    section.render();
+    assert.equal(section.dialog().props.open, false);
+    section.button("Delete data source").props.onPress();
+    section.render();
+    section
+        .elements()
+        .find((node) => node.type === "Modal")
+        .props.onRequestClose();
+    section.render();
+    assert.equal(section.dialog().props.open, false);
+    assert.equal(deletes, 0);
+});
+
+test("broker mutation failures preserve Retry and blurred retained callbacks cannot mutate", async () => {
+    let deletes = 0;
+    const section = mountSettingsSection({ delete: async () => ({ isSuccess: ++deletes > 1 }) });
+    section.button("Delete data source").props.onPress();
+    section.render();
+    const confirm = section.button("Delete").props.onPress;
+    await confirm();
+    section.render();
+    assert.match(section.text(), /Couldn't delete/);
+    assert.equal(section.button("Delete data source").props.disabled, false);
+    section.button("Delete data source").props.onPress();
+    section.render();
+    section.blur();
+    await confirm();
+    assert.equal(deletes, 1);
+});
+
+test("broker direct-entry deletion falls back to the account data-source list", async () => {
+    const paths = [];
+    const details = mountDetailsRoute(
+        { get: async () => ({ isSuccess: true, response: { json: async () => broker } }) },
+        { id: broker.id },
+        {
+            canGoBack: () => false,
+            back: () => assert.fail("Direct entry has no back history"),
+            replace: (path) => paths.push(path),
+        },
+    );
+    details.flushEffects();
+    await settle();
+    details.render();
+    await details
+        .elements()
+        .find((node) => node.type === "DataSourceDetailsSection")
+        .props.onDeleted();
+    assert.deepEqual(paths, ["/dataSource/list"]);
+});
+
+test("accepted broker deletion removes both tabs and offers navigation-only recovery", async () => {
+    let returns = 0;
+    let reads = 0;
+    const details = mountDetailsRoute(
+        {
+            get: async () => {
+                reads++;
+                return { isSuccess: true, response: { json: async () => broker } };
+            },
+        },
+        { id: broker.id },
+        {
+            canGoBack: () => false,
+            replace: (path) => {
+                assert.equal(path, "/dataSource/list");
+                if (++returns === 1) throw new Error("Navigation unavailable");
+            },
+        },
+    );
+    details.flushEffects();
+    await settle();
+    details.render();
+    const accepted = details.elements().find((node) => node.type === "DataSourceDetailsSection")
+        .props.onDeleted;
+    await accepted();
+    details.render();
+    assert.match(details.text(), /Data source deleted/);
+    assert.equal(
+        details
+            .elements()
+            .some((node) =>
+                [
+                    "Tabs",
+                    "BrokerClient",
+                    "BrokerSubscriptions",
+                    "DataSourceDetailsSection",
+                ].includes(node.type),
+            ),
+        false,
+    );
+    await details
+        .elements()
+        .find((node) => node.type === "Button" && node.props.name === "Return to data sources")
+        .props.onPress();
+    assert.equal(returns, 2);
+    assert.equal(reads, 1);
+});
+
+test("accepted broker recovery ignores retained reads and returns from a different route", async () => {
+    let reads = 0;
+    let returns = 0;
+    const params = { id: broker.id };
+    const details = mountDetailsRoute(
+        {
+            get: async () =>
+                ++reads === 1
+                    ? { isSuccess: false }
+                    : { isSuccess: true, response: { json: async () => broker } },
+        },
+        params,
+        {
+            canGoBack: () => false,
+            replace: () => {
+                returns++;
+                throw new Error("Navigation unavailable");
+            },
+        },
+    );
+    details.flushEffects();
+    await settle();
+    details.render();
+    const retryRead = details
+        .elements()
+        .find((node) => node.type === "Button" && node.props.name === "Retry").props.onPress;
+    retryRead();
+    details.render();
+    details.flushEffects();
+    await settle();
+    details.render();
+    await details
+        .elements()
+        .find((node) => node.type === "DataSourceDetailsSection")
+        .props.onDeleted();
+    details.render();
+    const retryReturn = details
+        .elements()
+        .find((node) => node.type === "Button" && node.props.name === "Return to data sources")
+        .props.onPress;
+    retryRead();
+    details.render();
+    details.flushEffects();
+    await settle();
+    assert.equal(reads, 2, "Accepted recovery cannot reread or remount the deleted broker");
+    params.id = "broker-2";
+    details.render();
+    retryReturn();
+    assert.equal(returns, 1, "A retained return cannot navigate a different broker visit");
+});
+
+test("broker details consume the API protocolVersion and useTls fields without falling back to defaults", async () => {
+    const apiBroker = {
+        id: broker.id,
+        name: broker.name,
+        url: broker.url,
+        clientName: broker.clientName,
+        port: 1883,
+        protocolVersion: "MqttV311",
+        useTls: false,
+    };
+    const details = mountDetailsRoute({
+        get: async () => ({ isSuccess: true, response: { json: async () => apiBroker } }),
+    });
+    details.flushEffects();
+    await settle();
+    details.render();
+    const settings = details.elements().find((node) => node.type === "DataSourceDetailsSection");
+    assert.ok(settings, "A valid V1 broker response must mount details");
+    const section = mountSettingsSection(
+        {},
+        () => {},
+        () => {},
+        settings.props.dataSource,
+    );
+    const form = section.elements().find((node) => node.type === "DataSourceForm");
+    assert.equal(form.props.initMqttVersion, "MqttV311");
+    assert.equal(form.props.initTls, false);
+});
+
+test("unmounted broker overview rejects retained lifecycle actions and subscription writes", async () => {
+    const paths = [];
+    const writes = [];
+    for (const [status, action] of [
+        ["Stopped", "Start"],
+        ["Working", "Stop"],
+        ["Disconnected", "Restart"],
+    ]) {
+        const client = mountClient(
+            {
+                get: async () => ({
+                    isSuccess: true,
+                    response: { json: async () => brokerClient(status) },
+                }),
+                delete: async (path) => {
+                    writes.push(path);
+                    return { isSuccess: true };
+                },
+                patch: async (path) => {
+                    writes.push(path);
+                    return { isSuccess: true };
+                },
+            },
+            (path) => paths.push(path),
+        );
+        await settle();
+        client.render();
+        const handler = client
+            .elements()
+            .find((node) => node.type === "Button" && node.props.name === action).props.onPress;
+        client.unmount();
+        await handler();
+    }
+    const subscriptions = mountSubscriptions(
+        {
+            get: async () => ({
+                isSuccess: true,
+                response: {
+                    json: async () => ({ items: [{ id: "sub-1", topic: "audit36/topic" }] }),
+                },
+            }),
+            delete: async (path) => {
+                writes.push(path);
+                return { isSuccess: true };
+            },
+        },
+        (path) => paths.push(path),
+    );
+    await settle();
+    subscriptions.render();
+    const add = subscriptions.elements().find((node) => node.type?.name === "SectionHeaderAction")
+        .props.onPress;
+    subscriptions
+        .elements()
+        .find(
+            (node) =>
+                node.type === "Pressable" &&
+                node.props.accessibilityLabel === "Remove subscription audit36/topic",
+        )
+        .props.onPress();
+    subscriptions.render();
+    const remove = subscriptions.elements().find((node) => node.type === "ConfirmDialog")
+        .props.onConfirm;
+    subscriptions.unmount();
+    add();
+    remove();
+    await settle();
+    assert.deepEqual(paths, []);
+    assert.deepEqual(writes, []);
 });

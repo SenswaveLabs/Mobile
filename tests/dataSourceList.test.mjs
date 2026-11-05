@@ -408,3 +408,36 @@ test("account source Add action stays available in list header", () => {
     header.props.headerAction.props.onPress();
     assert.deepEqual(navigation, ["dataSource/add"]);
 });
+
+test("unknown broker row status stays unavailable and Retry loads a known lifecycle state", async () => {
+    let calls = 0;
+    const status = mountStatusReader({
+        get: async () => ({
+            isSuccess: true,
+            response: {
+                json: async () => ({
+                    connectionStatus: ++calls === 1 ? "FutureState" : "Stopped",
+                    latestSessionId: "session-1",
+                }),
+            },
+        }),
+    });
+    status.start();
+    await settle(status.component);
+    assert.ok(statusUnavailable(status.component));
+    assert.equal(
+        status.component.elements().some((node) => node.type === "DataSourceState"),
+        false,
+    );
+    status.component
+        .elements()
+        .find((node) => node.type === "Button" && node.props.name === "Retry")
+        .props.onPress();
+    await settle(status.component);
+    assert.equal(statusUnavailable(status.component), undefined);
+    assert.equal(
+        status.component.elements().find((node) => node.type === "DataSourceState").props
+            .connectionStatus,
+        "Stopped",
+    );
+});

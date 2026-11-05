@@ -27,7 +27,20 @@ interface LoadState {
 const isBrokerClientState = (value: unknown): value is BrokerClientStateResponse => {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     const body = value as Record<string, unknown>;
-    return typeof body.connectionStatus === "string" && typeof body.latestSessionId === "string";
+    return (
+        typeof body.connectionStatus === "string" &&
+        [
+            "NotStarted",
+            "Working",
+            "Restarting",
+            "Stopped",
+            "Connecting",
+            "Connected",
+            "Disconnected",
+            "Error",
+        ].includes(body.connectionStatus) &&
+        typeof body.latestSessionId === "string"
+    );
 };
 
 function BrokerClientStateGet({ id }: BrokerClientStateGetProperties) {

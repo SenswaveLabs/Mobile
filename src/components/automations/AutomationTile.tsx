@@ -61,7 +61,7 @@ const AutomationTile: FC<AutomationTileProps> = ({
             leading={<Icon icon={automationIcon} size={24} color="brand" />}
             onPress={onPress}
             disabled={isPressDisabled}
-            accessibilityLabel={automationName}
+            accessibilityLabel={`${automationName}, ${automationIsEnabled ? "Enabled" : "Disabled"}`}
         />
     );
 };

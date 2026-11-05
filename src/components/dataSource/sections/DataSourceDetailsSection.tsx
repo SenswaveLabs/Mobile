@@ -10,20 +10,22 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
+    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
 import { DataSourceDto } from "@/types/DataSourcesTypes";
 import { PortalHost } from "@rn-primitives/portal";
 import { CircleAlert } from "lucide-react-native";
-import React, { FC, useEffect, useId, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import React, { FC, useCallback, useId, useRef, useState } from "react";
 import { Modal as NativeModal, ScrollView, StyleSheet, View } from "react-native";
 
 interface DataSourceDetailsSectionProps {
     dataSource: DataSourceDto;
     header?: React.ReactNode;
     onSaved: (dataSource: DataSourceDto) => void;
-    onDeleted: () => void;
+    onDeleted: () => void | Promise<void>;
 }
 
 const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
@@ -36,45 +38,76 @@ const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
     const dialogHost = useId();
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [deleteError, setDeleteError] = useState("");
-    const [deleting, setDeleting] = useState(false);
-    const deletePending = useRef(false);
-    const active = useRef(true);
+    const [busy, setBusy] = useState<"save" | "delete" | null>(null);
+    const mutation = useRef(false);
+    const accepted = useRef(false);
+    const active = useRef(false);
+    const currentId = useRef(dataSource.id);
+    currentId.current = dataSource.id;
+    const dialogOpen = useRef(false);
+    const deleting = busy === "delete";
+    const isCurrent = () => active.current && currentId.current === dataSource.id;
 
-    useEffect(() => {
-        active.current = true;
-        return () => {
-            active.current = false;
-        };
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            active.current = true;
+            return () => {
+                active.current = false;
+                dialogOpen.current = false;
+                setShowDeleteDialog(false);
+            };
+        }, []),
+    );
+
+    const changeDialog = (open: boolean) => {
+        if (open && (!isCurrent() || mutation.current || accepted.current)) return;
+        dialogOpen.current = open;
+        setShowDeleteDialog(open);
+    };
 
     const saveSettings = async (values: DataSourceFormValues) => {
-        const response = await httpClient.patch(`v1/datasources/brokers/${dataSource.id}`, values);
-        if (!response.isSuccess) {
-            if (response.response?.status === 404)
+        if (!isCurrent() || mutation.current || accepted.current)
+            throw new Error("Broker settings cannot be saved while another action is in progress.");
+        mutation.current = true;
+        setBusy("save");
+        changeDialog(false);
+        try {
+            const response = await httpClient.patch(
+                `v1/datasources/brokers/${dataSource.id}`,
+                values,
+            );
+            if (!response.isSuccess) {
+                if (response.response?.status === 404)
+                    throw new Error(
+                        "This data source is no longer available. Return to the list and try again.",
+                    );
                 throw new Error(
-                    "This data source is no longer available. Return to the list and try again.",
+                    "Couldn't save broker settings. Check your connection and try again.",
                 );
-            throw new Error("Couldn't save broker settings. Check your connection and try again.");
-        }
+            }
 
-        if (!active.current) return;
-        onSaved({
-            ...dataSource,
-            name: values.name,
-            url: values.url,
-            clientName: values.clientName,
-            port: values.port,
-            mqttVersion: values.protocolVersion,
-            tls: values.useTls,
-        });
+            if (currentId.current !== dataSource.id) return;
+            onSaved({
+                ...dataSource,
+                name: values.name,
+                url: values.url,
+                clientName: values.clientName,
+                port: values.port,
+                protocolVersion: values.protocolVersion,
+                useTls: values.useTls,
+            });
+        } finally {
+            mutation.current = false;
+            if (currentId.current === dataSource.id) setBusy(null);
+        }
     };
 
     const deleteDataSource = async () => {
-        if (deletePending.current) return;
-        deletePending.current = true;
-        setDeleting(true);
+        if (!isCurrent() || mutation.current || accepted.current || !dialogOpen.current) return;
+        mutation.current = true;
+        setBusy("delete");
         setDeleteError("");
-        setShowDeleteDialog(false);
+        changeDialog(false);
 
         try {
             const response = await httpClient.delete(`v1/datasources/brokers/${dataSource.id}`);
@@ -82,22 +115,23 @@ const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
                 throw new Error(
                     "Couldn't delete this data source. Check your connection and try again.",
                 );
-            if (active.current) onDeleted();
+            accepted.current = true;
+            if (currentId.current === dataSource.id) await onDeleted();
         } catch (error) {
-            if (active.current)
+            if (isCurrent())
                 setDeleteError(
                     error instanceof Error
                         ? error.message
                         : "Couldn't delete this data source. Try again.",
                 );
         } finally {
-            deletePending.current = false;
-            if (active.current) setDeleting(false);
+            mutation.current = false;
+            if (currentId.current === dataSource.id) setBusy(null);
         }
     };
 
     return (
-        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog} asChild>
+        <AlertDialog open={showDeleteDialog} onOpenChange={changeDialog} asChild>
             <View style={styles.container}>
                 <NativeModal
                     visible={showDeleteDialog}
@@ -105,7 +139,7 @@ const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
                     statusBarTranslucent
                     navigationBarTranslucent
                     accessibilityViewIsModal
-                    onRequestClose={() => setShowDeleteDialog(false)}>
+                    onRequestClose={() => changeDialog(false)}>
                     <PortalHost name={dialogHost} />
                 </NativeModal>
                 <AlertDialogContent
@@ -129,7 +163,7 @@ const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
                                 type="brand-outline"
                                 loading={false}
                                 disabled={deleting}
-                                onPress={() => setShowDeleteDialog(false)}
+                                onPress={() => changeDialog(false)}
                             />
                         </AlertDialogCancel>
                         <AlertDialogAction asChild>
@@ -138,7 +172,7 @@ const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
                                 type="brand-destructive"
                                 loading={deleting}
                                 disabled={deleting}
-                                onPress={() => void deleteDataSource()}
+                                onPress={deleteDataSource}
                             />
                         </AlertDialogAction>
                     </AlertDialogFooter>
@@ -146,13 +180,14 @@ const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
 
                 <DataSourceForm
                     edit
+                    disabled={busy !== null || accepted.current}
                     header={header}
                     initServer={dataSource.url}
                     initName={dataSource.name}
                     initClientName={dataSource.clientName}
                     initPort={dataSource.port}
-                    initMqttVersion={dataSource.mqttVersion}
-                    initTls={dataSource.tls}
+                    initMqttVersion={dataSource.protocolVersion}
+                    initTls={dataSource.useTls}
                     onClick={saveSettings}>
                     <ContentSection
                         title="Delete data source"
@@ -160,13 +195,15 @@ const DataSourceDetailsSection: FC<DataSourceDetailsSectionProps> = ({
                         separated
                         actions={
                             <View style={styles.deleteActionSlot}>
-                                <Button
-                                    name="Delete data source"
-                                    type="brand-destructive"
-                                    loading={deleting}
-                                    disabled={deleting}
-                                    onPress={() => setShowDeleteDialog(true)}
-                                />
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        name="Delete data source"
+                                        type="brand-destructive"
+                                        loading={deleting}
+                                        disabled={busy !== null || accepted.current}
+                                        onPress={() => changeDialog(true)}
+                                    />
+                                </AlertDialogTrigger>
                             </View>
                         }>
                         {!!deleteError && (

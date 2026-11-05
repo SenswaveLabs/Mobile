@@ -16,7 +16,14 @@ import { ListResponse } from "@/utils/httpClient";
 import { CircleAlert, Check } from "lucide-react-native";
 import React, { FC, useRef, useState } from "react";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { Pressable, StyleSheet, View } from "react-native";
+import {
+    AccessibilityInfo,
+    findNodeHandle,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
 import { keyboardOffset } from "@/styles/defaultStyles";
 
 interface AutomationConditionFormProps {
@@ -78,8 +85,22 @@ const AutomationConditionForm: FC<AutomationConditionFormProps> = ({
     const submittingRef = useRef(false);
     const submitLock = useRef(false);
     const lastSubmitted = useRef<AutomationConditionDraft | undefined>(undefined);
+    const scrollRef = useRef<ScrollView>(null);
+    const contentRef = useRef<View>(null);
+    const deviceInput = useRef<View>(null);
+    const operationInput = useRef<View>(null);
 
     const locked = () => pendingRef.current || submittingRef.current || acceptedRef.current;
+    const focusSelection = (input: View | null) => {
+        if (!input || !contentRef.current) return;
+        input.measureLayout(contentRef.current, (_left, top) => {
+            if (!contentRef.current || locked()) return;
+            // Leave space above the trigger for its label.
+            scrollRef.current?.scrollTo({ y: Math.max(0, top - 32), animated: false });
+            const tag = findNodeHandle(input);
+            if (tag !== null) AccessibilityInfo.setAccessibilityFocus(tag);
+        });
+    };
     const resetConfiguration = () => {
         setOperationId("");
         setConditionType(undefined);
@@ -196,7 +217,11 @@ const AutomationConditionForm: FC<AutomationConditionFormProps> = ({
             setOperationError("Select an operation for this device.");
             valid = false;
         }
-        if (!device || !operation || !conditionType) return;
+        if (!device || !operation) {
+            focusSelection(!device ? deviceInput.current : operationInput.current);
+            return;
+        }
+        if (!conditionType) return;
 
         if (conditionType === "NumberCondition") {
             const min = minValue.trim() ? Number(minValue) : Number.NaN;
@@ -293,11 +318,12 @@ const AutomationConditionForm: FC<AutomationConditionFormProps> = ({
 
     return (
         <KeyboardAwareScrollView
+            ref={scrollRef}
             bottomOffset={keyboardOffset}
             keyboardShouldPersistTaps="handled"
             style={[styles.screen, { backgroundColor: colors.background }]}
             contentContainerStyle={styles.content}>
-            <View style={styles.layout}>
+            <View ref={contentRef} collapsable={false} style={styles.layout}>
                 <FormSection
                     title="Add condition"
                     helper="Choose a device operation and define when its value meets this condition.">
@@ -306,10 +332,9 @@ const AutomationConditionForm: FC<AutomationConditionFormProps> = ({
                         value={deviceName}
                         options={deviceOptions}
                         disabled={effectivePending || accepted}
+                        error={deviceError}
+                        triggerRef={deviceInput}
                     />
-                    {!!deviceError && (
-                        <Text style={[styles.message, { color: colors.error }]}>{deviceError}</Text>
-                    )}
                     {devicesLoading && (
                         <Text
                             accessibilityLiveRegion="polite"
@@ -374,12 +399,9 @@ const AutomationConditionForm: FC<AutomationConditionFormProps> = ({
                                 value={operationName}
                                 options={operationOptions}
                                 disabled={effectivePending || accepted}
+                                error={operationError}
+                                triggerRef={operationInput}
                             />
-                            {!!operationError && (
-                                <Text style={[styles.message, { color: colors.error }]}>
-                                    {operationError}
-                                </Text>
-                            )}
                         </>
                     )}
                     {conditionType === "BooleanCondition" && (
