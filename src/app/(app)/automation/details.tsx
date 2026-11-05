@@ -165,6 +165,12 @@ const Details: FC = () => {
     };
 
     const load = useCallback(async () => {
+        if (
+            routeIdRef.current !== automationId ||
+            (activeWrite.current && activeWrite.current.id === automationId) ||
+            (deletionAccepted.current && deletionAccepted.current.id === automationId)
+        )
+            return;
         setDeleteVisit(undefined);
         activeWrite.current = undefined;
         writeLock.current = false;
