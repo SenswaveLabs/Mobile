@@ -1,0 +1,30 @@
+{
+    "name": "@senswave/expo-visual-review",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "next dev --webpack --hostname 127.0.0.1 --port 3100",
+        "build": "next build --webpack",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "konva": "10.9.1",
+        "mqtt": "5.16.1",
+        "next": "16.4.5",
+        "react": "19.1.0",
+        "react-dom": "19.1.0",
+        "react-konva": "19.0.10"
+    },
+    "devDependencies": {
+        "@playwright/test": "1.58.2",
+        "@types/node": "26.6.6",
+        "@types/react": "19.1.17",
+        "@types/react-dom": "19.1.9",
+        "tailwindcss": "3.4.19",
+        "typescript": "5.9.3"
+    },
+    "engines": {
+        "node": ">=26.12.1"
+    }
+}

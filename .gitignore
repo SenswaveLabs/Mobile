@@ -44,3 +44,8 @@ graphify-out
 !.impeccable/config.json
 
 .idea
+**/.next/
+tools/expo-visual-review/.next-gallery-test/
+tools/expo-visual-review/next-env.d.ts
+visual-review/
+.visual-review/

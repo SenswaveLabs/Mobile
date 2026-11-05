@@ -62,6 +62,26 @@ traffic beyond normal interactive use. Expo web shows a fallback and retains GPS
 
 ## Environment variables
 
+### Local visual review
+
+`pnpm review:scan` discovers Expo Router routes; `pnpm review:open` starts the local
+gallery on `127.0.0.1:3100`. `review:export` writes pending JSON/Markdown tasks,
+`review:fix` prepares a Codex handoff (`--run` explicitly launches Codex), and
+`review:verify` replays affected native captures without accepting findings.
+`review:scan --capture --seed --exercise-mqtt --exercise-controls` uses a running emulator, Maestro and
+the local test API to create/reuse named review fixtures and probe their isolated
+MQTT topics; control probes stay limited to the named review widgets. The seed
+includes three homes, nine devices and fourteen operations. Credentials come from `AGENT_ACCOUNT_EMAIL/PASSWORD` and
+`AGENT_MQTT_SERVER/PORT/VERSION/LOGIN/PASSWORD` in the ignored local `.env`.
+No production mobile code or public CI/release workflow is changed.
+
+The separate `tools/expo-visual-review` workspace uses exact package versions in
+the same frozen lockfile. Artifacts default to the user's data directory; SQLite,
+PNG captures and exports remain outside Git. `EXPO_REVIEW_HOME` explicitly changes
+that location. See the [tool README](../../tools/expo-visual-review/README.md) for
+device selection, WSL ADB forwarding, replay configuration, scoped `--sharing` flows
+with `--account AGENT2/AGENT3/AGENT4`, and limitations.
+
 | Variable | Description | Template default |
 |----------|-------------|------------------|
 | `EXPO_PUBLIC_ENVIRONMENT` | `Development` or production | `Development` |

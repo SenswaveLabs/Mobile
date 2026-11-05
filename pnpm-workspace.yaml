@@ -1,3 +1,5 @@
+packages:
+  - tools/expo-visual-review
 allowBuilds:
   unrs-resolver: true
 patchedDependencies:

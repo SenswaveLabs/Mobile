@@ -4,6 +4,13 @@
     "private": true,
     "main": "index.js",
     "scripts": {
+        "review:scan": "node tools/expo-visual-review/cli.mjs scan",
+        "review:open": "node tools/expo-visual-review/cli.mjs open",
+        "review:export": "node tools/expo-visual-review/cli.mjs export",
+        "review:fix": "node tools/expo-visual-review/cli.mjs fix",
+        "review:verify": "node tools/expo-visual-review/cli.mjs verify",
+        "test:visual-review": "node --test tests/visualReview.test.mjs",
+        "test:visual-review:gallery": "node tools/expo-visual-review/tests/gallery.mjs",
         "start": "expo start",
         "android": "expo run:android",
         "ios": "expo run:ios",

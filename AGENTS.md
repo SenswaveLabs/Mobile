@@ -17,6 +17,7 @@ Authentication, home selection, home/room/device creation and settings use local
 - Use pnpm only, Node from `.nvmrc`, and the frozen pnpm lockfile. Keep the Node minimum in `package.json` and EAS profile versions aligned with `.nvmrc`. Keep every dependency version in `package.json` exact and preserve build approvals in `pnpm-workspace.yaml`.
 - Run `pnpm hooks:install` once per clone to enable whole-repository formatting and lint before commits.
 - Create `.env` from `.env.template` before the first run.
+- Local Expo Visual Review lives in `tools/expo-visual-review`; keep its SQLite, screenshots, credentials and exports outside Git. Its native exploration uses the local test API and blocks mutations except explicit review-widget commands and scoped test invitation/join/consent flows; fixture/MQTT setup stays scoped to named review resources. See [Tooling](docs/agent-guide/tooling.md) and the [tool README](tools/expo-visual-review/README.md).
 - Keep this index and the affected guide documents current in the same commit as changes to structure, stack, conventions, contracts, configuration or workflows.
 
 ## Read only what the task needs

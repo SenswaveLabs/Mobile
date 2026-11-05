@@ -115,6 +115,11 @@ or route behavior into the entry point.
 
 ## Naming
 
+Local developer tooling lives in `tools/expo-visual-review`, a separate pnpm workspace
+with Next.js, Tailwind and react-konva. It shares no runtime modules with the mobile
+app. Node's built-in SQLite stores local review annotations; generated captures and
+exports live in the user's data directory. See its [README](../../tools/expo-visual-review/README.md).
+
 | Artifact | Rule | Example |
 |----------|------|---------|
 | Components | PascalCase | `DeviceForm.tsx` |

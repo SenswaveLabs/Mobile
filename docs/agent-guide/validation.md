@@ -5,6 +5,17 @@ or rerun an expensive build for an unrelated documentation edit.
 
 ## Static and build checks
 
+Expo Visual Review has dedicated Node checks in `pnpm test:visual-review` for route
+discovery, test destinations, immutable captures, annotation bounds, SQLite
+persistence, explicit approval, comparison identity, safe gateway methods and
+Maestro serialization. Its separate workspace also needs `typecheck` and `build`.
+Native screenshot evidence requires the emulator/Maestro/local-API flow described
+in the [tool README](../../tools/expo-visual-review/README.md); static tests do not
+establish route reachability or native appearance. Report failed/blocked attempts
+and unverified platforms explicitly. Verification never accepts a finding.
+Actual Android, sharing, MQTT and browser evidence is recorded in the
+[Expo Visual Review validation report](../superpowers/validation/2026-11-05-expo-visual-review.md).
+
 Automation details regressions cover the native modal/host binding, cancellation, captured confirmation identity and accepted-once deletion. Both child forms distinguish device loading, error/retry and true empty state while preserving drafts. Final Android evidence and remaining limits are recorded in the [automation validation report](../superpowers/validation/2026-10-31-automations.md).
 
 The [UI audit 37 summary](../../reports/ui-audit-37.md) records the creation-action

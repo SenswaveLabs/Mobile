@@ -11,6 +11,9 @@
         "suspicious": "off"
     },
     "ignorePatterns": [
+        "**/.next/**",
+        "**/.next-gallery-test/**",
+        "tools/expo-visual-review/next-env.d.ts",
         ".expo/**",
         "android/**",
         "node_modules/**",
