@@ -83,6 +83,11 @@ Automation details regressions cover the native modal/host binding, cancellation
   (including a misleading full-render event) and invalid native coordinates.
   These checks do not establish native rendering, keyboard or assistive-technology behavior.
 - Room creation and editing are included in `pnpm test:homes`. Checks execute the real form and route handlers for normalized name validation, keyboard/button submission locks, failed-save draft retention, saved baselines after blur, load retry, accepted-create recovery without duplicate writes, delete cancellation/failure and stale completion after changing rooms.
+- `pnpm test:homes` also runs `homeSharing.test.mjs`: Home Back/Cancel/Exit in
+  loading, empty, error and populated branches; exact routed/current owner binding;
+  retained submit and delayed-response guards; submitted home name through rename;
+  duplicate POST prevention, code copying and accepted-code parsing recovery.
+  Native Android Back and dialog visibility still require emulator verification.
 - Main home dashboard, room filtering, device-tile controls and dashboard slider: run `pnpm test:dashboard`
   (`node --test tests/homeDashboard.test.mjs tests/deviceTileActions.test.mjs`). It executes the real provider and
   component handlers, covering selected-room retention, failed/malformed reads,
@@ -147,6 +152,13 @@ Automation details regressions cover the native modal/host binding, cancellation
   Add subscription checks cover route ID recovery and array normalization, exact topic payloads with the 256-character boundary, required-topic focus, synchronous Go/button locking, editable-but-guarded pending input, rejected/thrown POST recovery, accepted-once navigation and blur/refocus completion. Feedback checks cover the global absence of toast infrastructure and local errors. These checks do not establish native keyboard behavior, layout or screen-reader behavior.
 - Before committing: run `pnpm typecheck`, `pnpm lint` and `pnpm test:poc`, plus
   the affected flow checks above.
+- Audit A06 regressions use the existing dashboard, device-details and data-source
+  suites. They execute malformed/mismatched live and command responses, cache updates
+  retained across homes, unavailable preview Retry, operation option/range shapes,
+  widget configuration fields and broker/subscription read recovery. Subscription
+  errors retain cached current-broker rows and Retry repeats only GET. Valid exact
+  option names, scalar values and historical keys remain unchanged. These are handler
+  checks; native fixtures and real API verification are recorded separately.
 - Widget polish is included in `pnpm test:device-details`: `widgetTypeForms`,
   `widgetFormValidation`, `widgetCreate` and `widgetDetails` execute type-specific
   value/step/unit/option validation, read-only and pending guards, stale read

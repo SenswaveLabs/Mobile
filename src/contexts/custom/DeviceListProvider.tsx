@@ -55,7 +55,7 @@ interface DevicesContextProps {
     refresh(): Promise<boolean>;
     refreshDevice(deviceId: string): Promise<boolean>;
     setFilter(roomId: string): void;
-    updateDeviceOperation(device: Device): void;
+    updateDeviceOperation(device: Device, homeId?: string): void;
 }
 
 const DeviceListContext = createContext<DevicesContextProps>({
@@ -85,6 +85,7 @@ export const useDeviceList = () => useContext(DeviceListContext);
 
 const DeviceListProvider: FC<PropsWithChildren> = ({ children }) => {
     const homes = useHomes();
+    const homeId = homes.current?.id;
     const currentHomeId = useRef(homes.current?.id);
     currentHomeId.current = homes.current?.id;
     const httpClient = useHttpClient();
@@ -113,10 +114,11 @@ const DeviceListProvider: FC<PropsWithChildren> = ({ children }) => {
         setFilter(roomId);
     };
 
-    const updateDeviceOperation = (device: Device) => {
-        const homeId = currentHomeId.current;
+    const updateDeviceOperation = (device: Device, boundHomeId = homeId) => {
+        if (!boundHomeId || boundHomeId !== currentHomeId.current || !isConsumedDevice(device))
+            return;
         setCollection((previous) =>
-            homeId === currentHomeId.current && previous.homeId === homeId
+            boundHomeId === currentHomeId.current && previous.homeId === boundHomeId
                 ? {
                       ...previous,
                       items: previous.items.map((item) => (item.id === device.id ? device : item)),
@@ -153,7 +155,7 @@ const DeviceListProvider: FC<PropsWithChildren> = ({ children }) => {
             )
                 return false;
 
-            updateDeviceOperation(updated as Device);
+            updateDeviceOperation(updated, homeId);
             console.info(`[DeviceListProvider] Refreshed device: ${deviceId}`);
             return true;
         } catch (error) {

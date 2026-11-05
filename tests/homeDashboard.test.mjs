@@ -100,6 +100,82 @@ function mountDevices(get, homes = { current: home() }) {
     return { component, homes, requests, value: () => component.elements()[0].props.value };
 }
 
+test("device cache rejects malformed updates and callbacks captured for a previous home", async () => {
+    const mounted = mountDevices(async () => response([device()]));
+    await settle(mounted.component);
+    const update = mounted.value().updateDeviceOperation;
+    for (const malformed of [
+        null,
+        [],
+        { ...device(), tile: null },
+        { ...device(), presence: { value: {} } },
+    ]) {
+        update(malformed);
+        mounted.component.render();
+        assert.equal(mounted.value().devices[0].tile.value, false);
+    }
+    mounted.homes.current = home("home-2");
+    mounted.component.render();
+    mounted.component.flushEffects();
+    await settle(mounted.component);
+    update(device("device-1", true));
+    mounted.component.render();
+    assert.equal(mounted.value().devices[0].tile.value, false);
+    mounted.value().updateDeviceOperation(device("device-1", true));
+    mounted.component.render();
+    assert.equal(mounted.value().devices[0].tile.value, true);
+});
+
+test("Display live reads reject malformed data without losing readings or replacing the cache", async () => {
+    let callback;
+    let body;
+    const updates = [];
+    const tile = {
+        type: "Display",
+        value: 21,
+        configuration: { label: "Temperature", unit: "°C" },
+    };
+    const component = mountNativeComponent("src/components/device/tile/DisplayDeviceTile.tsx", {
+        props: { deviceId: "device-1", tile },
+        modules: {
+            "@/contexts/domain/HomeProvider": { useHomes: () => ({ current: home() }) },
+            "@/contexts/HttpClientProvider": {
+                useHttpClient: () => ({ get: async () => responseBody(body) }),
+            },
+            "@/contexts/custom/DeviceListProvider": {
+                useDeviceList: () => ({ updateDeviceOperation: (value) => updates.push(value) }),
+            },
+            "@/contexts/domain/LiveUpdateProvider": {
+                useLiveUpdate: () => ({
+                    addDeviceTileCallback: (_id, value) => {
+                        callback = value;
+                    },
+                }),
+            },
+        },
+    });
+    component.flushEffects();
+    for (body of [
+        null,
+        [],
+        { ...device(), tile: null },
+        { ...device("other-device"), tile },
+        { ...device(), tile: { ...tile, configuration: { unit: {} } } },
+    ]) {
+        await callback();
+        component.render();
+        assert.match(component.text(), /21 °C/);
+        assert.match(component.text(), /Pull to refresh/);
+        assert.equal(updates.length, 0);
+    }
+    body = { ...device(), tile: { ...tile, value: 22 } };
+    await callback();
+    component.render();
+    assert.match(component.text(), /22 °C/);
+    assert.doesNotMatch(component.text(), /Pull to refresh/);
+    assert.equal(updates.length, 1);
+});
+
 test("room filters include devices beyond the API's default first ten results", async () => {
     const items = Array.from({ length: 30 }, (_, index) => ({
         ...device(`device-${index}`),
@@ -1807,6 +1883,7 @@ test("home entry exists for Display without a source", () => {
             "@/components/common/Icon": "Icon",
             "@/components/common/Loading": "Loading",
             "@/components/common/SectionHeaderAction": "SectionHeaderAction",
+            "@/components/common/ConfirmDialog": "ConfirmDialog",
             "@/components/common/WhatsNewModal": { WhatsNewModal: "WhatsNewModal" },
             "@/components/device/DeviceList": "DeviceList",
             "@/components/device/DeviceLayoutToggle": "DeviceLayoutToggle",

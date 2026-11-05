@@ -1,4 +1,5 @@
 import Button from "@/components/common/Button";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import ContentSection from "@/components/common/ContentSection";
 import Icon from "@/components/common/Icon";
 import Loading from "@/components/common/Loading";
@@ -16,19 +17,8 @@ import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { useDeviceLayout } from "@/hooks/useDeviceLayout";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { FC, useCallback, useId, useState } from "react";
-import { PortalHost } from "@rn-primitives/portal";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { BackHandler, Modal as NativeModal, StyleSheet, Text, View } from "react-native";
+import React, { FC, useCallback, useState } from "react";
+import { BackHandler, StyleSheet, Text, View } from "react-native";
 
 const Index: FC = () => {
     const router = useRouter();
@@ -38,7 +28,6 @@ const Index: FC = () => {
     const { colors } = useTheme().current;
     const [showExitDialog, setShowExitDialog] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
-    const dialogHost = useId();
 
     useFocusEffect(
         useCallback(() => {
@@ -46,7 +35,10 @@ const Index: FC = () => {
                 setShowExitDialog(true);
                 return true;
             });
-            return () => subscription.remove();
+            return () => {
+                subscription.remove();
+                setShowExitDialog(false);
+            };
         }, []),
     );
 
@@ -74,137 +66,107 @@ const Index: FC = () => {
         </View>
     ) : null;
 
-    if (homes.loading && !homes.current) return <Loading />;
-    if (!homes.current && homes.error)
-        return (
-            <View style={[styles.container, { backgroundColor: colors.background }]}>
-                {homeError}
-            </View>
-        );
-    if (!homes.current)
-        return (
-            <NoHomeScreen
-                onCreateHome={() =>
-                    router.push({ pathname: "home/add", params: { firstHome: "first" } })
-                }
-                onJoinHome={() => router.push({ pathname: "home/join" })}
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-            />
-        );
-
-    const canManage = homes.current.isOwner || homes.current.canManage;
-    const hasDataSource = Boolean(homes.current.dataSource?.id);
+    const canManage = homes.current?.isOwner || homes.current?.canManage;
+    const hasDataSource = Boolean(homes.current?.dataSource?.id);
 
     return (
-        <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog} asChild>
-            <View style={[styles.container, { backgroundColor: colors.background }]}>
-                <NativeModal
-                    visible={showExitDialog}
-                    transparent
-                    statusBarTranslucent
-                    navigationBarTranslucent
-                    accessibilityViewIsModal
-                    onRequestClose={() => setShowExitDialog(false)}>
-                    <PortalHost name={dialogHost} />
-                </NativeModal>
-                <AlertDialogContent
-                    portalHost={dialogHost}
-                    accessibilityViewIsModal
-                    className="max-w-md">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Exit App</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Do you want to exit Senswave?
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter className="flex-col">
-                        <AlertDialogCancel asChild>
-                            <Button
-                                name="Cancel"
-                                type="brand-outline"
-                                loading={false}
-                                onPress={() => setShowExitDialog(false)}
-                            />
-                        </AlertDialogCancel>
-                        <AlertDialogAction asChild>
-                            <Button
-                                name="Exit"
-                                type="auth"
-                                loading={false}
-                                onPress={() => BackHandler.exitApp()}
-                            />
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-                <WhatsNewModal />
-                <DeviceList
-                    layout={layout}
-                    header={
-                        <View style={styles.intro}>
-                            {homeError}
-                            <HomeStateWidget />
-                            <View style={styles.automationAction}>
-                                <SectionHeaderAction
-                                    label="Automations"
-                                    accessibilityLabel="Automations"
-                                    icon={<Icon icon="flash-outline" size={18} color="brand" />}
-                                    onPress={() => router.navigate("automation/list")}
-                                />
-                            </View>
-                            <View style={styles.heading}>
-                                <ContentSection
-                                    title="Devices"
-                                    headerAction={
-                                        <View style={styles.headingActions}>
-                                            {canManage &&
-                                            hasDataSource &&
-                                            (devices.loading ||
-                                                devices.error ||
-                                                devices.devices.length > 0) ? (
-                                                <SectionHeaderAction
-                                                    label="Add device"
-                                                    accessibilityLabel="Add device"
-                                                    icon={
-                                                        <Icon
-                                                            icon="add-outline"
-                                                            size={18}
-                                                            color="brand"
-                                                        />
-                                                    }
-                                                    onPress={() => router.navigate("device/add")}
-                                                />
-                                            ) : null}
-                                            <DeviceLayoutToggle
-                                                layout={layout}
-                                                onChange={setLayout}
-                                            />
-                                        </View>
-                                    }
-                                />
-                                {canManage && devices.devices.length > 0 && (
-                                    <Text style={[styles.helper, { color: colors.authMuted }]}>
-                                        {homes.current.rooms.length > 0
-                                            ? "Hold a room or device for settings."
-                                            : "Hold a device for settings."}
-                                    </Text>
-                                )}
-                            </View>
-                            <RoomsView />
-                        </View>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <ConfirmDialog
+                visible={showExitDialog}
+                title="Exit App"
+                content="Do you want to exit Senswave?"
+                confirmLabel="Exit"
+                destructive={false}
+                iconName="exit-outline"
+                onCancel={() => setShowExitDialog(false)}
+                onConfirm={() => BackHandler.exitApp()}
+            />
+            {homes.loading && !homes.current ? (
+                <Loading />
+            ) : !homes.current && homes.error ? (
+                homeError
+            ) : !homes.current ? (
+                <NoHomeScreen
+                    onCreateHome={() =>
+                        router.push({ pathname: "home/add", params: { firstHome: "first" } })
                     }
-                    footer={
-                        <View style={styles.note}>
-                            <Icon icon="information-circle-outline" size={18} color="brand" />
-                            <Text style={[styles.noteText, { color: colors.authMuted }]}>
-                                Device state shown on all pages is informational only. It may not
-                                reflect the actual device condition.
-                            </Text>
-                        </View>
-                    }
+                    onJoinHome={() => router.push({ pathname: "home/join" })}
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
                 />
-            </View>
-        </AlertDialog>
+            ) : (
+                <>
+                    <WhatsNewModal />
+                    <DeviceList
+                        layout={layout}
+                        header={
+                            <View style={styles.intro}>
+                                {homeError}
+                                <HomeStateWidget />
+                                <View style={styles.automationAction}>
+                                    <SectionHeaderAction
+                                        label="Automations"
+                                        accessibilityLabel="Automations"
+                                        icon={<Icon icon="flash-outline" size={18} color="brand" />}
+                                        onPress={() => router.navigate("automation/list")}
+                                    />
+                                </View>
+                                <View style={styles.heading}>
+                                    <ContentSection
+                                        title="Devices"
+                                        headerAction={
+                                            <View style={styles.headingActions}>
+                                                {canManage &&
+                                                hasDataSource &&
+                                                (devices.loading ||
+                                                    devices.error ||
+                                                    devices.devices.length > 0) ? (
+                                                    <SectionHeaderAction
+                                                        label="Add device"
+                                                        accessibilityLabel="Add device"
+                                                        icon={
+                                                            <Icon
+                                                                icon="add-outline"
+                                                                size={18}
+                                                                color="brand"
+                                                            />
+                                                        }
+                                                        onPress={() =>
+                                                            router.navigate("device/add")
+                                                        }
+                                                    />
+                                                ) : null}
+                                                <DeviceLayoutToggle
+                                                    layout={layout}
+                                                    onChange={setLayout}
+                                                />
+                                            </View>
+                                        }
+                                    />
+                                    {canManage && devices.devices.length > 0 && (
+                                        <Text style={[styles.helper, { color: colors.authMuted }]}>
+                                            {homes.current.rooms.length > 0
+                                                ? "Hold a room or device for settings."
+                                                : "Hold a device for settings."}
+                                        </Text>
+                                    )}
+                                </View>
+                                <RoomsView />
+                            </View>
+                        }
+                        footer={
+                            <View style={styles.note}>
+                                <Icon icon="information-circle-outline" size={18} color="brand" />
+                                <Text style={[styles.noteText, { color: colors.authMuted }]}>
+                                    Device state shown on all pages is informational only. It may
+                                    not reflect the actual device condition.
+                                </Text>
+                            </View>
+                        }
+                    />
+                </>
+            )}
+        </View>
     );
 };
 

@@ -188,6 +188,10 @@ current collection, error or loading state.
 the still-current home's cached collection; HTTP, parsing, identity or home/device
 binding failures return `false` and preserve the cache. Retained device-update
 callbacks consult the current home and device collection before accepting updates.
+The cache updater validates consumed device fields as well. Its optional captured
+home ID lets `refreshDevice` preserve retained initializer callbacks while rejecting
+updates bound to a previous home. Live tile and command readers validate the matching
+device ID before changing either their reported values or the shared cache.
 Operation deletion uses this result to keep refresh Retry local after DELETE has
 been accepted. These are client context behaviors; backend API contracts are
 unchanged.
@@ -212,6 +216,21 @@ delete the widget definition. Live widget controls keep
 empty string, Switch a Boolean, Radio the exact option name, Color the exact hex
 string and Slider a number. Preserve values and opaque IDs as received. The
 server remains responsible for authorization and validates these writes.
+
+Tile previews and widget initialization share `isConsumedOperation`: matching ID,
+known operation type, string name and object configuration, with finite numeric
+bounds when supplied and string option names for Options. Each preview also requires
+its expected type and Slider range. Widget detail reads validate consumed step,
+unit, Button value and Radio-option fields before exposing the form. This checks
+client-consumed fields without changing payloads or imposing creation rules on
+historical values.
+
+Broker details accept one routed ID and validate every consumed settings field
+against the matching response before mounting either panel. Subscription reads
+require an array of string-ID/string-topic rows; failed reads retain the last valid
+collection for that broker and expose a GET-only Retry. Previous-broker rows stay
+hidden immediately after an ID change. These are client validation boundaries,
+with no backend contract change.
 
 ### Home and Device icons
 

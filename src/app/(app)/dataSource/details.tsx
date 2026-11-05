@@ -16,12 +16,30 @@ import { ScrollView, StyleSheet, View } from "react-native";
 
 type DetailsTab = "Overview" | "Settings";
 
+const isDataSource = (value: unknown, id: string): value is DataSourceDto => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const source = value as Record<string, unknown>;
+    return (
+        source.id === id &&
+        typeof source.name === "string" &&
+        typeof source.url === "string" &&
+        typeof source.clientName === "string" &&
+        typeof source.port === "number" &&
+        Number.isInteger(source.port) &&
+        source.port >= 1 &&
+        source.port <= 65535 &&
+        typeof source.tls === "boolean" &&
+        typeof source.mqttVersion === "string" &&
+        ["MqttV5", "MqttV311", "MqttV310"].includes(source.mqttVersion)
+    );
+};
+
 const DetailsPage: FC = () => {
     const httpClient = useHttpClient();
     const router = useRouter();
     const { colors } = useTheme().current;
     const params = useLocalSearchParams();
-    const id = Array.isArray(params.id) ? params.id[0] : params.id;
+    const id = typeof params.id === "string" && params.id.trim() ? params.id : undefined;
     const [dataSource, setDataSource] = useState<DataSourceDto>();
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
@@ -49,7 +67,8 @@ const DetailsPage: FC = () => {
                         "Couldn't load this data source. Check your connection and try again.",
                     );
                 }
-                const result = (await response.response.json()) as DataSourceDto;
+                const result: unknown = await response.response.json();
+                if (!isDataSource(result, id)) throw new Error("Invalid data source response");
                 if (current) setDataSource(result);
             } catch (error) {
                 if (current)

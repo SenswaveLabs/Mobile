@@ -1,5 +1,5 @@
 import { View, StyleSheet, Text } from "react-native";
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useRef, useState } from "react";
 import { LockKeyhole } from "lucide-react-native";
 import { useHomes } from "@/contexts/domain/HomeProvider";
 import { useHttpClient } from "@/contexts/HttpClientProvider";
@@ -7,7 +7,7 @@ import { useLiveUpdate } from "@/contexts/domain/LiveUpdateProvider";
 import { Device, useDeviceList } from "@/contexts/custom/DeviceListProvider";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { DeviceLayout } from "@/hooks/useDeviceLayout";
-import { getDeviceReadings, formatReadingValue } from "@/utils/deviceReadings";
+import { getDeviceReadings, formatReadingValue, isConsumedDevice } from "@/utils/deviceReadings";
 
 interface DisplayDeviceTileProps {
     deviceId: string;
@@ -29,6 +29,9 @@ const DisplayDeviceTile: FC<DisplayDeviceTileProps> = ({
     const { colors } = useTheme().current;
     const [reported, setReported] = useState(tile);
     const [error, setError] = useState<string | null>(null);
+    const identity = `${homes.current?.id}:${deviceId}`;
+    const currentIdentity = useRef(identity);
+    currentIdentity.current = identity;
 
     useEffect(() => {
         setReported(tile);
@@ -38,24 +41,26 @@ const DisplayDeviceTile: FC<DisplayDeviceTileProps> = ({
         if (!deviceId) return;
         let active = true;
         liveUpdate.addDeviceTileCallback(deviceId, async () => {
-            if (!active) return;
+            if (!active || currentIdentity.current !== identity) return;
             try {
                 const result = await httpClient.get("v1/devices/" + deviceId + "/display");
                 if (!result.isSuccess || !result.response) throw new Error("Device update failed");
-                const response = (await result.response.json()) as Device;
-                if (!active) return;
+                const response: unknown = await result.response.json();
+                if (!active || currentIdentity.current !== identity) return;
+                if (!isConsumedDevice(response, deviceId)) throw new Error("Invalid device update");
                 setReported(response.tile);
                 devices.updateDeviceOperation(response);
                 setError(null);
             } catch {
-                if (active) setError("Couldn't update these readings. Pull to refresh.");
+                if (active && currentIdentity.current === identity)
+                    setError("Couldn't update these readings. Pull to refresh.");
             }
         });
         return () => {
             active = false;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [homes.current?.id, deviceId]);
+    }, [identity]);
 
     const readings = getDeviceReadings(reported, inactive);
     const multiple = readings.length > 1;

@@ -118,7 +118,13 @@ function mountAction(type, overrides = {}) {
     const updates = [];
     const actions = mountActions();
     const props = { deviceId: "device-1", tile: tile(type), disabled: false, ...overrides };
-    const response = () => ({ id: props.deviceId, tile: props.tile });
+    const response = () => ({
+        id: props.deviceId,
+        name: "Device",
+        icon: "bulb-outline",
+        tile: props.tile,
+    });
+    let readBody;
     const component = mountNativeComponent("src/hooks/useDeviceTileAction.ts", {
         exportName: "useDeviceTileAction",
         props,
@@ -153,7 +159,7 @@ function mountAction(type, overrides = {}) {
                     get: async () =>
                         failRead
                             ? { isSuccess: false }
-                            : { isSuccess: true, response: { json: async () => response() } },
+                            : { isSuccess: true, response: { json: async () => readBody } },
                 }),
             },
         },
@@ -187,14 +193,59 @@ function mountAction(type, overrides = {}) {
         resolve(result) {
             resolvePost(result);
         },
-        readSucceeds() {
+        readSucceeds(body = response()) {
             failRead = false;
+            readBody = body;
         },
         success() {
             resolvePost({ isSuccess: true, response: { json: async () => response() } });
         },
     };
 }
+
+test("malformed and mismatched live tile reads retain the value and cache with local recovery", async () => {
+    for (const body of [
+        null,
+        [],
+        { id: "device-1", tile: null },
+        { id: "other-device", name: "Device", icon: "key", tile: tile("Switch") },
+        {
+            id: "device-1",
+            name: "Device",
+            icon: "key",
+            tile: { ...tile("Switch"), configuration: { options: [null] } },
+        },
+    ]) {
+        const action = mountAction("Switch");
+        action.readSucceeds(body);
+        await action.callbacks[0]();
+        action.render();
+        assert.equal(action.value().value, false);
+        assert.equal(action.updates.length, 0);
+        assert.match(action.value().error, /Pull to refresh/);
+        action.readSucceeds();
+        await action.callbacks[0]();
+        action.render();
+        assert.equal(action.updates.length, 1);
+        assert.equal(action.value().error, "");
+    }
+});
+
+test("malformed action responses cannot replace cached device data", async () => {
+    for (const body of [
+        { id: "device-1", tile: null },
+        { id: "other-device", name: "Device", icon: "key", tile: tile("Switch") },
+    ]) {
+        const action = mountAction("Switch");
+        const pending = action.value().send(true);
+        action.resolve({ isSuccess: true, response: { json: async () => body } });
+        await pending;
+        action.render();
+        assert.equal(action.value().value, false);
+        assert.equal(action.updates.length, 0);
+        assert.match(action.value().error, /Try again/);
+    }
+});
 
 for (const type of ["Switch", "Slider", "Options"]) {
     test(

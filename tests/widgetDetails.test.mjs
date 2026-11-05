@@ -61,6 +61,63 @@ test("widget reads reject mismatched identity and missing configuration", async 
     }
 });
 
+test("widget operation reads validate consumed nested fields before mounting and recover on retry", async () => {
+    for (const bad of [
+        null,
+        [],
+        { ...operation, id: "wrong" },
+        { ...operation, configuration: null },
+        { ...operation, configuration: [] },
+        { ...operation, configuration: { min: "0", max: 100 } },
+        { ...operation, type: "Options", configuration: { options: [null] } },
+        { ...operation, type: "Options", configuration: { options: { length: 1 } } },
+        { ...operation, type: "Options", configuration: { options: [{ name: {} }] } },
+    ]) {
+        let body = bad;
+        const { context } = mountProvider(async (path) =>
+            response(path.includes("widgets/") ? widget : body),
+        );
+        for (const display of [false, true]) {
+            await (display
+                ? context().initializeForDisplay("widget-a")
+                : context().initializeForAdd("operation-a"));
+            assert.equal(context().operation, undefined);
+            assert.equal(context().widget, undefined);
+            assert.match(context().loadError, /load/);
+        }
+        body = {
+            ...operation,
+            type: "Options",
+            configuration: { options: [{ name: " exact ", value: false }] },
+        };
+        await context().initializeForAdd("operation-a");
+        assert.equal(context().loadError, "");
+        assert.equal(context().operation.configuration.options[0].name, " exact ");
+        assert.equal(context().operation.configuration.options[0].value, false);
+    }
+});
+
+test("widget details reject malformed consumed widget configuration", async () => {
+    for (const bad of [
+        { ...widget, type: "Radio", configuration: { options: [null] } },
+        {
+            ...widget,
+            type: "Radio",
+            configuration: { options: [{ optionName: "x", displayName: {}, icon: "key" }] },
+        },
+        { ...widget, type: "Display", configuration: { unit: {} } },
+        { ...widget, type: "Slider", configuration: { step: {} } },
+        { ...widget, type: "Button", configuration: { value: {} } },
+    ]) {
+        const { context } = mountProvider(async (path) =>
+            response(path.includes("widgets/") ? bad : operation),
+        );
+        await context().initializeForDisplay("widget-a");
+        assert.equal(context().widget, undefined);
+        assert.match(context().loadError, /load/);
+    }
+});
+
 test("a late widget read cannot replace the latest operation", async () => {
     let release;
     const first = new Promise((resolve) => {

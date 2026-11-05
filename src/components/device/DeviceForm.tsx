@@ -27,6 +27,7 @@ import { useIconCatalog } from "@/hooks/useIconCatalog";
 import Text from "../common/Text";
 import { Text as UiText } from "@/components/ui/text";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { isConsumedOperation } from "@/utils/operationValidation";
 
 const DefaultDeviceIcon = "bulb-outline";
 const TileTypeOptions = ["Default", "Switch", "Display", "Slider", "Options"];
@@ -162,7 +163,19 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
             : tileReadings.some((reading) => reading.label.length > 64 || reading.unit.length > 5)
               ? "Reading labels allow 64 characters and units allow 5."
               : "";
-    const [previewOperation, setPreviewOperation] = useState<OperationDto | null>(null);
+    const [loadedPreview, setLoadedPreview] = useState<{
+        key: string;
+        operation: OperationDto;
+    } | null>(null);
+    const [previewError, setPreviewError] = useState("");
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewRetry, setPreviewRetry] = useState(0);
+    const previewOperationId =
+        tileType === "Display" ? tileDisplayableOperationId : tileOperationId;
+    const previewKey = `${homes.current?.id}:${deviceId}:${tileType}:${previewOperationId}`;
+    const currentPreviewKey = useRef(previewKey);
+    currentPreviewKey.current = previewKey;
+    const previewOperation = loadedPreview?.key === previewKey ? loadedPreview.operation : null;
     const tileStepError =
         !tileStep.trim() || !Number.isFinite(Number(tileStep)) || Number(tileStep) < 0
             ? "Enter a non-negative numeric step."
@@ -346,9 +359,9 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
     useImperativeHandle(ref, () => ({ save, reset }));
     useEffect(() => onHasChanges?.(dirty), [dirty, onHasChanges]);
     useEffect(() => {
-        setPreviewOperation(null);
-        const previewOperationId =
-            tileType === "Display" ? tileDisplayableOperationId : tileOperationId;
+        setLoadedPreview(null);
+        setPreviewError("");
+        setPreviewLoading(false);
         if (
             !["Slider", "Options", "Display"].includes(tileType) ||
             !previewOperationId ||
@@ -356,15 +369,37 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
         )
             return;
         let active = true;
+        const isCurrent = () => active && currentPreviewKey.current === previewKey;
+        setPreviewLoading(true);
         const loadPreview = async () => {
             try {
                 const result = await httpClient.get("v1/devices/operations/" + previewOperationId);
-                if (result.isSuccess && result.response) {
-                    const operation = (await result.response.json()) as OperationDto;
-                    if (active) setPreviewOperation(operation);
-                }
+                if (!result.isSuccess || !result.response) throw new Error("Preview read failed");
+                const operation: unknown = await result.response.json();
+                if (!isCurrent()) return;
+                const allowedTypes =
+                    tileType === "Slider"
+                        ? ["Number", "Integer"]
+                        : tileType === "Options"
+                          ? ["Options"]
+                          : ["Number", "Integer", "Boolean"];
+                if (
+                    !isConsumedOperation(operation, previewOperationId) ||
+                    !allowedTypes.includes(operation.type)
+                )
+                    throw new Error("Invalid preview operation");
+                if (
+                    tileType === "Slider" &&
+                    (typeof operation.configuration.min !== "number" ||
+                        typeof operation.configuration.max !== "number" ||
+                        operation.configuration.min >= operation.configuration.max)
+                )
+                    throw new Error("Invalid preview range");
+                setLoadedPreview({ key: previewKey, operation });
             } catch {
-                /* The inactive preview explains that an operation must be available. */
+                if (isCurrent()) setPreviewError("Couldn't load the tile preview. Try again.");
+            } finally {
+                if (isCurrent()) setPreviewLoading(false);
             }
         };
         void loadPreview();
@@ -372,7 +407,7 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
             active = false;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tileOperationId, tileDisplayableOperationId, tileType]);
+    }, [previewKey, previewRetry]);
     useEffect(() => {
         setNameError(
             name && name.length < 3
@@ -704,6 +739,26 @@ const DeviceForm = forwardRef<DeviceFormRef, DeviceFormProps>(function DeviceFor
                         </View>
                     )}
                     {tilePreview}
+                    {!!previewError && (
+                        <View style={styles.disclosureField}>
+                            <Alert
+                                icon={CircleAlert}
+                                variant="destructive"
+                                accessibilityRole="alert">
+                                <AlertDescription>{previewError}</AlertDescription>
+                            </Alert>
+                            <Button
+                                name="Retry preview"
+                                type="brand-outline"
+                                loading={previewLoading}
+                                disabled={formDisabled}
+                                onPress={() => {
+                                    if (canMutate() && !previewLoading)
+                                        setPreviewRetry((value) => value + 1);
+                                }}
+                            />
+                        </View>
+                    )}
                 </Expander>
             )}
 
